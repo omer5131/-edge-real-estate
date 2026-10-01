@@ -21,4 +21,14 @@ for (const [file, content] of Object.entries(files)) {
   fs.writeFileSync(file, content, 'utf8');
 }
 
+const nodeTsconfigPath = 'tsconfig.node.json';
+if (fs.existsSync(nodeTsconfigPath)) {
+  const nodeTsconfig = JSON.parse(fs.readFileSync(nodeTsconfigPath, 'utf8'));
+  nodeTsconfig.compilerOptions = {
+    ...(nodeTsconfig.compilerOptions || {}),
+    noEmit: true
+  };
+  fs.writeFileSync(nodeTsconfigPath, JSON.stringify(nodeTsconfig, null, 2) + '\n', 'utf8');
+}
+
 console.log(`Reconstructed ${Object.keys(files).length} Edge source files.`);
