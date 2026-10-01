@@ -8,7 +8,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const secret = process.env.CRON_SECRET;
   const auth = req.headers.authorization;
-  if (secret && auth !== `Bearer ${secret}`) {
+  const isProduction = process.env.VERCEL_ENV === 'production';
+  if ((secret && auth !== `Bearer ${secret}`) || (!secret && isProduction)) {
     return res.status(401).json({ error:'unauthorized' });
   }
 
