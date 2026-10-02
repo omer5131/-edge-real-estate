@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { queryDatabase } from '../server/db.js';
+import {researchCatalog,semanticDefinition,buildResearchQuery} from '../server/sources/researchSemantics.js';
+import { queryDatabase,databaseTransaction } from '../server/db.js';
 import { datasetTable, identifier, overJson } from '../server/sources/overApi.js';
 import { ensureOverSchema, registerDataset, runOverDatasets } from '../server/sources/overDatasets.js';
 
@@ -8,8 +9,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Cache-Control','no-store');
   try {
     const authorized = !!process.env.CRON_SECRET && req.headers.authorization === `Bearer ${process.env.CRON_SECRET}`;
+    if(req.query.mode==='semantics') {
+      const states=await queryDatabase('SELECT dataset_id,status,row_count,last_checked_at,last_success_at,last_error,enabled,cursor FROM over_datasets');
+      const definitions=researchCatalog.filter(d=>!req.query.dataset||d.slug===req.query.dataset||d.id===req.query.dataset);
+      return res.json({version:1,minimumObservationYear:2022,agentTools:[{name:'get_dataset_catalog',method:'GET',path:'/api/over-datasets?mode=semantics',description:'Discover datasets, fields, grain, joins, examples and live collection status.'},{name:'query_dataset',method:'POST',path:'/api/over-datasets?mode=query',input:{dataset:'semantic slug',columns:'optional field-name array',filters:'array of {field,op:eq|gte|lte|contains|in,value}',groupBy:'optional field-name array',metrics:'optional array of {op:count|sum|avg|min|max|median,field}',orderBy:'optional {field,direction:asc|desc}',limit:'1..200',offset:'0..100000'},description:'Read local semantic views with parameterized filters and optional aggregations.'}],datasets:definitions.map(d=>({...semanticDefinition(d),collection:states.find(s=>s.dataset_id===d.id)}))});
+    }
+    if(req.query.mode==='query'||(req.method==='POST'&&req.body?.action==='query')) {
+      const input=req.method==='POST'?req.body:JSON.parse(typeof req.query.spec==='string'?req.query.spec:'{}');
+      const name=req.query.dataset??input.dataset;
+      const d=researchCatalog.find(d=>d.slug===name||d.id===name);
+      if(!d)return res.status(404).json({error:'unknown_dataset'});
+      const [state]=await queryDatabase('SELECT status,row_count,last_checked_at,last_success_at,last_error FROM over_datasets WHERE dataset_id=$1::uuid',[d.id]);
+      if(d.adapter==='unavailable')return res.status(503).json({error:d.blockedReason,dataset:d.slug,collection:state});
+      const statement=buildResearchQuery(d,input);
+      const results=await databaseTransaction([{text:"SET LOCAL statement_timeout='8s'"},{text:statement.text,params:statement.params}]);
+      const rows=results[1];
+      return res.json({dataset:d.slug,rows,limit:statement.limit,offset:statement.offset,nextOffset:rows.length===statement.limit?statement.offset+rows.length:null,collection:state,grain:d.grain,caveats:d.caveats});
+    }
     // Vercel cron uses authenticated GET; ordinary GET requests remain read-only.
-    if (req.method === 'GET' && authorized && req.query.mode !== 'status') {
+    if (req.method === 'GET' && authorized && (!req.query.mode || req.query.mode === 'sync')) {
       const report = await runOverDatasets();
       return res.status(report.ok ? 200 : 502).json(report);
     }
@@ -51,6 +69,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json({ ok: true,initialized: true,datasets,runs });
   } catch (error: any) {
     if (req.method === 'GET' && error?.code === '42P01') return res.status(200).json({ ok: true,initialized: false,datasets: [],runs: [],message: 'Tables initialize on the first authenticated sync or daily cron.' });
-    return res.status(req.method === 'POST' ? 400 : 500).json({ ok: false,error: error?.message ?? String(error) });
+    return res.status(req.method === 'POST' || req.query.mode === 'query' ? 400 : 500).json({ ok: false,error: error?.message ?? String(error) });
   }
 }

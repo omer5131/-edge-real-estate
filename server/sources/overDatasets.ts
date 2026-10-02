@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { queryDatabase as query, databaseTransaction as transaction } from '../db.js';
+import {researchSchemaStatements,researchCatalog} from './researchSemantics.js';
+import {ingestResearchAdapter} from './researchAdapters.js';
 import { overSchemaStatements } from './overSchema.js';
 import { archiveQuery, archiveRows, datasetTable, filterClause, identifier, literal, overJson, payloadHash, recordYearClause, watermark, type ArchiveSchema, type ArchiveRow, type Watermark } from './overApi.js';
 
@@ -7,12 +9,17 @@ type Cursor = { phase: 'backfill' | 'daily' | 'reconcile'; upper: Watermark; aft
 type Dataset = { dataset_id: string; table_name: string; source_table: string | null; source_schema: ArchiveSchema; filters: Record<string, unknown>; date_column?: string; min_record_year?: number; cursor: Cursor | null; watermark: Watermark | null; last_reconciled_at: string | null };
 let initialization: Promise<unknown> | undefined;
 export function ensureOverSchema(): Promise<unknown> {
-  initialization ??= transaction(overSchemaStatements.map(text => ({ text }))).catch(error => { initialization = undefined; throw error; });
+  initialization ??= (async()=>{
+    try {const ready=await query("SELECT version FROM research_schema_versions WHERE version='research-v1'");if(ready.length)return;}catch(error:any){if(error.code!=='42P01')throw error;}
+    await transaction([...overSchemaStatements,...researchSchemaStatements()].map(text=>({text})));
+  })().catch(error => { initialization = undefined; throw error; });
   return initialization;
 }
 
 async function prepareDataset(dataset: Dataset, deadline: number) {
   const id = dataset.dataset_id;
+  // Cached schemas avoid repeating hundreds of DDL statements on every daily check.
+  if(dataset.source_table && dataset.source_schema?.columns?.length) return dataset;
   const [schema, metadata] = await Promise.all([
     overJson(`/api/append/${id}/schema${dataset.source_table ? '?' + new URLSearchParams({ table: dataset.source_table }) : ''}`, deadline),
     overJson(`/api/v1/datasets/${id}`, deadline)
@@ -23,7 +30,7 @@ async function prepareDataset(dataset: Dataset, deadline: number) {
   // Verify the hidden stable hash from the actual SQL response; /schema omits it.
   await archiveRows(id, archiveQuery(schema.table, { newest: true }), deadline);
   const columns = [...new Set<string>([...schema.columns, 'row_hash'])];
-  if (columns.some(c => c.startsWith('_edge_') || Buffer.byteLength(c) > 63)) throw new Error('Source column conflicts with cache metadata or exceeds PostgreSQL identifier length');
+  if (columns.some(c => c.startsWith('_edge_'))) throw new Error('Source column conflicts with cache metadata or exceeds PostgreSQL identifier length');
   const table = identifier(datasetTable(id));
   const ddl = [
     `CREATE TABLE IF NOT EXISTS ${table} (
@@ -31,7 +38,7 @@ async function prepareDataset(dataset: Dataset, deadline: number) {
       _edge_payload jsonb NOT NULL, _edge_loaded_at timestamptz NOT NULL DEFAULT now(),
       _edge_seen_at timestamptz NOT NULL DEFAULT now()
     )`,
-    ...columns.map(c => `ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS ${identifier(c)} text GENERATED ALWAYS AS (_edge_payload->>${literal(c)}) STORED`),
+    ...columns.filter(c=>Buffer.byteLength(c)<=63).map(c => `ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS ${identifier(c)} text GENERATED ALWAYS AS (_edge_payload->>${literal(c)}) STORED`),
     `CREATE INDEX IF NOT EXISTS ${identifier(datasetTable(id) + '_source_key')} ON ${table}(_edge_source_key)`
   ];
   await transaction(ddl.map(text => ({ text })));
@@ -86,6 +93,8 @@ async function ingestDataset(dataset: Dataset, deadline: number, maxPages: numbe
   const runId = String(runs[0].id);
   let fetched = 0, inserted = 0;
   try {
+    const definition=researchCatalog.find(d=>d.id===dataset.dataset_id);
+    if(definition && definition.adapter!=='archive')return await ingestResearchAdapter(definition,dataset,runId,deadline,maxPages);
     const d = await prepareDataset(dataset, deadline);
     const filters = [filterClause(d.filters, d.source_schema.columns),recordYearClause(d.date_column,d.min_record_year ?? 2022,d.source_schema.columns)].filter(Boolean).join(' AND ');
     let cursor = d.cursor;
@@ -147,11 +156,15 @@ export async function runOverDatasets(options: { datasetId?: string; budgetMs?: 
     const datasets = await query(`SELECT * FROM over_datasets WHERE enabled AND ($1::uuid IS NULL OR dataset_id=$1::uuid)
       ORDER BY last_checked_at NULLS FIRST,created_at,dataset_id`, [options.datasetId ?? null]);
     const results: any[] = [];
-    // Fair slices prevent a large national backfill starving smaller datasets.
-    for (let i=0;i<datasets.length && Date.now()<deadline-15000;i++) {
-      const slice = Math.min(deadline,Date.now()+Math.max(15000,Math.floor((deadline-Date.now())/(datasets.length-i))));
-      results.push(await ingestDataset(datasets[i] as Dataset,slice,Math.max(1,Math.min(100,options.maxPages ?? 30))));
-    }
+    // Three bounded workers keep every small dataset eligible each day, while checkpoints
+    // limit large imports. A failure in one dataset cannot stop the other workers.
+    let index=0;
+    const worker=async()=>{while(index<datasets.length && Date.now()<deadline-15000){
+      const dataset=datasets[index++];
+      const slice=Math.min(deadline,Date.now()+60000);
+      results.push(await ingestDataset(dataset as Dataset,slice,Math.max(1,Math.min(100,options.maxPages??6))));
+    }};
+    await Promise.all(Array.from({length:Math.min(3,datasets.length)},worker));
     return { ok: results.every(r=>!r.error), pending: results.some(r=>!r.complete) || results.length<datasets.length, datasets: results };
   } finally {
     await query('DELETE FROM over_sync_lock WHERE name=$1 AND owner=$2::uuid', ['daily',owner]);
