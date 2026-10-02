@@ -1,5 +1,5 @@
-import { sql } from '../db';
-import { sha256, pick, n, int, text, isoDate } from '../normalize';
+import { sql } from '../db.js';
+import { sha256, pick, n, int, text, isoDate } from '../normalize.js';
 
 const OVER = 'https://www.over.org.il';
 const PAGE_SIZE = 200;
