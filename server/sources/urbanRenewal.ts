@@ -1,5 +1,5 @@
-import { sql } from '../db';
-import { sha256,pick,text,int,isoDate } from '../normalize';
+import { sql } from '../db.js';
+import { sha256,pick,text,int,isoDate } from '../normalize.js';
 const RESOURCE='f65a0daf-f737-49c5-9424-d378d52104f5';
 async function get(url:string){const r=await fetch(url,{headers:{'user-agent':'EdgeRealEstate/1.0'}});if(!r.ok)throw new Error(`data.gov.il ${r.status}`);return r.json();}
 export async function ingestUrbanRenewalOfficial(runId:string){
