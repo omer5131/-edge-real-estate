@@ -13,6 +13,8 @@ export default async function handler(req:VercelRequest,res:VercelResponse){
     (SELECT count(*)::int FROM target_parcels WHERE is_active) target_parcels,
     (SELECT count(*)::int FROM listings) listings,
     (SELECT count(*)::int FROM rental_listings) rental_listings,
+    (SELECT count(*)::int FROM planning_plans) planning_plans,
+    (SELECT count(*)::int FROM infrastructure_projects) infrastructure_projects,
     (SELECT count(*)::int FROM raw_records) raw_records`,
   sql`
     SELECT ds.id source_id,ds.name,ds.kind,
