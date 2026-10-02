@@ -23,6 +23,16 @@ export default async function handler(req:VercelRequest,res:VercelResponse){
   if(req.method!=='POST') return res.status(405).json({error:'method_not_allowed'});
   if(req.body?.mode==='admin'){
     const b=req.body||{};
+    if(b.action==='run_collection'){
+      try{
+        const mod=await import('../server/agent/runIngestion.js');
+        const report=await mod.runEdgeIngestion({skipOver:true});
+        return res.status(200).json({ok:true,skipOver:true,report});
+      }catch(error:any){
+        console.error('Admin collection failed',error);
+        return res.status(500).json({ok:false,error:error?.message??String(error)});
+      }
+    }
     if(b.action==='area'){
       const rows=await sql`INSERT INTO followed_areas(neighborhood_id,label,is_active,research_depth) VALUES(${b.neighborhood_id}::uuid,${b.label||null},${b.followed!==false},${b.research_depth||'full'}) ON CONFLICT(neighborhood_id) DO UPDATE SET is_active=EXCLUDED.is_active,research_depth=EXCLUDED.research_depth,label=coalesce(EXCLUDED.label,followed_areas.label) RETURNING *`;
       await sql`UPDATE neighborhoods SET is_focus=${b.followed!==false} WHERE id=${b.neighborhood_id}::uuid`; return res.status(200).json({area:rows[0]});
