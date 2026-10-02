@@ -44,7 +44,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const mod = await import('../server/agent/runIngestion.js');
-    const report = await mod.runEdgeIngestion();
+    const skipOver = String(req.query?.skipOver ?? req.body?.skipOver ?? '').toLowerCase() === 'true';
+    const report = await mod.runEdgeIngestion({ skipOver });
     return res.status(200).json({ ok:true, report });
   } catch (error:any) {
     console.error('Edge ingestion failed', error);
