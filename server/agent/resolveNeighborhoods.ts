@@ -1,5 +1,5 @@
-import { sql } from '../db';
-import { pick,text } from '../normalize';
+import { sql } from '../db.js';
+import { pick,text } from '../normalize.js';
 const norm=(v:string)=>v.normalize('NFKD').replace(/["״׳']/g,' ').replace(/[-–—]/g,' ').replace(/\s+/g,' ').trim().toLowerCase();
 export async function resolveTransactionNeighborhoods(){
  const rows=await sql`SELECT t.id,t.city_id,t.parcel_id,r.payload FROM transactions t JOIN raw_records r ON r.id=t.raw_record_id WHERE t.neighborhood_id IS NULL ORDER BY t.observed_at DESC LIMIT 5000`;
