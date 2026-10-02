@@ -27,7 +27,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     // Dynamic import keeps dependency/bootstrap failures inside this try/catch,
     // so the collector gets a useful JSON error instead of FUNCTION_INVOCATION_FAILED.
-    const mod = await import('../server/agent/runIngestion');
+    const mod = await import('../server/agent/runIngestion.js');
     const report = await mod.runEdgeIngestion();
     return res.status(200).json({ ok:true, report });
   } catch (error:any) {
