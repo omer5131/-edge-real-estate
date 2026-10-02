@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   AlertTriangle, ArrowLeft, CheckCircle2, Database, ExternalLink,
-  Layers3, MapPinned, MessageSquare, RefreshCw, Search, ShieldCheck, Sparkles, Target, X
+  Layers3, MapPinned, MessageSquare, RefreshCw, Search, ShieldCheck, Sparkles, Target, X, Settings, Bookmark, Eye
 } from 'lucide-react';
 import './p1.css';
 
@@ -210,6 +210,31 @@ function DataConsole({status}:{status:DataStatus|null}){
   </div>;
 }
 
+
+function Research({onOpen}:{onOpen:(x:any)=>void}){
+ const [assets,setAssets]=useState<any[]>([]),[q,setQ]=useState(''),[only,setOnly]=useState(false),[busy,setBusy]=useState(false);
+ const load=async()=>{setBusy(true);try{const r=await fetch('/api/research?q='+encodeURIComponent(q)+(only?'&subscribed=true':''),{cache:'no-store'});const j=await r.json();setAssets(j.assets||[])}finally{setBusy(false)}};
+ useEffect(()=>{load()},[only]);
+ const sub=async(a:any)=>{await fetch('/api/research',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action:a.subscription_id?'unsubscribe':'subscribe',entity_id:a.id,entity_type:'listing'})});await load()};
+ return <div className="screen"><div className="page-head"><div><span className="eyebrow">Research Universe</span><h1>חקור את כל הנכסים — לא רק הזדמנויות</h1><p>כל נכס שנקלט זמין למחקר בסיסי. Follow מפעיל מחקר מלא ומעקב לאורך זמן.</p></div><div className="hero-stat"><strong>{assets.length}</strong><span>נכסים בתוצאה</span></div></div>
+ <div className="research-tools"><div className="search"><Search size={15}/><input value={q} onChange={e=>setQ(e.target.value)} onKeyDown={e=>e.key==='Enter'&&load()} placeholder="כתובת, שכונה או עיר"/><button onClick={load}>חפש</button></div><button className={only?'active':''} onClick={()=>setOnly(!only)}><Bookmark size={14}/>במעקב בלבד</button></div>
+ {busy?<div className="empty">טוען…</div>:assets.length===0?<Empty title="אין נכסים בתוצאה" body="ה-Research Universe יתמלא מכל מודעות המכירה שנקלטות, ללא תלות ב-Edge Score."/>:
+ <div className="research-grid">{assets.map(a=><article className="research-card" key={a.id}><button className="research-main" onClick={()=>onOpen({id:a.id,address:a.canonical_address,neighborhood:a.neighborhood,city:a.city,asking_price:Number(a.asking_price_nis),sqm:Number(a.area_sqm),rooms:Number(a.rooms),floor:a.floor,score:a.score==null?null:Number(a.score)})}><div><strong>{a.canonical_address||'כתובת לא זמינה'}</strong><span>{a.neighborhood} · {a.city}</span></div><div className="research-price">{money(Number(a.asking_price_nis))}<small>{a.asking_pp_sqm?money(Number(a.asking_pp_sqm))+'/מ״ר':'—'}</small></div><div className="research-meta"><span>{a.rooms||'—'} חד׳</span><span>{a.area_sqm||'—'} מ״ר</span><span>{a.score?'Score '+a.score:'ללא Score'}</span></div></button><button className={'follow '+(a.subscription_id?'on':'')} onClick={()=>sub(a)}>{a.subscription_id?<><Bookmark size={14}/>במעקב</>:<><Eye size={14}/>עקוב</>}</button></article>)}</div>}
+ </div>
+}
+
+function Admin(){
+ const [d,setD]=useState<any>(null),[saving,setSaving]=useState(false);
+ const load=async()=>{const r=await fetch('/api/admin',{cache:'no-store'});setD(await r.json())};useEffect(()=>{load()},[]);
+ if(!d)return <div className="screen"><div className="empty">טוען הגדרות…</div></div>;
+ const cfg=d.config||{};const fields=[['base_score','Base score'],['price_gap_weight','Price-gap weight'],['price_gap_min','Price-gap min'],['price_gap_max','Price-gap max'],['renewal_project_weight','Renewal / project'],['renewal_execution_bonus','Execution bonus'],['seller_reduction_weight','Price-reduction weight'],['comp_min_required','Minimum comps'],['low_comp_risk','Low-comp risk']];
+ const save=async()=>{setSaving(true);await fetch('/api/admin',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action:'score',...cfg})});await load();setSaving(false)};
+ const area=async(a:any)=>{await fetch('/api/admin',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action:'area',neighborhood_id:a.id,followed:!a.followed,research_depth:'full'})});await load()};
+ return <div className="screen"><div className="page-head"><div><span className="eyebrow">Administration</span><h1>איך Edge מחפש ומדרג</h1><p>שינוי נוסחה יוצר גרסת Score חדשה. שינוי אזור מגדיר את יקום המחקר והאיסוף הבא.</p></div></div>
+ <div className="admin-grid"><div className="panel"><h3>Score formula</h3><div className="formula">Score = Base + Price Gap + Renewal + Seller + Comp Confidence − Risk</div><div className="config-grid">{fields.map(([k,l])=><label key={k}><span>{l}</span><input type="number" step="0.1" value={cfg[k]??''} onChange={e=>setD({...d,config:{...cfg,[k]:Number(e.target.value)}})}/></label>)}</div><button className="primary" onClick={save} disabled={saving}>{saving?'שומר…':'שמור ויצור גרסת Score חדשה'}</button><small className="version">Active: {cfg.model_version}</small></div>
+ <div className="panel"><h3>Followed areas</h3><p className="panel-sub">אזורים פעילים נכנסים לאיסוף, מחקר ומעקב. אפשר להוסיף שכונות חדשות לבסיס הנתונים ואז להפעיל אותן כאן.</p><div className="area-admin">{d.areas.map((a:any)=><button key={a.id} className={a.followed?'followed':''} onClick={()=>area(a)}><div><strong>{a.name_he}</strong><span>{a.city}</span></div><span>{a.followed?'במעקב':'לא במעקב'}</span></button>)}</div></div></div></div>
+}
+
 function AskDrawer({open,onClose}:{open:boolean;onClose:()=>void}){
   const [q,setQ]=useState('');
   const [messages,setMessages]=useState<{role:string;text:string;evidence?:any}[]>([]);
@@ -236,7 +261,7 @@ export default function EdgeP1(){
   const [data,setData]=useState<EdgePayload|null>(null);
   const [status,setStatus]=useState<DataStatus|null>(null);
   const [error,setError]=useState('');
-  const [tab,setTab]=useState<'radar'|'opps'|'area'|'data'|'property'>('radar');
+  const [tab,setTab]=useState<'radar'|'research'|'opps'|'area'|'data'|'admin'|'property'>('radar');
   const [area,setArea]=useState<Area|null>(null);
   const [property,setProperty]=useState<Opportunity|null>(null);
   const [askOpen,setAskOpen]=useState(false);
@@ -262,7 +287,7 @@ export default function EdgeP1(){
   if(!data)return <div dir="rtl" className="edge-p1 fatal"><RefreshCw className="spin"/><h1>טוען נתוני אמת…</h1></div>;
 
   const nav=[
-    ['radar','רדאר',MapPinned],['opps','הזדמנויות',Target],['area','אזור',Layers3],['data','נתונים',Database]
+    ['radar','רדאר',MapPinned],['research','מחקר',Search],['opps','הזדמנויות',Target],['area','אזור',Layers3],['data','נתונים',Database],['admin','ניהול',Settings]
   ] as const;
 
   return <div dir="rtl" className="edge-p1">
@@ -276,9 +301,11 @@ export default function EdgeP1(){
       </header>
       <main>
         {tab==='radar'&&<Radar areas={data.areas||[]} onArea={a=>{setArea(a);setTab('area')}}/>}
+        {tab==='research'&&<Research onOpen={x=>{setProperty(x);setTab('property')}}/>}
         {tab==='opps'&&<Opportunities items={data.opportunities||[]} onOpen={x=>{setProperty(x);setTab('property')}}/>}
         {tab==='area'&&currentArea&&<AreaView area={currentArea}/>}
-        {tab==='data'&&<DataConsole status={status}/>}
+        {tab==='data'&&<DataConsole status={status}/>} 
+        {tab==='admin'&&<Admin/>}
         {tab==='property'&&property&&<PropertyView item={property} onBack={()=>setTab('opps')}/>}
       </main>
     </div>
