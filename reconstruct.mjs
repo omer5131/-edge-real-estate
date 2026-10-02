@@ -172,7 +172,7 @@ export async function bootstrapEdge(){
     for(const live of payload.sources||[]){
       const existing:any=(dataSources as any[]).find((s:any)=>s.name===live.name||s.id===live.id);
       if(existing){
-        existing.status=live.last_success_at?'Connected':live.last_error_at?'Demo':'Not connected';
+        existing.status=live.last_success_at?'Connected':'Not connected';
         existing.updated=live.last_success_at||live.last_error_at||'—';
       }
     }
