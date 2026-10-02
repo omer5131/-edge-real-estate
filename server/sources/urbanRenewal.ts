@@ -6,7 +6,11 @@ export async function ingestUrbanRenewalOfficial(runId:string){
  const u=new URL('https://data.gov.il/api/3/action/datastore_search');u.searchParams.set('resource_id',RESOURCE);u.searchParams.set('limit','2000');
  const payload=await get(u.toString());const rows=(payload?.result?.records||[]) as Record<string,unknown>[];let inserted=0,updated=0,errors=0;
  for(const r of rows){try{
-  const cityName=text(pick(r,['Yeshuv','יישוב'])); if(!cityName||!['חיפה','נתניה','פתח תקווה'].includes(cityName))continue;
+  const sourceCity=text(pick(r,['Yeshuv','יישוב']));
+  if(!sourceCity) continue;
+  const cityNorm=sourceCity.replace(/קרית/g,'קריית').replace(/פתח תקוה/g,'פתח תקווה').replace(/\s+/g,' ').trim();
+  const cityName=cityNorm.includes('חיפה')?'חיפה':cityNorm.includes('נתניה')?'נתניה':cityNorm.includes('פתח תקווה')?'פתח תקווה':null;
+  if(!cityName)continue;
   const c=await sql`SELECT id FROM cities WHERE name_he=${cityName} LIMIT 1`;if(!c.length)continue;
   const external=text(pick(r,['MisparMitham','_id']))||sha256(r);const hash=sha256(r);
   const raw=await sql`INSERT INTO raw_records(source_id,external_id,entity_hint,payload_hash,payload,ingestion_run_id) VALUES('urban_renewal_gov',${external},'renewal_project',${hash},${JSON.stringify(r)}::jsonb,${runId}::uuid) ON CONFLICT(source_id,external_id,payload_hash) DO UPDATE SET observed_at=now() RETURNING id`;
