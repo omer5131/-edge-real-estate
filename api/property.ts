@@ -1,5 +1,5 @@
 import type { VercelRequest,VercelResponse } from '@vercel/node';
-import { sql } from '../server/db';
+import { sql } from '../server/db.js';
 export default async function handler(req:VercelRequest,res:VercelResponse){
  if(req.method!=='GET')return res.status(405).json({error:'method_not_allowed'});const id=typeof req.query.id==='string'?req.query.id:'';if(!id)return res.status(400).json({error:'id_required'});
  try{const [listing]=await sql`WITH latest AS(SELECT DISTINCT ON(listing_id)* FROM listing_snapshots WHERE listing_id=${id}::uuid ORDER BY listing_id,observed_at DESC) SELECT l.id::text,l.canonical_address address,l.neighborhood_id,n.name_he neighborhood,c.name_he city,l.url,l.first_seen_at,l.last_seen_at,latest.asking_price_nis::float8 asking_price_ils,latest.area_sqm::float8,latest.rooms::float8,latest.floor::float8 FROM listings l JOIN latest ON latest.listing_id=l.id JOIN neighborhoods n ON n.id=l.neighborhood_id JOIN cities c ON c.id=l.city_id WHERE l.id=${id}::uuid`;if(!listing)return res.status(404).json({error:'not_found'});
