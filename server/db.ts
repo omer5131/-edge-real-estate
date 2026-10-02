@@ -1,9 +1,15 @@
 import { neon } from '@neondatabase/serverless';
 
 const url = process.env.DATABASE_URL;
-if (!url) throw new Error('DATABASE_URL is not configured');
+const client = url ? neon(url) : null;
 
-export const sql = neon(url);
+// Do not crash the Vercel function at module-load time. Throw only when a
+// database query is actually attempted so API handlers can return the real
+// configuration error to the collector UI.
+export const sql: any = (...args: any[]) => {
+  if (!client) throw new Error('DATABASE_URL is not configured in this Vercel deployment');
+  return (client as any)(...args);
+};
 
 export async function withRun<T>(
   sourceId: string,
