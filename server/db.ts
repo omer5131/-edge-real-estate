@@ -25,8 +25,9 @@ export async function withRun<T>(
   const runId = String(rows[0].id);
   try {
     const result = await fn(runId);
+    const runStatus=(result.errors ?? 0)>0?'partial':'success';
     await sql`
-      UPDATE ingestion_runs SET status='success', finished_at=now(),
+      UPDATE ingestion_runs SET status=${runStatus}, finished_at=now(),
         fetched_count=${result.fetched ?? 0},
         inserted_count=${result.inserted ?? 0},
         updated_count=${result.updated ?? 0},
