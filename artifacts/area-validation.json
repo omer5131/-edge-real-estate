@@ -1,0 +1,37 @@
+{
+  "generatedAt": "2026-10-02T20:12:20.504Z",
+  "scoreVersion": "area-score-v1",
+  "refresh": {
+    "runId": "e214e2ce-1752-4c34-90a4-ca224d9b843a",
+    "scoreVersion": "area-score-v1",
+    "dimensions": 0,
+    "mappings": {
+      "transactions": 0,
+      "listings": 0,
+      "renewal": 0,
+      "infrastructure": 0
+    },
+    "metrics": 0,
+    "areas": 0
+  },
+  "coverage": {
+    "areas": 0,
+    "mapped_transactions": 0,
+    "mapped_listings": 0,
+    "renewal_links": 0,
+    "infrastructure_links": 0,
+    "cached_areas": 0,
+    "deal_heat_areas": 0,
+    "area_score_areas": 0,
+    "avg_coverage_pct": null,
+    "avg_confidence_score": null
+  },
+  "mappingRates": {
+    "recent_transactions": 1000,
+    "recent_transactions_mapped": 0,
+    "active_listings": 42,
+    "active_listings_mapped": 0
+  },
+  "metricCoverage": [],
+  "top": []
+}

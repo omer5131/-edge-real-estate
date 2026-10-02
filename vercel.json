@@ -19,6 +19,22 @@
     {
       "source": "/api/yad2-admin",
       "destination": "/api/ask?mode=yad2-admin"
+    },
+    {
+      "source": "/api/area-tiles",
+      "destination": "/api/ask?mode=area-tiles"
+    },
+    {
+      "source": "/api/area",
+      "destination": "/api/ask?mode=area-dashboard"
+    },
+    {
+      "source": "/api/area-score-model",
+      "destination": "/api/ask?mode=area-score-model"
+    },
+    {
+      "source": "/api/area-refresh",
+      "destination": "/api/ask?mode=area-refresh"
     }
   ]
 }

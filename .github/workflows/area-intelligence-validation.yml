@@ -1,0 +1,55 @@
+name: Area Intelligence Validation
+
+on:
+  push:
+    branches:
+      - area-intelligence-foundation
+      - main
+    paths:
+      - "db/015_area_intelligence.sql"
+      - "server/areaScoring.ts"
+      - "server/areaIntelligence.ts"
+      - "server/http/area-intelligence.ts"
+      - "scripts/migrate-area-intelligence.mjs"
+      - "tests/area-scoring.test.mjs"
+      - ".github/workflows/area-intelligence-validation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Verify DB secret exists
+        run: |
+          test -n "$DATABASE_URL" || (echo "DATABASE_URL repository secret is missing" && exit 1)
+      - name: Test scoring primitives
+        run: npm run test:areas
+      - name: Apply additive area schema
+        run: npm run migrate:areas
+      - name: Build server modules
+        run: npx tsc -p tsconfig.server.json --noEmit false --outDir .server-build
+      - name: Refresh and write sanitized validation report
+        run: node scripts/validate-area-intelligence.mjs
+      - name: Commit validation report
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add artifacts/area-validation.json
+          if git diff --cached --quiet; then
+            echo "Validation report unchanged"
+          else
+            git commit -m "Record area intelligence validation"
+            git push
+          fi
