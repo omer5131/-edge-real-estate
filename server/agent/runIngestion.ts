@@ -9,7 +9,8 @@ import { ingestTransportInfrastructure } from '../sources/transport.js';
 import { resolveTransactionNeighborhoods } from './resolveNeighborhoods.js';
 import { recomputeOpportunityScores } from './scoring.js';
 
-export async function runEdgeIngestion(){
+export async function runEdgeIngestion(options:{skipOver?:boolean}={}){
+ const skipOver=options.skipOver===true;
  const report:Record<string,unknown>={startedAt:new Date().toISOString(),jobs:[]};
  const jobs=report.jobs as any[];
 
@@ -26,23 +27,24 @@ export async function runEdgeIngestion(){
    }
  }
 
+ if(skipOver) jobs.push({job:'over_sources',ok:true,skipped:true,reason:'OVER disabled for this run'});
  // Resolve any already-collected rows first, then use those parcels as target seeds.
- await job('neighborhood_resolution',()=>withRun('over_deals','neighborhood_resolution',{},()=>resolveTransactionNeighborhoods()));
+ if(!skipOver)await job('neighborhood_resolution',()=>withRun('over_deals','neighborhood_resolution',{},()=>resolveTransactionNeighborhoods()));
 
  // Incremental target discovery: a bounded number of address probes per run, checkpointed by street.
- await job('target_parcel_discovery',()=>withRun('over_nadlan','target_parcel_discovery',{},runId=>discoverTargetParcels(runId)));
+ if(!skipOver)await job('target_parcel_discovery',()=>withRun('over_nadlan','target_parcel_discovery',{},runId=>discoverTargetParcels(runId)));
 
  // Main transaction ETL: fetch full history only for known target parcels.
- await job('target_parcel_deals',()=>withRun('over_deals','target_parcel_deals',{},runId=>ingestTargetParcelDeals(runId)));
+ if(!skipOver)await job('target_parcel_deals',()=>withRun('over_deals','target_parcel_deals',{},runId=>ingestTargetParcelDeals(runId)));
 
- await job('parcel_enrichment',()=>withRun('over_nadlan','parcel_enrichment',{},runId=>enrichRecentParcels(runId)));
+ if(!skipOver)await job('parcel_enrichment',()=>withRun('over_nadlan','parcel_enrichment',{},runId=>enrichRecentParcels(runId)));
  await job('renewal_projects',()=>withRun('urban_renewal_gov','renewal_projects',{},runId=>ingestUrbanRenewalOfficial(runId)));
  await job('xplan',()=>withRun('xplan','planning_plans',{},runId=>ingestXplan(runId)));
  await job('transport_infrastructure',()=>withRun('mot_bus_stops','transport_infrastructure',{},runId=>ingestTransportInfrastructure(runId)));
- await job('listing_history',()=>withRun('over_listing_archive','listing_history',{},runId=>ingestListingArchive(runId)));
+ if(!skipOver)await job('listing_history',()=>withRun('over_listing_archive','listing_history',{},runId=>ingestListingArchive(runId)));
  await job('sale_snapshots',()=>withRun('yad2_sale','sale_snapshots',{},()=>ingestYad2Sale()));
  await job('rental_snapshots',()=>withRun('yad2_rent','rental_snapshots',{},()=>ingestYad2Rent()));
- await job('opportunity_scoring',()=>withRun('over_listing_archive','opportunity_scoring',{model:'edge-v0.2'},()=>recomputeOpportunityScores()));
+ await job('opportunity_scoring',()=>withRun('yad2_sale','opportunity_scoring',{skipOver,model:'configured'},()=>recomputeOpportunityScores()));
 
  report.finishedAt=new Date().toISOString();
  report.ok=jobs.some(j=>j.ok);
