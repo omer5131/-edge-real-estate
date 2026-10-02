@@ -215,14 +215,56 @@ function DataConsole({status}:{status:DataStatus|null}){
 
 
 function Research({onOpen}:{onOpen:(x:any)=>void}){
- const [assets,setAssets]=useState<any[]>([]),[q,setQ]=useState(''),[only,setOnly]=useState(false),[busy,setBusy]=useState(false);
- const load=async()=>{setBusy(true);try{const r=await fetch('/api/opportunities?mode=research&q='+encodeURIComponent(q)+(only?'&subscribed=true':''),{cache:'no-store'});const j=await r.json();setAssets(j.assets||[])}finally{setBusy(false)}};
- useEffect(()=>{load()},[only]);
+ const [assets,setAssets]=useState<any[]>([]),[busy,setBusy]=useState(false),[total,setTotal]=useState(0),[facets,setFacets]=useState<any>({});
+ const [f,setF]=useState<any>({q:'',city:'',minPrice:'',maxPrice:'',minRooms:'',maxRooms:'',minSqm:'',maxSqm:'',minScore:'',subscribed:false,system:false,followed:false,sort:'last_seen_at',dir:'desc'});
+ const load=async()=>{
+  setBusy(true);try{
+   const p=new URLSearchParams({mode:'research',limit:'300',sort:f.sort,dir:f.dir});
+   Object.entries(f).forEach(([k,v])=>{if(k!=='sort'&&k!=='dir'&&v!==''&&v!==false)p.set(k,String(v))});
+   const r=await fetch('/api/opportunities?'+p.toString(),{cache:'no-store'});const j=await r.json();
+   setAssets(j.assets||[]);setTotal(Number(j.total||0));setFacets(j.facets||{});
+  }finally{setBusy(false)}
+ };
+ useEffect(()=>{load()},[]);
+ const set=(k:string,v:any)=>setF((x:any)=>({...x,[k]:v}));
  const sub=async(a:any)=>{await fetch('/api/opportunities',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action:a.subscription_id?'unsubscribe':'subscribe',entity_id:a.id,entity_type:'listing'})});await load()};
- return <div className="screen"><div className="page-head"><div><span className="eyebrow">Research Universe</span><h1>חקור את כל הנכסים — לא רק הזדמנויות</h1><p>כל נכס שנקלט זמין למחקר בסיסי. Follow מפעיל מחקר מלא ומעקב לאורך זמן.</p></div><div className="hero-stat"><strong>{assets.length}</strong><span>נכסים בתוצאה</span></div></div>
- <div className="research-tools"><div className="search"><Search size={15}/><input value={q} onChange={e=>setQ(e.target.value)} onKeyDown={e=>e.key==='Enter'&&load()} placeholder="כתובת, שכונה או עיר"/><button onClick={load}>חפש</button></div><button className={only?'active':''} onClick={()=>setOnly(!only)}><Bookmark size={14}/>במעקב בלבד</button></div>
- {busy?<div className="empty">טוען…</div>:assets.length===0?<Empty title="אין נכסים בתוצאה" body="ה-Research Universe יתמלא מכל מודעות המכירה שנקלטות, ללא תלות ב-Edge Score."/>:
- <div className="research-grid">{assets.map(a=><article className="research-card" key={a.id}><button className="research-main" onClick={()=>onOpen({id:a.id,address:a.canonical_address,neighborhood:a.neighborhood,city:a.city,asking_price:Number(a.asking_price_nis),sqm:Number(a.area_sqm),rooms:Number(a.rooms),floor:a.floor,score:a.score==null?null:Number(a.score)})}><div><strong>{a.canonical_address||'כתובת לא זמינה'}</strong><span>{a.neighborhood} · {a.city}</span></div><div className="research-price">{money(Number(a.asking_price_nis))}<small>{a.asking_pp_sqm?money(Number(a.asking_pp_sqm))+'/מ״ר':'—'}</small></div><div className="research-meta"><span>{a.rooms||'—'} חד׳</span><span>{a.area_sqm||'—'} מ״ר</span><span>{a.score?'Score '+a.score:'ללא Score'}</span></div></button><button className={'follow '+(a.subscription_id?'on':'')} onClick={()=>sub(a)}>{a.subscription_id?<><Bookmark size={14}/>במעקב</>:<><Eye size={14}/>עקוב</>}</button></article>)}</div>}
+ const open=(a:any)=>onOpen({id:a.id,address:a.canonical_address,neighborhood:a.neighborhood,city:a.city,asking_price:Number(a.asking_price_nis),sqm:Number(a.area_sqm),rooms:Number(a.rooms),floor:a.floor,score:a.score==null?null:Number(a.score)});
+ return <div className="screen research-screen">
+  <div className="page-head"><div><span className="eyebrow">Research Universe · Database</span><h1>כל הנכסים ש-Edge מכיר</h1><p>Research אינו מוגבל לאזורים במעקב. הסינון מתבצע ישירות מול בסיס הנתונים; אזור במעקב משפיע על עומק האיסוף, לא על מה שניתן לחקור.</p></div><div className="hero-stat"><strong>{total}</strong><span>נכסים תואמים · {facets.universe_count||total} ביקום</span></div></div>
+  <div className="research-filterbar">
+   <div className="search"><Search size={15}/><input value={f.q} onChange={e=>set('q',e.target.value)} onKeyDown={e=>e.key==='Enter'&&load()} placeholder="כתובת, שכונה או עיר"/></div>
+   <select value={f.city} onChange={e=>set('city',e.target.value)}><option value="">כל הערים</option>{(facets.cities||[]).map((x:string)=><option key={x}>{x}</option>)}</select>
+   <input type="number" value={f.minPrice} onChange={e=>set('minPrice',e.target.value)} placeholder="מחיר מינ׳"/>
+   <input type="number" value={f.maxPrice} onChange={e=>set('maxPrice',e.target.value)} placeholder="מחיר מקס׳"/>
+   <input type="number" step=".5" value={f.minRooms} onChange={e=>set('minRooms',e.target.value)} placeholder="חדרים מינ׳"/>
+   <input type="number" step=".5" value={f.maxRooms} onChange={e=>set('maxRooms',e.target.value)} placeholder="חדרים מקס׳"/>
+   <input type="number" value={f.minSqm} onChange={e=>set('minSqm',e.target.value)} placeholder={'מ״ר מינ׳'}/>
+   <input type="number" value={f.maxSqm} onChange={e=>set('maxSqm',e.target.value)} placeholder={'מ״ר מקס׳'}/>
+   <input type="number" value={f.minScore} onChange={e=>set('minScore',e.target.value)} placeholder="Score מינ׳"/>
+   <select value={f.sort} onChange={e=>set('sort',e.target.value)}><option value="last_seen_at">עדכון אחרון</option><option value="asking_price_nis">מחיר</option><option value="asking_pp_sqm">₪/מ״ר</option><option value="discount_pct">פער מול comps</option><option value="score">Score</option><option value="days_on_market">ימים בשוק</option><option value="comp_count">כמות comps</option></select>
+   <select value={f.dir} onChange={e=>set('dir',e.target.value)}><option value="desc">יורד</option><option value="asc">עולה</option></select>
+   <button className="primary research-run" onClick={load} disabled={busy}>{busy?'טוען…':'Query DB'}</button>
+  </div>
+  <div className="research-toggles">
+   <button className={f.subscribed?'active':''} onClick={()=>set('subscribed',!f.subscribed)}><Bookmark size={13}/> שלי / subscribed</button>
+   <button className={f.system?'active':''} onClick={()=>set('system',!f.system)}><Sparkles size={13}/> System flagged</button>
+   <button className={f.followed?'active':''} onClick={()=>set('followed',!f.followed)}><Target size={13}/> Followed areas</button>
+   <span>Opportunity = System flagged או Manual subscription. שני הסימונים עצמאיים.</span>
+  </div>
+  {busy?<div className="empty">מריץ שאילתה מול בסיס הנתונים…</div>:assets.length===0?<Empty title="אין נכסים בתוצאה" body="שנה את הפילטרים או הרחב את איסוף המודעות. Research אינו תלוי ב-Edge Score."/>:
+  <div className="table-wrap research-table"><table><thead><tr>
+   <th>Flags</th><th>נכס</th><th>עיר / שכונה</th><th>מבוקש</th><th>₪/מ״ר</th><th>חדרים</th><th>מ״ר</th><th>קומה</th>
+   <th>פער comps</th><th>Comps</th><th>DOM</th><th>הורדות מחיר</th><th>התחדשות</th><th>תכנון</th><th>Score</th><th>עדכון</th><th>מקור</th><th>מעקב</th>
+  </tr></thead><tbody>{assets.map(a=><tr key={a.id}>
+   <td><div className="flag-stack">{a.system_flag&&<span className="db-flag system" title="Edge generated a score"><Sparkles size={11}/>SYS</span>}{a.manual_flag&&<span className="db-flag manual" title="Manually subscribed"><Bookmark size={11}/>ME</span>}{a.followed_area&&<span className="db-flag area">AREA</span>}</div></td>
+   <td className="asset-link" onClick={()=>open(a)}><strong>{a.canonical_address||'כתובת לא זמינה'}</strong><small>{a.source_listing_id?.slice(0,10)}</small></td>
+   <td>{a.city||'—'}<small>{a.neighborhood||'ללא שיוך שכונה'}</small></td><td>{money(Number(a.asking_price_nis))}</td><td>{a.asking_pp_sqm?money(Number(a.asking_pp_sqm)):'—'}</td>
+   <td>{a.rooms||'—'}</td><td>{a.area_sqm||'—'}</td><td>{a.floor??'—'}</td><td>{pct(a.discount_pct==null?null:Number(a.discount_pct))}</td>
+   <td>{a.comp_count}<small>{confHe(a.confidence)}</small></td><td>{a.days_on_market}</td><td>{a.price_reductions}</td>
+   <td>{a.renewal_projects}<small>{a.renewal_in_execution?String(a.renewal_in_execution)+' בביצוע':''}</small></td><td>{a.planning_plans}</td>
+   <td>{a.score==null?<span className="muted">—</span>:<span className="score">{Math.round(Number(a.score))}</span>}</td><td>{date(a.last_seen_at)}</td>
+   <td>{a.source_id}</td><td><button className={'row-follow '+(a.manual_flag?'on':'')} onClick={()=>sub(a)}>{a.manual_flag?'Subscribed':'Subscribe'}</button></td>
+  </tr>)}</tbody></table></div>}
  </div>
 }
 
