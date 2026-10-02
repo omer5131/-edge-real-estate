@@ -1,5 +1,5 @@
-import { sql } from '../db';
-import { sha256, pick, n, text, isoDate } from '../normalize';
+import { sql } from '../db.js';
+import { sha256, pick, n, text, isoDate } from '../normalize.js';
 
 const OVER='https://www.over.org.il';
 const ARCHIVE_ID=process.env.OVER_LISTING_ARCHIVE_ID || 'fd06f5ae-8a4f-4120-b275-8a514ad23499';
