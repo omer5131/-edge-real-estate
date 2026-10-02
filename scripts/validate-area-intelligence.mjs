@@ -30,6 +30,24 @@ const mappingRates=(await sql`
       WHERE l.status='active') active_listings_mapped
 `)[0];
 
+
+let sourceReadiness={};
+try{
+  const [geo]=await sql`
+    SELECT count(*)::int rows,
+      count(*) FILTER(WHERE geometry_wkt IS NOT NULL)::int geometry_rows,
+      min(ST_XMin(ST_Extent(ST_GeomFromText(geometry_wkt))))::float8 min_x,
+      max(ST_XMax(ST_Extent(ST_GeomFromText(geometry_wkt))))::float8 max_x,
+      min(ST_YMin(ST_Extent(ST_GeomFromText(geometry_wkt))))::float8 min_y,
+      max(ST_YMax(ST_Extent(ST_GeomFromText(geometry_wkt))))::float8 max_y
+    FROM research_statistical_areas_2022
+    WHERE geometry_wkt IS NOT NULL
+  `;
+  const [parcel]=await sql`SELECT count(*)::int rows,count(*) FILTER(WHERE geometry_wkt IS NOT NULL)::int geometry_rows FROM research_parcels`;
+  const [census]=await sql`SELECT count(*)::int rows FROM research_census_2022`;
+  sourceReadiness={statisticalAreas:geo,parcels:parcel,census2022:census};
+}catch(error){sourceReadiness={error:String(error)};}
+
 const top=await sql`
   SELECT a.locality_name,a.statistical_area_code,
     round(c.deal_heat::numeric,2) deal_heat,
@@ -58,6 +76,7 @@ const report={
   coverage,
   mappingRates,
   metricCoverage,
+  sourceReadiness,
   top
 };
 fs.mkdirSync('artifacts',{recursive:true});
