@@ -28,8 +28,8 @@ export default async function handler(req:VercelRequest,res:VercelResponse){
      FROM neighborhood_rent_metrics
     ), status AS (
      SELECT
-       EXISTS(SELECT 1 FROM ingestion_runs WHERE source_id='urban_renewal_gov' AND status='success') renewal_ready,
-       EXISTS(SELECT 1 FROM ingestion_runs WHERE source_id='yad2_rent' AND status='success') rent_ready
+       EXISTS(SELECT 1 FROM renewal_projects) renewal_ready,
+       EXISTS(SELECT 1 FROM rental_listings) rent_ready
     )
     SELECT n.id neighborhood_uuid,n.slug id,n.name_he name,c.name_he city,
       tx.median_price_sqm::float8 avg_price_sqm,
@@ -105,8 +105,8 @@ export default async function handler(req:VercelRequest,res:VercelResponse){
    sql`
     SELECT id,name,kind source_type,
       (SELECT max(finished_at) FROM ingestion_runs r WHERE r.source_id=data_sources.id AND r.status='success') last_success_at,
-      (SELECT max(finished_at) FROM ingestion_runs r WHERE r.source_id=data_sources.id AND r.status='failed') last_error_at,
-      (SELECT error_summary FROM ingestion_runs r WHERE r.source_id=data_sources.id AND r.status='failed' ORDER BY started_at DESC LIMIT 1) last_error
+      (SELECT max(finished_at) FROM ingestion_runs r WHERE r.source_id=data_sources.id AND r.status IN ('failed','partial')) last_error_at,
+      (SELECT error_summary FROM ingestion_runs r WHERE r.source_id=data_sources.id AND r.status IN ('failed','partial') ORDER BY started_at DESC LIMIT 1) last_error
     FROM data_sources ORDER BY id
    `,
    sql`
