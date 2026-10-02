@@ -163,11 +163,14 @@ function PropertyView({item,onBack}:{item:Opportunity;onBack:()=>void}){
   if(loading)return <div className="screen"><div className="loading"><RefreshCw className="spin"/>טוען Property Intelligence…</div></div>;
   if(!data||data.error)return <div className="screen"><button className="back" onClick={onBack}><ArrowLeft/>חזרה</button><Empty title="לא ניתן לטעון את הנכס" body={data?.error||'שגיאת API'}/></div>;
   const l=data.listing||{};
+  const [subBusy,setSubBusy]=useState(false);
+  const toggleSub=async()=>{setSubBusy(true);await fetch('/api/research',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action:l.subscription_id?'unsubscribe':'subscribe',entity_id:item.id,entity_type:'listing'})});const r=await fetch('/api/property?id='+encodeURIComponent(item.id),{cache:'no-store'});setData(await r.json());setSubBusy(false)};
   return <div className="screen">
     <button className="back" onClick={onBack}><ArrowLeft size={15}/>חזרה להזדמנויות</button>
-    <div className="page-head"><div><span className="eyebrow">Property Intelligence</span><h1>{l.address||item.address}</h1>
-      <p>{l.neighborhood}, {l.city} · מודעה + עסקאות סגורות + התחדשות</p></div>
-      <Confidence value={data.confidence?.confidence||'insufficient'} sample={data.confidence?.sample_12m||0}/></div>
+    <div className="page-head"><div><span className="eyebrow">Property Intelligence · {data.tier==='full'?'Full research':'Basic'}</span><h1>{l.address||item.address}</h1>
+      <p>{l.neighborhood}, {l.city} · {data.tier==='full'?'מעקב מלא לאורך זמן':'מידע בסיסי — עקוב כדי להפעיל מחקר מלא'}</p></div>
+      <div className="property-actions"><button className={'follow '+(l.subscription_id?'on':'')} onClick={toggleSub} disabled={subBusy}>{l.subscription_id?<><Bookmark size={14}/>במעקב</>:<><Eye size={14}/>הפעל מעקב מלא</>}</button><Confidence value={data.confidence?.confidence||'insufficient'} sample={data.confidence?.sample_12m||0}/></div></div>
+    {data.tier==='basic'&&<div className="upgrade-banner"><Bookmark size={18}/><div><strong>Basic property profile</strong><span>Follow this asset to unlock full comp history, seller behavior, rent, planning, renewal, infrastructure and score explanation — and keep tracking changes over time.</span></div></div>}
     <div className="property-grid">
       <div className="panel"><h3>Investment memo</h3>
         <p className="memo">{data.comps?.length>=3?'יש בסיס ראשוני להשוואת מחיר. יש לבדוק התאמות קומה, מצב ובניין לפני החלטה.':'אין עדיין מספיק comps כדי לבסס שווי אמין; Edge לא מפיק Score.'}</p>
