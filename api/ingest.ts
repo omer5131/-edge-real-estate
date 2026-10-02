@@ -8,8 +8,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const secret = process.env.CRON_SECRET;
   const auth = req.headers.authorization;
+  const bodySecret = typeof req.body?.secret === 'string' ? req.body.secret.trim() : '';
   const isProduction = process.env.VERCEL_ENV === 'production';
-  if ((secret && auth !== `Bearer ${secret}`) || (!secret && isProduction)) {
+
+  const authorized = !!secret && (
+    auth === `Bearer ${secret}` ||
+    bodySecret === secret
+  );
+
+  if ((secret && !authorized) || (!secret && isProduction)) {
     return res.status(401).json({ error:'unauthorized' });
   }
 
