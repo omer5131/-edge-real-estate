@@ -1,10 +1,10 @@
-import { withRun } from '../db';
-import { ingestDealsForSettlement, enrichRecentParcels } from '../sources/over';
-import { ingestUrbanRenewalOfficial } from '../sources/urbanRenewal';
-import { ingestListingArchive } from '../sources/listings';
-import { ingestYad2Rent } from '../sources/yad2Rent';
-import { resolveTransactionNeighborhoods } from './resolveNeighborhoods';
-import { recomputeOpportunityScores } from './scoring';
+import { withRun } from '../db.js';
+import { ingestDealsForSettlement, enrichRecentParcels } from '../sources/over.js';
+import { ingestUrbanRenewalOfficial } from '../sources/urbanRenewal.js';
+import { ingestListingArchive } from '../sources/listings.js';
+import { ingestYad2Rent } from '../sources/yad2Rent.js';
+import { resolveTransactionNeighborhoods } from './resolveNeighborhoods.js';
+import { recomputeOpportunityScores } from './scoring.js';
 
 const TARGET_CITIES=['חיפה','נתניה','פתח תקווה'];
 
