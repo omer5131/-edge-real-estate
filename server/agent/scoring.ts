@@ -1,6 +1,8 @@
 import { sql } from '../db.js';
 
 export async function recomputeOpportunityScores(){
+ const configs=await sql`SELECT * FROM score_configurations WHERE is_active=true ORDER BY updated_at DESC LIMIT 1`;
+ const cfg:any=configs[0]||{model_version:'edge-v0.3',base_score:50,price_gap_weight:1.5,price_gap_min:-10,price_gap_max:25,renewal_project_weight:2,renewal_execution_bonus:5,renewal_permit_bonus:3,renewal_max:18,seller_dom_divisor:18,seller_reduction_weight:3,seller_max:14,comp_high_min:20,comp_medium_min:8,comp_min_required:3,comp_high_score:10,comp_medium_score:7,comp_low_score:5,low_comp_risk:4};
  const rows=await sql`
   WITH latest AS (
     SELECT DISTINCT ON(listing_id) listing_id,asking_price_nis,area_sqm,rooms,observed_at
@@ -37,23 +39,23 @@ export async function recomputeOpportunityScores(){
     AND l.neighborhood_id IS NOT NULL
     AND latest.asking_price_nis>0
     AND latest.area_sqm>0
-    AND comps.comp_count>=3
+    AND comps.comp_count>=${Number(cfg.comp_min_required)}
  `;
 
  await sql`
    DELETE FROM opportunity_scores os
    WHERE os.entity_type='listing'
-     AND os.model_version='edge-v0.2'
+     AND os.model_version=${String(cfg.model_version)}
  `;
 
  let inserted=0;
  for(const r of rows){
-   const priceGap=Math.max(-10,Math.min(25,Number(r.discount_pct||0)*1.5));
-   const renewal=Math.min(18,Number(r.project_count||0)*2+(Number(r.execution_count||0)>0?5:0)+(Number(r.max_permits||0)>0?3:0));
-   const seller=Math.min(14,Number(r.days_on_market||0)/18+Number(r.price_reductions||0)*3);
-   const comp=Number(r.comp_count)>=20?10:Number(r.comp_count)>=8?7:5;
-   const risk=Number(r.comp_count)<8?4:0;
-   const score=Math.max(1,Math.min(99,Math.round(50+priceGap+renewal+seller+comp-risk)));
+   const priceGap=Math.max(Number(cfg.price_gap_min),Math.min(Number(cfg.price_gap_max),Number(r.discount_pct||0)*Number(cfg.price_gap_weight)));
+   const renewal=Math.min(Number(cfg.renewal_max),Number(r.project_count||0)*Number(cfg.renewal_project_weight)+(Number(r.execution_count||0)>0?Number(cfg.renewal_execution_bonus):0)+(Number(r.max_permits||0)>0?Number(cfg.renewal_permit_bonus):0));
+   const seller=Math.min(Number(cfg.seller_max),Number(r.days_on_market||0)/Number(cfg.seller_dom_divisor)+Number(r.price_reductions||0)*Number(cfg.seller_reduction_weight));
+   const comp=Number(r.comp_count)>=Number(cfg.comp_high_min)?Number(cfg.comp_high_score):Number(r.comp_count)>=Number(cfg.comp_medium_min)?Number(cfg.comp_medium_score):Number(cfg.comp_low_score);
+   const risk=Number(r.comp_count)<Number(cfg.comp_medium_min)?Number(cfg.low_comp_risk):0;
+   const score=Math.max(1,Math.min(99,Math.round(Number(cfg.base_score)+priceGap+renewal+seller+comp-risk)));
 
    await sql`
      INSERT INTO opportunity_scores(
@@ -61,9 +63,9 @@ export async function recomputeOpportunityScores(){
        comp_confidence_score,risk_deduction,model_version,inputs,explanation
      ) VALUES(
        'listing',${String(r.listing_id)}::uuid,${score},${priceGap},${renewal},${seller},
-       ${comp},${risk},'edge-v0.2',${JSON.stringify(r)}::jsonb,
+       ${comp},${risk},${String(cfg.model_version)},${JSON.stringify({...r,score_config_id:cfg.id})}::jsonb,
        ${JSON.stringify({
-         evidenceRule:'score only emitted with >=3 comparable closed transactions and valid asking price/area',
+         evidenceRule:`score only emitted with >=${cfg.comp_min_required} comparable closed transactions and valid asking price/area`,
          priceGap:'discount to comparable closed transactions',
          renewal:'matched official renewal evidence',
          seller:'days on market and observed price reductions',
