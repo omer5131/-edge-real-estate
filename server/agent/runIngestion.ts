@@ -2,8 +2,6 @@ import { withRun } from '../db.js';
 import { discoverTargetParcels, ingestTargetParcelDeals, enrichRecentParcels } from '../sources/over.js';
 import { ingestUrbanRenewalOfficial } from '../sources/urbanRenewal.js';
 import { ingestListingArchive } from '../sources/listings.js';
-import { ingestYad2Rent } from '../sources/yad2Rent.js';
-import { ingestYad2Sale } from '../sources/yad2Sale.js';
 import { ingestXplan } from '../sources/xplan.js';
 import { ingestTransportInfrastructure } from '../sources/transport.js';
 import { resolveTransactionNeighborhoods } from './resolveNeighborhoods.js';
@@ -42,8 +40,7 @@ export async function runEdgeIngestion(options:{skipOver?:boolean}={}){
  await job('xplan',()=>withRun('xplan','planning_plans',{},runId=>ingestXplan(runId)));
  await job('transport_infrastructure',()=>withRun('mot_bus_stops','transport_infrastructure',{},runId=>ingestTransportInfrastructure(runId)));
  if(!skipOver)await job('listing_history',()=>withRun('over_listing_archive','listing_history',{},runId=>ingestListingArchive(runId)));
- await job('sale_snapshots',()=>withRun('yad2_sale','sale_snapshots',{},()=>ingestYad2Sale()));
- await job('rental_snapshots',()=>withRun('yad2_rent','rental_snapshots',{},()=>ingestYad2Rent()));
+ jobs.push({job:'yad2_dataset',skipped:true,reason:'Dedicated daily ScrapingBee worker owns nationwide collection'});
  await job('opportunity_scoring',()=>withRun('yad2_sale','opportunity_scoring',{skipOver,model:'configured'},()=>recomputeOpportunityScores()));
 
  report.finishedAt=new Date().toISOString();

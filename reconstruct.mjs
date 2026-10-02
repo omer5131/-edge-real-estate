@@ -16,7 +16,7 @@ const json = zlib.gunzipSync(Buffer.from(encoded, 'base64')).toString('utf8');
 const files = JSON.parse(json);
 
 for (const [file, content] of Object.entries(files)) {
-  if (file === '.gitignore' && fs.existsSync(file)) continue;
+  if (['.gitignore','README.md'].includes(file) && fs.existsSync(file)) continue;
   const parent = path.dirname(file);
   if (parent !== '.') fs.mkdirSync(parent, { recursive: true });
   fs.writeFileSync(file, content, 'utf8');

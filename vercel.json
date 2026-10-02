@@ -10,5 +10,15 @@
       "path": "/api/over-datasets",
       "schedule": "45 2 * * *"
     }
+  ],
+  "rewrites": [
+    {
+      "source": "/api/yad2-research",
+      "destination": "/api/ask?mode=yad2-research"
+    },
+    {
+      "source": "/api/yad2-admin",
+      "destination": "/api/ask?mode=yad2-admin"
+    }
   ]
 }
