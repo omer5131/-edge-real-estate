@@ -1,5 +1,5 @@
-import { sql } from '../db';
-import { sha256 } from '../normalize';
+import { sql } from '../db.js';
+import { sha256 } from '../normalize.js';
 
 const TARGETS = [
   { slug:'kiryat-eliezer-haifa', path:'coastal-north', area:'5', city:'4000', neighborhood:'599' },
