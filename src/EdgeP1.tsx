@@ -190,6 +190,7 @@ function DataConsole({status}:{status:DataStatus|null}){
       <Metric label="עסקאות" value={num(status.counts?.transactions)}/><Metric label="Comparable" value={num(status.counts?.comparable_transactions)}/>
       <Metric label="Excluded" value={num(status.counts?.excluded_transactions)}/><Metric label="Target parcels" value={num(status.counts?.target_parcels)}/>
       <Metric label="Sale listings" value={num(status.counts?.listings)}/><Metric label="Rental listings" value={num(status.counts?.rental_listings)}/>
+      <Metric label="XPLAN plans" value={num(status.counts?.planning_plans)}/><Metric label="Infrastructure" value={num(status.counts?.infrastructure_projects)}/>
     </div>
     <div className="panel"><h3>Sources</h3><div className="table-wrap"><table><thead><tr><th>מקור</th><th>בריאות</th><th>הצלחה אחרונה</th><th>כשל אחרון</th><th>שגיאה</th></tr></thead><tbody>
       {(status.freshness||[]).map((s:any)=><tr key={s.source_id}><td><strong>{s.name}</strong><small>{s.source_id}</small></td>
