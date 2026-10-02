@@ -16,19 +16,9 @@ export default async function handler(req:VercelRequest,res:VercelResponse){
     (SELECT count(*)::int FROM planning_plans) planning_plans,
     (SELECT count(*)::int FROM infrastructure_projects) infrastructure_projects,
     (SELECT count(*)::int FROM raw_records) raw_records`,
-  sql`
-    SELECT ds.id source_id,ds.name,ds.kind,
-      (SELECT max(finished_at) FROM ingestion_runs r WHERE r.source_id=ds.id AND r.status='success') last_success_at,
-      (SELECT max(finished_at) FROM ingestion_runs r WHERE r.source_id=ds.id AND r.status IN ('failed','partial')) last_error_at,
-      (SELECT error_summary FROM ingestion_runs r WHERE r.source_id=ds.id AND r.status IN ('failed','partial') ORDER BY started_at DESC LIMIT 1) last_error,
-      CASE
-        WHEN EXISTS(SELECT 1 FROM ingestion_runs r WHERE r.source_id=ds.id AND r.status='running') THEN 'running'
-        WHEN (SELECT max(finished_at) FROM ingestion_runs r WHERE r.source_id=ds.id AND r.status='partial') >= now()-interval '2 days' THEN 'degraded'
-        WHEN (SELECT max(finished_at) FROM ingestion_runs r WHERE r.source_id=ds.id AND r.status='success') >= now()-interval '2 days' THEN 'healthy'
-        WHEN (SELECT max(finished_at) FROM ingestion_runs r WHERE r.source_id=ds.id AND r.status IN ('failed','partial')) IS NOT NULL THEN 'degraded'
-        ELSE 'unavailable'
-      END health
-    FROM data_sources ds ORDER BY ds.id`,
+  sql`SELECT * FROM provider_health ORDER BY
+      CASE health WHEN 'critical' THEN 1 WHEN 'degraded' THEN 2 WHEN 'stale' THEN 3 WHEN 'never_run' THEN 4 WHEN 'running' THEN 5 WHEN 'healthy' THEN 6 ELSE 7 END,
+      source_id`,
   sql`
     SELECT n.slug,n.name_he,
       coalesce(mc.sample_12m,0)::int sample_12m,
