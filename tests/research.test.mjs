@@ -4,6 +4,7 @@ import {PGlite} from '@electric-sql/pglite';
 import {overSchemaStatements} from '../.server-test/server/sources/overSchema.js';
 import {researchCatalog,researchSchemaStatements,buildResearchQuery,semanticView} from '../.server-test/server/sources/researchSemantics.js';
 import {boiRows,featureRows,parseCsv} from '../.server-test/server/sources/researchAdapters.js';
+import {boundedRowBatches} from '../.server-test/server/sources/overDatasets.js';
 import {datasetTable} from '../.server-test/server/sources/overApi.js';
 test('all dataset tables and typed semantic views migrate idempotently; corrections preserve history',async()=>{
  const db=new PGlite();try{
@@ -28,3 +29,5 @@ test('SDMX CSV preserves metadata, periods and revisions and excludes pre-2022',
 test('GIS feature payload hashes are stable and geometry is retained',()=>{
  const f={properties:{_row_hash:'key',_first_seen:'2026-01-01',name:'A'},geometry:{type:'Point',coordinates:[35,32]}};const a=featureRows([f])[0],b=featureRows([f])[0];assert.deepEqual(a,b);assert.equal(a.geometry.type,'Point');assert.equal(a.row_hash,'key');
 });
+
+test('large geometry writes are split without dropping or reordering records',()=>{const rows=Array.from({length:10},(_,i)=>({first_seen:'2026-01-01',row_hash:String(i),geometry_wkt:'x'.repeat(800000)}));const batches=boundedRowBatches(rows);assert.equal(batches.flat().length,10);assert.deepEqual(batches.flat().map(r=>r.row_hash),rows.map(r=>r.row_hash));assert(batches.every(b=>Buffer.byteLength(JSON.stringify(b))<2100000));});

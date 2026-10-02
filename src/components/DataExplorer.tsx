@@ -11,7 +11,7 @@ export default function DataExplorer(){
  const active=useRef<AbortController|null>(null),dataset=datasets.find(d=>d.table===selected);
  useEffect(()=>{const control=new AbortController();request(undefined,control.signal).then(d=>{setDatasets(d.datasets);setSelected(d.datasets[0]?.table||'');}).catch(e=>{if(e.name!=='AbortError')setCatalogError(e.message);}).finally(()=>setLoading(false));return()=>{control.abort();active.current?.abort();};},[]);
  async function run(query:string){active.current?.abort();const control=new AbortController();active.current=control;setBusy(true);setError('');setResult(null);try{setResult(await request({sql:query},control.signal));}catch(e:any){if(e.name!=='AbortError')setError(e.message);}finally{if(active.current===control)setBusy(false);}}
- useEffect(()=>{if(!selected)return;const q=`SELECT * FROM public."${selected}" LIMIT 50`;setSql(q);setView('preview');void run(q);},[selected]);
+ useEffect(()=>{if(!selected)return;const q=datasets.find(d=>d.table===selected)?.examples[0]||`SELECT * FROM public."${selected}" LIMIT 50`;setSql(q);setView('preview');void run(q);},[selected]);
  const shown=datasets.filter(d=>`${d.title} ${d.table} ${d.source}`.toLowerCase().includes(search.toLowerCase()));
  return <section className="data-explorer panel" dir="ltr" aria-label="SQL dataset explorer">
   <header className="dx-header"><div><h2>Dataset explorer</h2><p>Preview collected data, inspect its meaning, and query with SQL.</p></div><span>Read-only · 200-row query limit</span></header>

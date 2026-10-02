@@ -60,7 +60,7 @@ export function buildResearchQuery(d:ResearchDataset,input:any) {
  if(input.metrics?.length) {
    if(!Array.isArray(input.metrics)||input.metrics.length>12)throw new Error('Invalid metrics');
    selection=[...groups.map(col),...input.metrics.map((m:any,i:number)=>{if(!['count','sum','avg','min','max','median'].includes(m.op))throw new Error('Unknown metric');const c=m.field?col(m.field):'*';if(m.op!=='count'&&!['number','integer'].includes(fields.get(m.field)?.type??''))throw new Error('Metric requires a numeric field');return `${m.op==='median'?`percentile_cont(.5) WITHIN GROUP (ORDER BY ${c})`:`${m.op}(${c})`} AS ${identifier('metric_'+i)}`;})];
- } else {if(groups.length)throw new Error('groupBy requires metrics');const columns=input.columns??['_record_id',...d.fields.map(f=>f.name)];if(!Array.isArray(columns)||!columns.length||columns.length>120)throw new Error('Invalid columns');selection=columns.map(col);}
+ } else {if(groups.length)throw new Error('groupBy requires metrics');const columns=input.columns??['_record_id',...d.fields.filter(f=>!['geometry','geometry_wkt','geom'].includes(f.name)).map(f=>f.name)];if(!Array.isArray(columns)||!columns.length||columns.length>120)throw new Error('Invalid columns');selection=columns.map(col);}
  const limit=Math.max(1,Math.min(200,Number(input.limit??50))),offset=Math.max(0,Math.min(100000,Number(input.offset??0)));
  if(!Number.isInteger(limit)||!Number.isInteger(offset))throw new Error('Invalid pagination');
  let order='';

@@ -40,3 +40,5 @@ National address data and 2024 municipal election results have tables and defini
 ## Validation
 
 `npm run test:research` checks migrations, typed views, missing values, corrected entity deduplication, history retention, parameterized queries, rejected unsafe identifiers/metrics, CSV parsing and GeoJSON normalization. `npm run test:over` validates archive cursor and cutoff behavior. Build-time migrations create all tables/views and start a bounded initial collection when new sources exist.
+
+Large geometry archives use 100-row source pages and approximately 2 MB database write batches, with a checkpoint for every committed batch. Duplicate binary `geom` representations are omitted while source WKT is retained. Default platform previews and structured agent queries exclude geometry and full raw payload columns; request those explicitly when needed. This keeps ordinary demographic queries within API response limits.

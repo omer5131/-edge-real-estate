@@ -35,7 +35,7 @@ export function recordYearClause(column: string | null | undefined, year: number
   return `(CASE WHEN ${field} ~ '^[0-9]{2}/[0-9]{2}/[0-9]{4}$' THEN right(${field},4) WHEN ${field} ~ '^[0-9]{4}(-[0-9]{2}-[0-9]{2}.*)?$' THEN left(${field},4) ELSE NULL END) >= ${literal(String(year))}`;
 }
 export function archiveQuery(table: string, options: {
-  filters?: string; after?: Watermark; lower?: Watermark; upper?: Watermark; since?: string; limit?: number; newest?: boolean;
+  columns?: string[]; filters?: string; after?: Watermark; lower?: Watermark; upper?: Watermark; since?: string; limit?: number; newest?: boolean;
 }): string {
   const clauses: string[] = [];
   if (options.filters) clauses.push(options.filters);
@@ -45,7 +45,7 @@ export function archiveQuery(table: string, options: {
   else if (options.since) clauses.push(`"first_seen" >= ${literal(options.since)}::timestamptz`);
   const order = options.newest ? 'DESC' : 'ASC';
   const limit = options.newest ? 1 : Math.max(1, Math.min(2000, options.limit ?? 1000));
-  return `SELECT * FROM ${identifier(table)}${clauses.length ? ' WHERE ' + clauses.map(c => `(${c})`).join(' AND ') : ''} ORDER BY "first_seen" ${order}, "row_hash" ${order} LIMIT ${limit}`;
+  return `SELECT ${options.columns?.length?options.columns.map(identifier).join(','):'*'} FROM ${identifier(table)}${clauses.length ? ' WHERE ' + clauses.map(c => `(${c})`).join(' AND ') : ''} ORDER BY "first_seen" ${order}, "row_hash" ${order} LIMIT ${limit}`;
 }
 export function watermark(row: ArchiveRow): Watermark {
   if (typeof row.first_seen !== 'string' || !Number.isFinite(Date.parse(row.first_seen)) || typeof row.row_hash !== 'string' || !row.row_hash) {

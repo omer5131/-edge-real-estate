@@ -9,6 +9,6 @@ if(process.env.DATABASE_URL){
  for(let i=0;i<statements.length;i+=60)await sql.transaction(statements.slice(i,i+60).map(s=>sql.query(s)));
  console.log(`Research: ${researchCatalog.length} dataset tables and semantic views ready.`);
  const {runOverDatasets}=await import('../.server-build/server/sources/overDatasets.js');
- const pending=await sql.query('SELECT count(*)::int count FROM over_datasets WHERE enabled AND last_checked_at IS NULL');
- if(pending[0].count)console.log('Research initial collection:',JSON.stringify(await runOverDatasets({budgetMs:180000,maxPages:6})));
+ const pending=await sql.query("SELECT count(*)::int count FROM over_datasets WHERE enabled AND (last_checked_at IS NULL OR status='failed')");
+ if(pending[0].count)console.log('Research initial collection:',JSON.stringify(await runOverDatasets({budgetMs:180000,maxPages:60})));
 }else console.log('Research migration skipped: DATABASE_URL is not set.');

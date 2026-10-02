@@ -82,6 +82,12 @@ export function pageWrite(dataset: Dataset, rows: ArchiveRow[], cursor: Cursor, 
     params: [JSON.stringify(input),JSON.stringify(cursor),cursor.phase === 'backfill' ? 'backfilling' : 'syncing',dataset.dataset_id,rows.length,runId] }; 
 }
 
+export function boundedRowBatches(rows:ArchiveRow[],maxBytes=2000000):ArchiveRow[][] {
+  const batches:ArchiveRow[][]=[];let batch:ArchiveRow[]=[],bytes=0;
+  for(const row of rows){const size=Buffer.byteLength(JSON.stringify(row));if(batch.length && bytes+size>maxBytes){batches.push(batch);batch=[];bytes=0;}batch.push(row);bytes+=size;}
+  if(batch.length)batches.push(batch);return batches;
+}
+
 export async function savePage(dataset: Dataset, rows: ArchiveRow[], cursor: Cursor, runId: string): Promise<number> {
   const statement = pageWrite(dataset,rows,cursor,runId);
   const results = await query(statement.text,statement.params);
@@ -115,7 +121,8 @@ async function ingestDataset(dataset: Dataset, deadline: number, maxPages: numbe
       await query(`UPDATE over_datasets SET cursor=$2::jsonb,status=$3,last_checked_at=now() WHERE dataset_id=$1::uuid`, [d.dataset_id, JSON.stringify(cursor), phase === 'backfill' ? 'backfilling' : 'syncing']);
     }
     for (let page = 0; page < maxPages && Date.now() < deadline - 10000; page++) {
-      const rows = await archiveRows(d.dataset_id, archiveQuery(d.source_table!, { filters, ...cursor, limit: 1000 }), deadline - 5000);
+      const geometry=d.source_schema.columns.includes('geometry_wkt');
+      const rows = await archiveRows(d.dataset_id, archiveQuery(d.source_table!, { columns:d.source_schema.columns.filter(c=>c!=='geom'),filters, ...cursor, limit: geometry?100:1000 }), deadline - 5000);
       if (!rows.length) {
         // Exhaustion, rather than a short response, signals completion: OVER may cap SQL responses.
         await transaction([
@@ -125,11 +132,14 @@ async function ingestDataset(dataset: Dataset, deadline: number, maxPages: numbe
         ]);
         return { datasetId: d.dataset_id, phase: cursor.phase, fetched, inserted, complete: true };
       }
-      const next: Cursor = { ...cursor, after: watermark(rows[rows.length - 1]) };
-      if (cursor.after && next.after!.seen === cursor.after.seen && next.after!.hash === cursor.after.hash) throw new Error('Archive cursor did not advance');
-      inserted += await savePage(d, rows, next, runId);
-      fetched += rows.length;
-      cursor = next;
+      for(const batch of boundedRowBatches(rows)) {
+        const next:Cursor={...cursor,after:watermark(batch[batch.length-1])};
+        if(cursor.after && next.after!.seen===cursor.after.seen && next.after!.hash===cursor.after.hash)throw new Error('Archive cursor did not advance');
+        inserted+=await savePage(d,batch,next,runId);fetched+=batch.length;cursor=next;
+        if(Date.now()>deadline-3000)break;
+      }
+      const end=watermark(rows[rows.length-1]);
+      if(cursor.after?.seen!==end.seen || cursor.after?.hash!==end.hash)break;
     }
     await query(`UPDATE over_sync_runs SET status='checkpointed',finished_at=now() WHERE id=$1::uuid`, [runId]);
     return { datasetId: d.dataset_id, phase: cursor.phase, fetched, inserted, complete: false };
@@ -162,7 +172,7 @@ export async function runOverDatasets(options: { datasetId?: string; budgetMs?: 
     const worker=async()=>{while(index<datasets.length && Date.now()<deadline-15000){
       const dataset=datasets[index++];
       const slice=Math.min(deadline,Date.now()+60000);
-      results.push(await ingestDataset(dataset as Dataset,slice,Math.max(1,Math.min(100,options.maxPages??6))));
+      results.push(await ingestDataset(dataset as Dataset,slice,Math.max(1,Math.min(100,options.maxPages??60))));
     }};
     await Promise.all(Array.from({length:Math.min(3,datasets.length)},worker));
     return { ok: results.every(r=>!r.error), pending: results.some(r=>!r.complete) || results.length<datasets.length, datasets: results };
