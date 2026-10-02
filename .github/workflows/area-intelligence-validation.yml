@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - area-intelligence-foundation
+      - main
     paths:
       - "db/015_area_intelligence.sql"
       - "server/areaScoring.ts"
