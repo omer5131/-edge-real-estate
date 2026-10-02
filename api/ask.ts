@@ -43,7 +43,6 @@ export default async function handler(req:VercelRequest,res:VercelResponse){
       LEFT JOIN neighborhood_market_confidence mc ON mc.neighborhood_id=n.id
       LEFT JOIN neighborhood_rent_metrics rm ON rm.neighborhood_id=n.id
       WHERE n.is_focus
-        AND (${slugs.length===0}::boolean OR n.slug=ANY(${slugs}::text[]))
       ORDER BY n.slug
     `;
 
@@ -57,7 +56,7 @@ export default async function handler(req:VercelRequest,res:VercelResponse){
         WHERE entity_type='listing' AND model_version='edge-v0.2'
         ORDER BY entity_id,calculated_at DESC
       )
-      SELECT l.id::text,l.canonical_address,n.name_he neighborhood,
+      SELECT l.id::text,l.canonical_address,n.slug,n.name_he neighborhood,
         latest.asking_price_nis::float8 asking_price,latest.area_sqm::float8,
         score.score::int,score.calculated_at
       FROM listings l
@@ -65,25 +64,26 @@ export default async function handler(req:VercelRequest,res:VercelResponse){
       JOIN neighborhoods n ON n.id=l.neighborhood_id
       LEFT JOIN score ON score.entity_id=l.id
       WHERE l.status='active'
-        AND (${slugs.length===0}::boolean OR n.slug=ANY(${slugs}::text[]))
       ORDER BY score.score DESC NULLS LAST,l.last_seen_at DESC
-      LIMIT 5
+      LIMIT 20
     `;
 
+    const scopedAreas=slugs.length?areas.filter((a:any)=>slugs.includes(a.slug)):areas;
+    const scopedOpportunities=slugs.length?opportunities.filter((p:any)=>slugs.includes(p.slug)):opportunities;
     const lines:string[]=[];
-    if(areas.length===0){
+    if(scopedAreas.length===0){
       lines.push('אין כרגע נתוני אמת תואמים לשאלה הזו.');
     }else{
-      for(const a of areas){
+      for(const a of scopedAreas){
         const price=a.median_ppsqm==null?'אין עדיין מדגם מחיר מספק':`חציון סגירות כ-₪${Math.round(Number(a.median_ppsqm)).toLocaleString('he-IL')}/מ"ר`;
         const rent=a.median_rent_nis==null?'שכירות: טרם נאסף מדגם':`שכירות מבוקשת חציונית כ-₪${Math.round(Number(a.median_rent_nis)).toLocaleString('he-IL')} (${a.rent_sample||0} מודעות)`;
         lines.push(`**${a.name_he}, ${a.city}** — ${price}; ${a.sample_12m} עסקאות ב-12 חודשים; confidence: ${a.confidence}; ${rent}; פרויקטי התחדשות שנקלטו: ${a.renewal_projects}.`);
       }
     }
-    if(opportunities.length){
+    if(scopedOpportunities.length){
       lines.push('');
       lines.push('**מלאי פעיל עם נתונים:**');
-      for(const p of opportunities){
+      for(const p of scopedOpportunities.slice(0,5)){
         lines.push(`- ${p.canonical_address||'כתובת לא פתורה'} — ₪${Math.round(Number(p.asking_price||0)).toLocaleString('he-IL')}${p.score==null?' · ללא Score (אין מספיק ראיות)':` · Score ${p.score}`}`);
       }
     }else{
@@ -94,8 +94,8 @@ export default async function handler(req:VercelRequest,res:VercelResponse){
     res.status(200).json({
       answer:lines.join('\n'),
       evidence:{
-        areas:areas.map((a:any)=>({neighborhood:a.name_he,sample:a.sample_12m,latest:a.latest_deal_date,confidence:a.confidence})),
-        opportunityCount:opportunities.length
+        areas:scopedAreas.map((a:any)=>({neighborhood:a.name_he,sample:a.sample_12m,latest:a.latest_deal_date,confidence:a.confidence})),
+        opportunityCount:scopedOpportunities.length
       },
       mode:'live-db',
       generatedAt:new Date().toISOString()
