@@ -159,11 +159,11 @@ function AreaView({area}:{area:Area}){
 function PropertyView({item,onBack}:{item:Opportunity;onBack:()=>void}){
   const [data,setData]=useState<any>(null);
   const [loading,setLoading]=useState(true);
+  const [subBusy,setSubBusy]=useState(false);
   useEffect(()=>{setLoading(true);fetch('/api/property?id='+encodeURIComponent(item.id)).then(r=>r.json()).then(setData).finally(()=>setLoading(false));},[item.id]);
   if(loading)return <div className="screen"><div className="loading"><RefreshCw className="spin"/>טוען Property Intelligence…</div></div>;
   if(!data||data.error)return <div className="screen"><button className="back" onClick={onBack}><ArrowLeft/>חזרה</button><Empty title="לא ניתן לטעון את הנכס" body={data?.error||'שגיאת API'}/></div>;
   const l=data.listing||{};
-  const [subBusy,setSubBusy]=useState(false);
   const toggleSub=async()=>{setSubBusy(true);await fetch('/api/research',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action:l.subscription_id?'unsubscribe':'subscribe',entity_id:item.id,entity_type:'listing'})});const r=await fetch('/api/property?id='+encodeURIComponent(item.id),{cache:'no-store'});setData(await r.json());setSubBusy(false)};
   return <div className="screen">
     <button className="back" onClick={onBack}><ArrowLeft size={15}/>חזרה להזדמנויות</button>
