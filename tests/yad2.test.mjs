@@ -2,34 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {PGlite} from '@electric-sql/pglite';
-import {normalizeListing,yad2Url,validatePage,scrapeJson,recentListing,requestBudget,parseYad2Html,partitionListings,pageRules} from '../.server-test/server/sources/scrapingBee.js';
+import {normalizeListing,yad2Url,validatePage,recentListing,requestBudget,parseYad2Html,partitionListings} from '../.server-test/server/sources/yad2Source.js';
 import {listingWrite,completeScopeWrites,runYad2Dataset} from '../.server-test/server/sources/yad2Dataset.js';
 import {collectionPlan,isNewCandidate,eligibleNewListing} from '../.server-test/server/sources/yad2Incremental.js';
 const row={url:'https://www.yad2.co.il/realestate/item/abc123',price:1200000,city:'חיפה',rooms:3,area_sqm:80};
-test('daily worker skips known price changes, inserts only new ads and recovers cache-only writes without HTTP',async()=>{
- const db=new PGlite();process.env.SCRAPINGBEE_API_KEY='test';
- try {
-  for(const f of ['011_yad2_scrapingbee.sql','013_yad2_publication_cache.sql','014_yad2_incremental.sql'])await db.exec(fs.readFileSync('db/'+f,'utf8'));
-  await db.exec("UPDATE yad2_crawl_scopes SET enabled=(id='israel-sale'),backfill_started_at=now()-interval '30 days',backfill_completed_at=now()-interval '1 day',last_completed_at=now()-interval '1 day',config='{\"city_names\":[\"חיפה\"],\"published_within_days\":30}'");
-  const crawl=(await db.query('INSERT INTO yad2_crawls DEFAULT VALUES RETURNING id')).rows[0].id;
-  const published_at=new Date().toISOString().slice(0,10);
-  for(const q of listingWrite('sale',{...row,published_at},'israel-sale',crawl))await db.query(q.text,q.params);
-  const pending={...row,url:row.url.replace('abc123','pending'),published_at};
-  await db.query('INSERT INTO yad2_publication_cache(market,listing_id,data) VALUES($1,$2,$3::jsonb)',['sale','pending',JSON.stringify(pending)]);
-  const fresh={...row,url:row.url.replace('abc123','new123'),published_at};const calls=[];
-  const report=await runYad2Dataset({
-   queryDatabase:async(text,params)=>(await db.query(text,params)).rows,
-   databaseTransaction:async queries=>db.transaction(async tx=>{const result=[];for(const q of queries)result.push((await tx.query(q.text,q.params)).rows);return result;}),
-   scrapeJson:async(url,rules,_fetch,take)=>{take();calls.push(url);return rules===pageRules?{page_valid:true,listings:[{...row,price:1,published_at:null},{...pending,published_at:null},{...fresh,published_at:null}],next_url:null}:fresh;},
-   projectLegacy:async()=>{}
-  });
-  assert.equal(report.requests,2);assert.equal(report.listings,2);assert.equal(report.known_skipped,2);assert.equal(report.scopes[0].phase,'incremental');
-  assert.equal(calls.length,2);assert.ok(calls[1].endsWith('new123'));
-  assert.equal(Number((await db.query("SELECT price FROM yad2_dataset WHERE listing_id='abc123'")).rows[0].price),row.price);
-  assert.equal((await db.query("SELECT count(*)::int n FROM yad2_listing_changes WHERE listing_id='abc123'")).rows[0].n,1);
-  assert.equal((await db.query('SELECT count(*)::int n FROM yad2_dataset')).rows[0].n,3);
- }finally{delete process.env.SCRAPINGBEE_API_KEY;await db.close();}
-});
 test('one-time backfill keeps its baseline on resume; daily discovery only admits new IDs with overlap',()=>{
  const now=new Date('2026-10-02T10:00:00Z');
  const scope={backfill_started_at:'2026-09-28T10:00:00Z',cycle_started_at:'2026-09-28T10:00:00Z',config:{published_within_days:30,max_pages:10}};
@@ -81,11 +57,6 @@ test('blocked, malformed and ambiguous empty pages cannot complete a crawl',()=>
  for(const page of [{},{page_valid:false,listings:[]},{page_valid:true,listings:[]}])assert.throws(()=>validatePage(page));
  assert.equal(validatePage({page_valid:true,listings:[],empty_confirmed:true}).listings.length,0);
 });
-test('nonretryable auth errors are reported without exposing the API key',async()=>{
- process.env.SCRAPINGBEE_API_KEY='test-secret';let requests=0;
- await assert.rejects(()=>scrapeJson(row.url,{},async()=>{requests++;return new Response('',{status:401});}),/HTTP 401/);
- assert.equal(requests,1);delete process.env.SCRAPINGBEE_API_KEY;
-});
 test('database upserts preserve history, unchanged runs create no events, rent and sale are distinct',async()=>{
  const db=new PGlite();await db.exec(fs.readFileSync('db/011_yad2_scrapingbee.sql','utf8'));
  const crawl=(await db.query('INSERT INTO yad2_crawls DEFAULT VALUES RETURNING id')).rows[0].id;
@@ -124,11 +95,6 @@ test('recent city collection rejects unknown, old, future and invalid publicatio
  assert.equal(recentListing({...row,published_at:'2026-09-02'},config,now),true);
  for(const published_at of [null,'2026-09-01','2026-10-03','2026-09-31','today'])assert.equal(recentListing({...row,published_at},config,now),false);
  assert.equal(recentListing({...row,city:'תל אביב',published_at:'2026-10-01'},config,now),false);
-});
-test('request budget prevents an extra network request, including retries',async()=>{
- const budget=requestBudget(1);process.env.SCRAPINGBEE_API_KEY='test';let calls=0;
- await assert.rejects(()=>scrapeJson(row.url,{},async()=>{calls++;throw new Error('network');},()=>budget.take()),/budget reached/);
- assert.equal(calls,1);assert.equal(budget.used,1);delete process.env.SCRAPINGBEE_API_KEY;
 });
 test('focused scope migration disables nationwide scopes and preserves later configuration',async()=>{
  const db=new PGlite();await db.exec(fs.readFileSync('db/011_yad2_scrapingbee.sql','utf8'));

@@ -13,8 +13,10 @@
     "test:areas": "tsc -p tsconfig.server.json --noEmit false --outDir .server-test && node --test tests/area-scoring.test.mjs",
     "test:over": "tsc -p tsconfig.server.json --noEmit false --outDir .server-test && node --test tests/over-api.test.mjs",
     "sync:yad2": "tsc -p tsconfig.server.json --noEmit false --outDir .server-build && node scripts/yad2-sync.mjs",
-    "test:yad2": "tsc -p tsconfig.server.json --noEmit false --outDir .server-test && node --test tests/yad2.test.mjs",
-    "test:research": "tsc -p tsconfig.server.json --noEmit false --outDir .server-test && node --test tests/research.test.mjs"
+    "test:yad2": "tsc -p tsconfig.server.json --noEmit false --outDir .server-test && node --test tests/yad2.test.mjs tests/yad2-pipeline.test.mjs",
+    "test:research": "tsc -p tsconfig.server.json --noEmit false --outDir .server-test && node --test tests/research.test.mjs",
+    "collect:yad2": "tsc -p tsconfig.server.json --noEmit false --outDir .server-build && node scripts/yad2-collect.mjs",
+    "process:yad2": "tsc -p tsconfig.server.json --noEmit false --outDir .server-build && node scripts/yad2-process.mjs"
   },
   "dependencies": {
     "@ai-sdk/openai": "^4.0.83",

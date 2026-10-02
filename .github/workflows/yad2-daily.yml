@@ -1,7 +1,20 @@
 name: Yad2 daily sale and rental dataset
 on:
-  # Daily schedule paused until live extraction validation passes.
+  # Paused until the free-tier pilot succeeds.
   workflow_dispatch:
+    inputs:
+      max_requests:
+        description: 'Maximum Unlocker requests (start with 3)'
+        default: '3'
+        required: true
+      scope_id:
+        description: 'Optional single scope for pilot; blank means all enabled scopes'
+        default: 'recent-haifa-rent'
+      free_tier_confirmed:
+        description: 'Eligible free-tier account, no funded balance or automatic recharge'
+        type: boolean
+        default: false
+        required: true
 concurrency:
   group: yad2-daily-dataset
   cancel-in-progress: false
@@ -10,12 +23,16 @@ permissions:
 jobs:
   collect:
     runs-on: ubuntu-latest
-    timeout-minutes: 350
+    timeout-minutes: 110
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
-      SCRAPINGBEE_API_KEY: ${{ secrets.SCRAPINGBEE_API_KEY }}
-      SCRAPINGBEE_STEALTH_PROXY: 'true'
-      YAD2_MAX_REQUESTS: '60'
+      BRIGHTDATA_API_KEY: ${{ secrets.BRIGHTDATA_API_KEY }}
+      BRIGHTDATA_UNLOCKER_ZONE: ${{ secrets.BRIGHTDATA_UNLOCKER_ZONE }}
+      BRIGHTDATA_FREE_TIER_CONFIRMED: ${{ inputs.free_tier_confirmed }}
+      YAD2_MAX_REQUESTS: ${{ inputs.max_requests }}
+      YAD2_SCOPE_ID: ${{ inputs.scope_id }}
+      YAD2_DAILY_REQUEST_CAP: '60'
+      YAD2_MONTHLY_REQUEST_CAP: '4000'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -24,4 +41,20 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx tsc -p tsconfig.server.json --noEmit false --outDir .server-build
-      - run: node scripts/yad2-sync.mjs
+      - run: node scripts/yad2-collect.mjs
+  process:
+    needs: collect
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npx tsc -p tsconfig.server.json --noEmit false --outDir .server-build
+      - run: node scripts/yad2-process.mjs

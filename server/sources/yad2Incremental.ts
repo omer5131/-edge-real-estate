@@ -1,4 +1,4 @@
-import {recentListing} from './scrapingBee.js';
+import {recentListing} from './yad2Source.js';
 // No ordering guarantee: daily discovery is a bounded front-page scan, not
 // proof that all new ads have been found. Never reconcile disappearance here.
 export function collectionPlan(scope:any,now=new Date()) {

@@ -1,36 +1,51 @@
-# Yad2: one-time backfill, then daily new listings
+# Yad2: isolated acquisition and offline processing
 
-Enabled city/market scopes are Haifa (4000), Netanya (7400), and Petah Tikva (7900), sale and rental. Nationwide scopes remain disabled. Additional towns need their own city-filtered URL and matching Hebrew `city_names`. Use a new scope ID when changing coverage and disable the old one.
+Bright Data Web Unlocker replaces ScrapingBee. There is no Apify dependency or automatic paid-provider fallback.
 
-## Collection phases
+## Service boundary
 
-1. **Initial backfill:** the original-publication window starts 30 days before the scope's first collection. This lower boundary is fixed in `backfill_started_at`, including when the cost budget requires multiple executions. Public pagination is traversed once, checkpointing completed pages. Budget exhaustion does not mark the backfill complete. Original publication dates are read from `dates.createdAt` on detail pages, never from update/bump/observation dates.
-2. **Daily incremental discovery:** after `backfill_completed_at` is set, each execution starts at the scope's first results page. Already stored IDs are skipped entirely, including price changes. Cache-only IDs can recover an interrupted insert without another HTTP request. Unknown IDs get one detail/date validation; only newly published ads since the last successful cycle, with a one-day overlap and a maximum age of 30 days, enter the dataset. The overlap catches same-day publications and retries without duplicates. The successful cycle's start time is the watermark, avoiding a gap for ads published during collection.
+| Job | Reads | Writes | Credentials |
+| --- | --- | --- | --- |
+| Collector (`npm run collect:yad2`) | Public Yad2 pages via Web Unlocker, scopes, known IDs | Source pages/records, request counters, acquisition checkpoints | Database + Bright Data API key/zone |
+| Processor (`npm run process:yad2`) | Saved ready source records | Normalized dataset/history, processing status, existing Edge projections | Database only |
+| Existing research/scoring services | Dataset and Edge tables | Their own derived results | No Bright Data credentials |
 
-Daily discovery defaults to at most three results pages per city/market (`daily_max_pages`), stopping earlier after two consecutive pages containing no unknown in-scope IDs (`known_page_stop`). **This is bounded, low-cost discovery, not guaranteed complete coverage.** Yad2's promoted/bumped results are not proven to be ordered by original publication date. Run reports include `coverage` and `discovery_truncated`; unknown ads outside the scanned window can be missed. Do not silently call this complete source coverage.
+Jobs are separate processes with distinct leases. The workflow runs processing even after a partial/failed collector. Downstream retries make no source requests. These are credential/execution boundaries, not separate database-role permissions: both currently use the configured database role. Separate least-privilege roles can be provisioned later.
 
-No repeated historical backfill occurs after the first phase completes. If the first phase needs several budget-limited executions, those are continuations of the same initial backfill, not fresh rolling 30-day imports. Sale and rental identities remain distinct.
+## Durable handoff
 
-## Request controls and extraction
+Migration 015 adds `yad2_source_pages`, `yad2_source_records`, and persistent `yad2_request_usage`. Pages retain versioned property-only source JSON plus pagination and collection context, not full HTML or seller contact fields. Immutable saved pages survive interruptions; an unfinished page is replayed from storage rather than downloaded again.
 
-There is a hard default limit of 60 HTTP attempts per run (`YAD2_MAX_REQUESTS`), including retries, and 10 attempts per city/market (`max_requests`). Initial backfill has a per-execution 10-page cap (`max_pages`). Limits are ceilings, not a target; quieter daily runs stop sooner. Budget-limited runs are partial, not extraction failures. Authentication errors abort immediately instead of trying every city with the same rejected credential.
+Records use stable `(market, listing_id)` identities. State progresses from `awaiting_detail` to `ready`, then `processed` or `filtered`. One detail fetch resolves original publication dates missing from feeds. Old cached publication records are reused. Rejected records remain saved to prevent repeated detail spending. The collector never writes `yad2_dataset`. The processor validates/normalizes dates, city and numeric fields, inserts new IDs and marks processing status atomically. Unknown dates are filtered, never invented. Only original `dates.createdAt` counts, not bump dates.
 
-ScrapingBee fetches native Yad2 HTML with JavaScript and stealth proxies. The collector reads `__NEXT_DATA__`; it does not request AI extraction. Region-bearing item URLs supply stable IDs and developer project promotions are excluded. Malformed, blocked or unconfirmed empty pages fail safely. Rendering/proxy credits can vary; a request ceiling is not a credit ceiling.
+The processor uses the record's collection-time context, so delayed processing does not change the original selection boundary. Existing Edge projection is idempotent and is retried on every processor invocation, even with no new records. To re-evaluate filtered records after a parser or rule correction, make an explicit reviewed replay from saved data; do not restart a paid crawl.
 
-`details=false` still requires a one-time detail request because feeds lack original publication dates. Migration 013 stores these details, including rejected old/undated ads, so repeat observations do not spend more detail requests. `details=true` can enrich a new feed row if it already carries a publication date; it does not enable refreshing known ads. Unknown dates are never invented.
+## Initial backfill and daily discovery
 
-## Persistence and research
+Default enabled scopes: Haifa (4000), Netanya (7400), Petah Tikva (7900), sale and rental. Nationwide scopes are disabled. Additional towns require a new city-filtered scope URL and matching Hebrew `city_names`. Use a new scope ID when changing coverage, and disable the old scope.
 
-`yad2_dataset` is keyed by `(market,listing_id)`. `yad2_listing_changes` retains prior history, but new-only collection no longer observes later price changes, removals or reactivations. Existing history is not deleted. Incremental discovery never performs disappearance reconciliation: not revisiting a listing is not evidence it disappeared or sold.
+Initial collection traverses public pagination once for ads originally published in the 30 days before the scope first started. Its lower boundary stays fixed across budget-limited continuations. A per-run page/request cap does not mark this backfill complete; it resumes its saved cursor.
 
-The research feed at `/yad2.html` reads the database and shows only original publication dates within the last 30 days and enabled cities. Historical rows remain stored and their history remains queryable. Latest inserted rows are projected into existing Edge sale/rental tables for scores and subscriptions. Asking prices are not completed transaction prices; rent is monthly. Exact city/neighborhood resolution can be missing.
+After backfill finishes, daily discovery scans up to three front pages per city/market (or stops after two known pages), skips known IDs, and accepts new original publications since the last successful cycle with a one-day overlap and maximum age 30 days. Scope order rotates by last collection attempt to avoid starving later cities on a tight budget. Existing prices/removals are not refreshed. History is retained, and no disappearance reconciliation runs.
 
-Migration 014 adds persistent phase/checkpoint fields. It does not mistake the prior single-listing validation for a completed backfill. Migrations are idempotent and run through `scripts/migrate-yad2.mjs`.
+Promoted/bumped listings mean bounded daily scans are **not guaranteed complete source coverage**. Reports distinguish initial/backfill state and truncated discovery. Recent research results are restricted to enabled cities and original publication dates in the last 30 days.
 
-## Activation and operations
+## Free-tier safety and activation
 
-The daily workflow needs GitHub Actions secrets `DATABASE_URL` and `SCRAPINGBEE_API_KEY`. **Its schedule remains paused after the live HTTP 401 authentication errors.** Fix the credential and validate a small run before restoring daily 01:00 UTC scheduling. No secrets appear in the client. Local execution: `npm run sync:yad2` with the same environment.
+Bright Data documents 5,000 monthly shared free credits for eligible accounts; Web Unlocker uses one credit per request. A funded account can automatically continue on paid balance when free credits run out. App counters cannot see other account usage or enforce Bright Data billing settings. Verify account eligibility, no funded balance and no automatic recharge before setting `BRIGHTDATA_FREE_TIER_CONFIRMED=true`. Do not deposit funds to make this pilot work.
 
-`/api/yad2-admin` GET exposes scopes and recent reports; authenticated POST accepts `{id,market,url,enabled,config}`. Config supports `max_pages`, `max_requests`, `daily_max_pages`, `known_page_stop`, `details`, `published_within_days` and `city_names`. Phase fields are not overwritten by config updates. Configuring an old scope for a new town is not a substitute for a new backfill scope.
+Collector defaults to a **three-request pilot**, with hard local ceilings of 60 attempts per run/day and 4,000 per UTC calendar month, persisted before each POST. Limits can be lowered but not raised past these ceilings. Reservations conservatively count ambiguous failures and are not refunded. No automatic retries, TLS bypass or provider fallback. Authentication, account/quota and blocked/malformed responses stop collection safely. Budget exhaustion preserves source data and incomplete checkpoints.
 
-Validation: `npm run test:yad2` uses PostgreSQL-compatible PGlite for migrations/history and full-worker mocks for new-only discovery, cache recovery and price-change skipping. These are not evidence that live authentication or exhaustive source coverage works. Historical listings back to 2022 cannot be recovered from current Yad2 pages; OVER transaction imports remain separate.
+GitHub Actions scheduling remains **paused**, manual dispatch only. Collection receives `DATABASE_URL`, `BRIGHTDATA_API_KEY` and `BRIGHTDATA_UNLOCKER_ZONE`; processing receives only `DATABASE_URL`. The app does not receive the provider key. Add Bright Data values as repository Actions secrets, not committed files or chat messages.
+
+Migration 015 is deliberately opt-in: normal app builds apply only existing migrations 011–014. Before activation, validate migration 015 on a Neon branch of the existing database, then run `YAD2_APPLY_STAGING_MIGRATION=true node scripts/migrate-yad2.mjs` against the intended database. `DATABASE_URL_UNPOOLED` is preferred for migration; otherwise the existing Neon pooled hostname is converted to its direct equivalent. Do not point collection at a different database accidentally. Worker scripts do not run schema migrations.
+
+First manual dispatch: choose `recent-haifa-rent`, max requests `3`, and confirm free-tier settings only after checking the account. A capped pilot will usually leave backfill incomplete; that is expected, not a failed data handoff. Inspect saved records and both job reports before enabling a daily cron. No live Unlocker request has been made during implementation, and Yad2 compatibility still needs a pilot.
+
+Official references:
+- https://docs.brightdata.com/products/web-unlocker/send-your-first-request
+- https://docs.brightdata.com/general/account/billing-and-pricing/free-tier
+
+## Verification
+
+`npm run test:yad2` covers source parsing, stable IDs, fixed backfill boundaries, offline processing, restart without repeated page requests, persistent caps, auth stop, downstream retries, new-only writes and retained history. Tests use synthetic source pages and local PostgreSQL-compatible PGlite; they make no provider calls. A production-like Neon-branch migration check and live pilot are still required for activation.

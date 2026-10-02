@@ -16,30 +16,6 @@ export const pageRules={
  listings:{type:'list',description:'Every distinct real estate listing on this page, including promoted and agency listings. Do not truncate. Exclude ads unrelated to real estate. Each URL must be the actual /realestate/item/ link.',output:listingFields},
  next_url:'Actual next results page link, absolute or relative. null only if there is no next page. Never invent a link.'
 };
-export async function scrapeJson(url:string,rules:any,fetcher:typeof fetch=fetch,beforeRequest:()=>void=()=>{}) {
- const key=process.env.SCRAPINGBEE_API_KEY;
- if(!key) throw new Error('SCRAPINGBEE_API_KEY is not configured');
- const endpoint=new URL('https://app.scrapingbee.com/api/v1/');
- endpoint.searchParams.set('url',yad2Url(url));
- endpoint.searchParams.set('render_js','true');
- const native=rules===pageRules || rules===listingFields;
- if(!native)endpoint.searchParams.set('ai_extract_rules',JSON.stringify(rules));
- if(process.env.SCRAPINGBEE_STEALTH_PROXY==='true') endpoint.searchParams.set('stealth_proxy','true');
- for(let attempt=0;attempt<3;attempt++) {
-  beforeRequest();
-  let response:Response;
-  try { response=await fetcher(endpoint,{headers:{Authorization:`Bearer ${key}`},signal:AbortSignal.timeout(90000)}); }
-  catch { if(attempt===2) throw new Error('ScrapingBee request timed out or failed'); continue; }
-  if(response.ok) {
-   if(native)return parseYad2Html(await response.text(),url,rules===pageRules);
-   try{return await response.json();}catch{throw new Error('ScrapingBee returned a non-JSON extraction');}
-  }
-  if(![429,500,502,503,504].includes(response.status)||attempt===2) throw new Error(`ScrapingBee HTTP ${response.status}`);
-  await new Promise(resolve=>setTimeout(resolve,1000*2**attempt));
- }
- throw new Error('ScrapingBee retries exhausted');
-}
-
 export function parseYad2Html(html:string,url:string,isFeed:boolean) {
  const match=html.match(/<script\b[^>]*id=["']__NEXT_DATA__["'][^>]*>([\s\S]*?)<\/script>/);
  if(!match)throw new Error('Missing Yad2 page data; blocked or changed page');

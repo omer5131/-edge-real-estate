@@ -1,6 +1,6 @@
 import type {VercelRequest,VercelResponse} from '@vercel/node';
 import {queryDatabase} from '../db.js';
-import {yad2Url} from '../sources/scrapingBee.js';
+import {yad2Url} from '../sources/yad2Source.js';
 export default async function handler(req:VercelRequest,res:VercelResponse) {
  res.setHeader('Cache-Control','no-store');
  try {
