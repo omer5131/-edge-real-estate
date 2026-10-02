@@ -1,0 +1,73 @@
+name: Area Intelligence Validation
+
+on:
+  push:
+    branches:
+      - area-intelligence-foundation
+    paths:
+      - "db/015_area_intelligence.sql"
+      - "server/areaScoring.ts"
+      - "server/areaIntelligence.ts"
+      - "server/http/area-intelligence.ts"
+      - "scripts/migrate-area-intelligence.mjs"
+      - "tests/area-scoring.test.mjs"
+      - ".github/workflows/area-intelligence-validation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Verify DB secret exists
+        run: |
+          test -n "$DATABASE_URL" || (echo "DATABASE_URL repository secret is missing" && exit 1)
+      - name: Test scoring primitives
+        run: npm run test:areas
+      - name: Apply additive area schema
+        run: npm run migrate:areas
+      - name: Build server modules
+        run: npx tsc -p tsconfig.server.json --noEmit false --outDir .server-build
+      - name: Run first area refresh
+        run: |
+          node --input-type=module <<'NODE'
+          const { refreshAreaIntelligence } = await import('./.server-build/server/areaIntelligence.js');
+          const result = await refreshAreaIntelligence();
+          console.log('AREA_REFRESH_RESULT='+JSON.stringify(result));
+          NODE
+      - name: Validate resulting coverage
+        run: |
+          node --input-type=module <<'NODE'
+          import { neon } from '@neondatabase/serverless';
+          const sql=neon(process.env.DATABASE_URL);
+          const [summary]=await sql`
+            SELECT
+              (SELECT count(*)::int FROM area_dimensions) areas,
+              (SELECT count(*)::int FROM transaction_area_map) mapped_transactions,
+              (SELECT count(*)::int FROM listing_area_map) mapped_listings,
+              (SELECT count(*)::int FROM area_map_cache) scored_areas,
+              (SELECT count(*)::int FROM area_map_cache WHERE deal_heat IS NOT NULL) deal_heat_areas,
+              (SELECT count(*)::int FROM area_map_cache WHERE area_score IS NOT NULL) area_score_areas
+          `;
+          console.log('AREA_COVERAGE='+JSON.stringify(summary));
+          const top=await sql`
+            SELECT a.locality_name,a.statistical_area_code,c.deal_heat,c.area_score,c.confidence_level,
+                   c.deal_count,c.transaction_count_12m,c.coverage_pct
+            FROM area_map_cache c JOIN area_dimensions a ON a.id=c.area_id
+            WHERE c.deal_heat IS NOT NULL OR c.area_score IS NOT NULL
+            ORDER BY c.deal_heat DESC NULLS LAST,c.area_score DESC NULLS LAST
+            LIMIT 20
+          `;
+          console.log('AREA_TOP_SAMPLE='+JSON.stringify(top));
+          NODE
