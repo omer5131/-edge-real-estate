@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "node reconstruct.mjs && vite",
-    "build": "node reconstruct.mjs && tsc -b && tsc -p tsconfig.server.json --noEmit false --outDir .server-build && vite build && node scripts/migrate-over.mjs && node scripts/migrate-yad2.mjs && node scripts/migrate-research.mjs",
+    "build": "node reconstruct.mjs && tsc -b && tsc -p tsconfig.server.json --noEmit false --outDir .server-build && vite build && node scripts/migrate-over.mjs && node scripts/migrate-yad2.mjs && node scripts/migrate-research.mjs && node scripts/migrate-area-intelligence.mjs",
     "preview": "vite preview --host 0.0.0.0",
     "backfill:over": "node scripts/over-backfill.mjs",
     "check:server": "tsc -p tsconfig.server.json",
