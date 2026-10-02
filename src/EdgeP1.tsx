@@ -1,3 +1,4 @@
+import DataExplorer from './components/DataExplorer';
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
@@ -351,7 +352,7 @@ export default function EdgeP1(){
         {tab==='research'&&<Research onOpen={x=>{setProperty(x);setTab('property')}}/>}
         {tab==='opps'&&<Opportunities items={data.opportunities||[]} onOpen={x=>{setProperty(x);setTab('property')}}/>}
         {tab==='area'&&currentArea&&<AreaView area={currentArea}/>}
-        {tab==='data'&&<DataConsole status={status}/>} 
+        {tab==='data'&&<div className='screen'><DataExplorer/><DataConsole status={status}/></div>} 
         {tab==='admin'&&<Admin/>}
         {tab==='property'&&property&&<PropertyView item={property} onBack={()=>setTab('opps')}/>}
       </main>

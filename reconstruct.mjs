@@ -237,3 +237,10 @@ const p1Main = [
 fs.writeFileSync('src/main.tsx', p1Main, 'utf8');
 
 console.log(`Reconstructed ${Object.keys(files).length} Edge source files and live-data bootstrap.`);
+
+// Dataset research is a first-class panel in the Data section.
+const explorerPath='src/EdgeP1.tsx';
+let explorerSource=fs.readFileSync(explorerPath,'utf8');
+if(!explorerSource.includes("import DataExplorer from")) explorerSource="import DataExplorer from './components/DataExplorer';\n"+explorerSource;
+explorerSource=explorerSource.replace("{tab==='data'&&<DataConsole status={status}/>}" ,"{tab==='data'&&<div className='screen'><DataExplorer/><DataConsole status={status}/></div>}");
+fs.writeFileSync(explorerPath,explorerSource);
