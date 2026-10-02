@@ -62,7 +62,7 @@ export default async function handler(req:VercelRequest,res:VercelResponse){
     ), latest_score AS(
      SELECT DISTINCT ON(entity_id) entity_id,score,model_version,calculated_at
      FROM opportunity_scores
-     WHERE entity_type='listing' AND model_version='edge-v0.2'
+     WHERE entity_type='listing'
      ORDER BY entity_id,calculated_at DESC
     ), comps AS(
      SELECT neighborhood_id,
@@ -88,6 +88,7 @@ export default async function handler(req:VercelRequest,res:VercelResponse){
           WHEN comps.comp_count>=3 THEN 'low'
           ELSE 'insufficient' END confidence,
      sc.score::int score,sc.model_version,sc.calculated_at,
+     (sc.entity_id IS NOT NULL) system_flag,(sub.id IS NOT NULL) manual_flag,
      coalesce(sig.price_reductions,0)+1 price_points,
      sig.original_asking_price::float8 original_price,
      l.last_seen_at
@@ -96,10 +97,11 @@ export default async function handler(req:VercelRequest,res:VercelResponse){
     JOIN neighborhoods n ON n.id=l.neighborhood_id
     JOIN cities c ON c.id=l.city_id
     LEFT JOIN latest_score sc ON sc.entity_id=l.id
+    LEFT JOIN asset_subscriptions sub ON sub.entity_type='listing' AND sub.entity_id=l.id
     LEFT JOIN listing_seller_signals sig ON sig.listing_id=l.id
     LEFT JOIN comps ON comps.neighborhood_id=l.neighborhood_id
-    WHERE l.status='active'
-    ORDER BY sc.score DESC NULLS LAST,l.last_seen_at DESC
+    WHERE l.status='active' AND (sc.entity_id IS NOT NULL OR sub.id IS NOT NULL)
+    ORDER BY (sub.id IS NOT NULL) DESC,sc.score DESC NULLS LAST,l.last_seen_at DESC
     LIMIT 100
    `,
    sql`
