@@ -244,3 +244,8 @@ let explorerSource=fs.readFileSync(explorerPath,'utf8');
 if(!explorerSource.includes("import DataExplorer from")) explorerSource="import DataExplorer from './components/DataExplorer';\n"+explorerSource;
 explorerSource=explorerSource.replace("{tab==='data'&&<DataConsole status={status}/>}" ,"{tab==='data'&&<div className='screen'><DataExplorer/><DataConsole status={status}/></div>}");
 fs.writeFileSync(explorerPath,explorerSource);
+
+let agentSource=fs.readFileSync(explorerPath,'utf8');
+if(!agentSource.includes("import EdgeAgentDrawer from")) agentSource="import EdgeAgentDrawer from './components/EdgeAgentDrawer';\n"+agentSource;
+agentSource=agentSource.replace('<AskDrawer open={askOpen}', '<EdgeAgentDrawer open={askOpen}');
+fs.writeFileSync(explorerPath,agentSource);

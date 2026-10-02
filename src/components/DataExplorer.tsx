@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import './DataExplorer.css';
+import SqlAgentPanel from './SqlAgentPanel';
 type Column={column_name:string;data_type:string;is_nullable:string;meaning:string;verified:boolean};
 type Dataset={table:string;title:string;grain:string;notes:string;source:string;status:string;lastSuccessAt?:string;rowCount?:number;coverage?:string;columns:Column[];examples:string[]};
 type Result={columns:{name:string}[];rows:unknown[][];rowCount:number;truncated:boolean;elapsedMs:number};
@@ -15,6 +16,7 @@ export default function DataExplorer(){
  const shown=datasets.filter(d=>`${d.title} ${d.table} ${d.source}`.toLowerCase().includes(search.toLowerCase()));
  return <section className="data-explorer panel" dir="ltr" aria-label="SQL dataset explorer">
   <header className="dx-header"><div><h2>Dataset explorer</h2><p>Preview collected data, inspect its meaning, and query with SQL.</p></div><span>Read-only · 200-row query limit</span></header>
+  <SqlAgentPanel onDraft={draft=>{setSql(draft);setView('sql');setResult(null);setError('');}}/>
   {loading?<p role="status">Loading datasets…</p>:catalogError?<p role="alert">{catalogError}</p>:!datasets.length?<p>No research datasets are initialized yet.</p>:<div className="dx-layout">
    <aside className="dx-sidebar"><label htmlFor="dx-search">Available datasets ({datasets.length})</label><input id="dx-search" value={search} placeholder="Find a dataset…" onChange={e=>setSearch(e.target.value)}/><div className="dx-list">{shown.map(d=><button key={d.table} aria-pressed={selected===d.table} className={selected===d.table?'selected':''} onClick={()=>setSelected(d.table)}><strong>{d.title}</strong><small>{d.source} · {d.status}{d.rowCount!=null?` · ${Number(d.rowCount).toLocaleString()} observations`:''}</small></button>)}{!shown.length?<p>No matching datasets.</p>:null}</div></aside>
    <div className="dx-workspace">{dataset?<><h3>{dataset.title}</h3><code className="dx-name">public."{dataset.table}"</code><p>{dataset.grain}</p><p className="dx-note">{dataset.notes}</p>{dataset.coverage?<p>{dataset.coverage}</p>:null}{dataset.lastSuccessAt?<p>Last successful import: {new Date(dataset.lastSuccessAt).toLocaleString()}</p>:null}

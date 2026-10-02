@@ -1,6 +1,8 @@
 import type { VercelRequest,VercelResponse } from '@vercel/node';
 import { sql } from '../server/db.js';
 
+export const config = { maxDuration: 120 };
+
 const aliasMap:Record<string,string>={
   'קריית אליעזר':'kiryat-eliezer-haifa','קרית אליעזר':'kiryat-eliezer-haifa',
   'קריית שפרינצק':'kiryat-sprinzak-haifa','קרית שפרינצק':'kiryat-sprinzak-haifa','שפרינצק':'kiryat-sprinzak-haifa',
@@ -15,6 +17,7 @@ function wantedNeighborhoods(q:string){
 }
 
 export default async function handler(req:VercelRequest,res:VercelResponse){
+  if(['sql-agent','edge-agent'].includes(String(req.query.mode)))return (await import('../server/http/agent-chat.js')).default(req,res);
   if(req.query.mode==='data-explorer')return (await import('../server/http/data-explorer.js')).default(req,res);
   if(req.query.mode==='yad2-research')return (await import('../server/http/yad2-research.js')).default(req,res);
   if(req.query.mode==='yad2-admin')return (await import('../server/http/yad2-admin.js')).default(req,res);

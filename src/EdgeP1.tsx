@@ -1,3 +1,4 @@
+import EdgeAgentDrawer from './components/EdgeAgentDrawer';
 import DataExplorer from './components/DataExplorer';
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
@@ -357,7 +358,7 @@ export default function EdgeP1(){
         {tab==='property'&&property&&<PropertyView item={property} onBack={()=>setTab('opps')}/>}
       </main>
     </div>
-    <AskDrawer open={askOpen} onClose={()=>setAskOpen(false)}/>
+    <EdgeAgentDrawer open={askOpen} onClose={()=>setAskOpen(false)}/>
   </div>;
 }
 
