@@ -19,12 +19,14 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
   }
 
   try {
-    await import('../server/db');
+    await import('../server/db.js');
     result.dbModuleImport = true;
   } catch (e:any) {
     result.dbModuleImport = false;
     result.dbModuleError = e?.message ?? String(e);
   }
+
+  try { await import('../server/agent/runIngestion.js'); result.ingestionModuleImport=true; } catch(e:any) { result.ingestionModuleImport=false; result.ingestionModuleError=e?.message ?? String(e); }
 
   return res.status(200).json(result);
 }
