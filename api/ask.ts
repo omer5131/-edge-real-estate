@@ -15,6 +15,20 @@ function wantedNeighborhoods(q:string){
 }
 
 export default async function handler(req:VercelRequest,res:VercelResponse){
+  if(req.method==='GET' && String(req.query.mode||'')==='run_collection'){
+    const token=typeof req.query.token==='string'?req.query.token.trim():'';
+    if(!token)return res.status(401).json({error:'run_token_required'});
+    const used=await sql`UPDATE manual_run_tokens SET consumed_at=now() WHERE token_hash=encode(digest(${token},'sha256'),'hex') AND consumed_at IS NULL AND expires_at>now() RETURNING token_hash`;
+    if(!used.length)return res.status(401).json({error:'invalid_or_expired_run_token'});
+    try{
+      const mod=await import('../server/agent/runIngestion.js');
+      const report=await mod.runEdgeIngestion({skipOver:true});
+      return res.status(200).json({ok:true,skipOver:true,report});
+    }catch(error:any){
+      console.error('Token collection failed',error);
+      return res.status(500).json({ok:false,error:error?.message??String(error)});
+    }
+  }
   if(req.method==='GET' && String(req.query.mode||'')==='admin'){
     const [config]=await sql`SELECT * FROM score_configurations WHERE is_active=true ORDER BY updated_at DESC LIMIT 1`;
     const areas=await sql`SELECT n.id,n.slug,n.name_he,c.name_he city,coalesce(f.is_active,false) followed,coalesce(f.research_depth,'basic') research_depth FROM neighborhoods n JOIN cities c ON c.id=n.city_id LEFT JOIN followed_areas f ON f.neighborhood_id=n.id ORDER BY c.name_he,n.name_he`;
