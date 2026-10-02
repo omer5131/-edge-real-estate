@@ -1,3 +1,11 @@
+# Focused Yad2 collection (October 2026)
+
+Current defaults: Haifa (4000), Netanya (7400), Petah Tikva (7900), both sale and rental. Migration 012 disables prior scopes once and creates six configurable city scopes. Additional towns require a city-filtered URL and matching Hebrew city_names in scope config.
+
+Only explicitly verified original publication dates within the last 30 days enter the dataset; unknown dates, older ads, future dates and city mismatches are filtered. first_seen and bump dates are not substitutes. Results pages may still contain older ads: filtering limits stored rows, not the provider requests needed to read pages. Missing publication dates can reduce coverage. No assumption that pagination is ordered by original publication date.
+
+Default details=false: one request per results page, no per-listing requests. Explicit detail mode remains available for selected scopes. Each run has a hard default budget of 60 HTTP attempts including retries (YAD2_MAX_REQUESTS), and 10 pages per city scope. Budget/page exhaustion leaves the scope incomplete and checkpointed; it never proves disappearance. Publication-window scopes do not reconcile disappearance, because aging out is not removal. History remains in the database.
+
 # Yad2 nationwide research dataset
 
 ScrapingBee is the HTTP and extraction provider. It takes public Yad2 URLs; the Yad2 marketing page is not a bulk export endpoint. `ai_extract_rules` generates structured JSON, using JavaScript rendering and optional stealth proxies. The collector validates responses before writing.
@@ -10,7 +18,7 @@ The workflow is committed but cannot successfully collect until those secrets ar
 
 ## Scope and coverage
 
-Default scopes are nationwide `/realestate/forsale` and `/realestate/rent`, without neighborhood or apartment-only filters. `yad2_crawl_scopes` supports additional city, region and property-type search URLs. It is independent of followed areas. Scope changes are made via authenticated POST `/api/yad2-admin` with `{id,market,url,enabled,config}`. Config supports `max_pages` and `details` (default true). Use a new scope ID when changing coverage, and disable the old scope.
+Previous implementation defaults were nationwide `/realestate/forsale` and `/realestate/rent`, without neighborhood or apartment-only filters. `yad2_crawl_scopes` supports additional city, region and property-type search URLs. It is independent of followed areas. Scope changes are made via authenticated POST `/api/yad2-admin` with `{id,market,url,enabled,config}`. Config supports `max_pages`, `details` (default false), `published_within_days` and `city_names`. Use a new scope ID when changing coverage, and disable the old scope.
 
 Every scope follows actual next-page links until exhausted. If Yad2 limits broad searches, divide them into exhaustive smaller scopes (city/region/property type); a finished root pagination chain is not proof that Yad2 exposes every live listing. Reported coverage means the public pages actually traversed. A cap, blocked page, repeated page, malformed extraction or a failed listing detail marks the scope failed, retaining collected rows but skipping removal reconciliation. Completed pages are checkpointed. A failed run resumes from the last unfinished page in the same reconciliation cycle; upserts make replay safe. The missing-listing count advances only after the entire cycle completes. Requests are sequential, bounded by a default 10,000-page per-scope cap and the workflow's 350-minute timeout. Inspect scope completion and runtime before assuming daily nationwide coverage.
 

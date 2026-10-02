@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {PGlite} from '@electric-sql/pglite';
-import {normalizeListing,yad2Url,validatePage,scrapeJson} from '../.server-test/server/sources/scrapingBee.js';
+import {normalizeListing,yad2Url,validatePage,scrapeJson,recentListing,requestBudget} from '../.server-test/server/sources/scrapingBee.js';
 import {listingWrite,completeScopeWrites} from '../.server-test/server/sources/yad2Dataset.js';
 const row={url:'https://www.yad2.co.il/realestate/item/abc123',price:1200000,city:'חיפה',rooms:3,area_sqm:80};
 test('identity stays stable after price changes; missing numbers remain null',()=>{
@@ -52,4 +52,24 @@ test('removal needs three completed missing cycles and respects overlapping scop
  assert.equal((await db.query('SELECT status FROM yad2_dataset')).rows[0].status,'active');
  await finish('city-sale');assert.equal((await db.query('SELECT status FROM yad2_dataset')).rows[0].status,'inactive');
  await db.close();
+});
+
+test('recent city collection rejects unknown, old, future and invalid publication dates',()=>{
+ const config={city_names:['חיפה'],published_within_days:30},now=new Date('2026-10-02T10:00:00Z');
+ assert.equal(recentListing({...row,published_at:'2026-09-02'},config,now),true);
+ for(const published_at of [null,'2026-09-01','2026-10-03','2026-09-31','today'])assert.equal(recentListing({...row,published_at},config,now),false);
+ assert.equal(recentListing({...row,city:'תל אביב',published_at:'2026-10-01'},config,now),false);
+});
+test('request budget prevents an extra network request, including retries',async()=>{
+ const budget=requestBudget(1);process.env.SCRAPINGBEE_API_KEY='test';let calls=0;
+ await assert.rejects(()=>scrapeJson(row.url,{},async()=>{calls++;throw new Error('network');},()=>budget.take()),/budget reached/);
+ assert.equal(calls,1);assert.equal(budget.used,1);delete process.env.SCRAPINGBEE_API_KEY;
+});
+test('focused scope migration disables nationwide scopes and preserves later configuration',async()=>{
+ const db=new PGlite();await db.exec(fs.readFileSync('db/011_yad2_scrapingbee.sql','utf8'));
+ const migration=fs.readFileSync('db/012_yad2_focused_scopes.sql','utf8');await db.exec(migration);
+ const scopes=(await db.query('SELECT * FROM yad2_crawl_scopes WHERE enabled')).rows;
+ assert.equal(scopes.length,6);assert.ok(scopes.every(s=>s.config.details===false&&s.config.published_within_days===30));
+ await db.query("UPDATE yad2_crawl_scopes SET enabled=false WHERE id='recent-haifa-sale'");await db.exec(migration);
+ assert.equal((await db.query('SELECT * FROM yad2_crawl_scopes WHERE enabled')).rows.length,5);await db.close();
 });

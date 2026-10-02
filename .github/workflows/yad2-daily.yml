@@ -15,7 +15,8 @@ jobs:
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       SCRAPINGBEE_API_KEY: ${{ secrets.SCRAPINGBEE_API_KEY }}
-      SCRAPINGBEE_STEALTH_PROXY: ${{ vars.SCRAPINGBEE_STEALTH_PROXY }}
+      SCRAPINGBEE_STEALTH_PROXY: 'true'
+      YAD2_MAX_REQUESTS: '60'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

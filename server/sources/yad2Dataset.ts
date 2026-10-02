@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { queryDatabase, databaseTransaction } from '../db.js';
-import { scrapeJson, pageRules, listingFields, normalizeListing, validatePage, yad2Url } from './scrapingBee.js';
+import { scrapeJson, pageRules, listingFields, normalizeListing, validatePage, yad2Url, recentListing, requestBudget } from './scrapingBee.js';
 
 export function listingWrite(market:string,row:any,scopeId:string,crawlId:string) {
  const {id,data}=normalizeListing(row);
@@ -37,6 +37,7 @@ async function projectLegacy(market:string) {
 }
 export async function runYad2Dataset() {
  if(!process.env.SCRAPINGBEE_API_KEY)throw new Error('SCRAPINGBEE_API_KEY is not configured');
+ const budget=requestBudget(Number(process.env.YAD2_MAX_REQUESTS??60));
  const lock=randomUUID();
  // A renewable lease avoids concurrent workers without holding a connection during HTTP calls.
  const acquired=await queryDatabase(`INSERT INTO yad2_worker_lock(id,token,expires_at) VALUES(1,$1,now()+interval '5 minutes')
@@ -50,6 +51,7 @@ export async function runYad2Dataset() {
   crawlId=(await queryDatabase('INSERT INTO yad2_crawls DEFAULT VALUES RETURNING id'))[0].id;
   const scopes=await queryDatabase('SELECT * FROM yad2_crawl_scopes WHERE enabled ORDER BY id');
   for(const scope of scopes) {
+   if(budget.used>=Number(process.env.YAD2_MAX_REQUESTS??60)){report.scopes.push({id:scope.id,status:'partial',error:'Request budget reached'});continue;}
    let pages=Number(scope.cycle_pages??0),seen=0;
    const cycleId=scope.cycle_id??crawlId;
    try {
@@ -61,40 +63,44 @@ export async function runYad2Dataset() {
      await heartbeat();
      if(pages>=maxPages)throw new Error('Page cap reached; scope incomplete. Split into smaller city/property scopes.');
      if(visited.has(url))throw new Error('Pagination loop; scope incomplete');
-     visited.add(url);report.requests++;
-     const page=validatePage(await scrapeJson(url,pageRules));pages++;
+     visited.add(url);
+     const page=validatePage(await scrapeJson(url,pageRules,fetch,()=>budget.take()));pages++;
      const pageIds=page.listings.map((r:any)=>normalizeListing(r).id).sort();
      if(pageIds.length && JSON.stringify(pageIds)===JSON.stringify(lastIds))throw new Error('Repeated page across checkpoint; scope incomplete');
      let newIds=0;
      for(const summary of page.listings) {
+      if(!recentListing(summary,scope.config??{})){report.filtered=(report.filtered??0)+1;continue;}
       const item=normalizeListing(summary);
       if(ids.has(item.id))continue;ids.add(item.id);newIds++;
       let row=summary;
-      if(scope.config?.details!==false) {
-       await heartbeat();report.requests++;
-       row=await scrapeJson(item.data.url,listingFields);
+      if(scope.config?.details===true) {
+       await heartbeat();
+       row=await scrapeJson(item.data.url,listingFields,fetch,()=>budget.take());
        // Identity comes from the discovered real link, never from AI inference.
        row={...row,url:item.data.url};
       }
       await heartbeat();await databaseTransaction(listingWrite(scope.market,row,scope.id,cycleId));seen++;report.listings++;
      }
-     if(page.listings.length && !newIds)throw new Error('Repeated results page; scope incomplete');
+     if(page.listings.some((r:any)=>recentListing(r,scope.config??{})) && !newIds)throw new Error('Repeated results page; scope incomplete');
      url=page.next_url?yad2Url(new URL(page.next_url,url).toString(),scope.market):null;
      lastIds=pageIds;
      if(url)await queryDatabase('UPDATE yad2_crawl_scopes SET cursor_url=$2,cycle_pages=$3,last_page_ids=$4::jsonb WHERE id=$1',[scope.id,url,pages,JSON.stringify(pageIds)]);
     }
     await heartbeat();
     // Require three successful complete cycles missing from every enabled scope that saw this listing.
-    await databaseTransaction(completeScopeWrites(scope.id,cycleId));
+    // Aging out of a publication window is not evidence that a listing disappeared.
+    if(scope.config?.published_within_days)await queryDatabase('UPDATE yad2_crawl_scopes SET last_completed_at=now(),last_error=NULL,cycle_id=NULL,cursor_url=NULL,cycle_pages=0,last_page_ids=NULL WHERE id=$1',[scope.id]);
+    else await databaseTransaction(completeScopeWrites(scope.id,cycleId));
     report.scopes.push({id:scope.id,status:'success',pages,seen});
    }catch(e:any){const error=e.message;report.scopes.push({id:scope.id,status:'failed',pages,seen,error});await queryDatabase('UPDATE yad2_crawl_scopes SET last_error=$2 WHERE id=$1',[scope.id,error]);}
   }
+  report.requests=budget.used;
   for(const market of ['sale','rent'])await projectLegacy(market);
   report.ok=report.scopes.length>0&&report.scopes.every((s:any)=>s.status==='success');
   await queryDatabase('UPDATE yad2_crawls SET finished_at=now(),status=$2,report=$3::jsonb WHERE id=$1::uuid',[crawlId,report.ok?'success':'partial',JSON.stringify(report)]);
   return report;
  }catch(e:any){if(crawlId)await queryDatabase(`UPDATE yad2_crawls SET finished_at=now(),status='failed',report=$2::jsonb WHERE id=$1::uuid`,[crawlId,JSON.stringify({error:e.message,...report})]);throw e;}
- finally{await queryDatabase('DELETE FROM yad2_worker_lock WHERE id=1 AND token=$1',[lock]);}
+ finally{report.requests=budget.used;await queryDatabase('DELETE FROM yad2_worker_lock WHERE id=1 AND token=$1',[lock]);}
 }
 
 export function completeScopeWrites(scopeId:string,cycleId:string) { return [
