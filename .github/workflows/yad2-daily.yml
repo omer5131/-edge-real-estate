@@ -1,7 +1,6 @@
 name: Yad2 daily sale and rental dataset
 on:
-  schedule:
-    - cron: '0 1 * * *'
+  # Daily schedule paused until live extraction validation passes.
   workflow_dispatch:
 concurrency:
   group: yad2-daily-dataset
