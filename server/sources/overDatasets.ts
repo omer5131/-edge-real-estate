@@ -10,7 +10,7 @@ type Dataset = { dataset_id: string; table_name: string; source_table: string | 
 let initialization: Promise<unknown> | undefined;
 export function ensureOverSchema(): Promise<unknown> {
   initialization ??= (async()=>{
-    try {const ready=await query("SELECT version FROM research_schema_versions WHERE version='research-v1'");if(ready.length)return;}catch(error:any){if(error.code!=='42P01')throw error;}
+    try {const ready=await query("SELECT version FROM research_schema_versions WHERE version='research-v2'");if(ready.length)return;}catch(error:any){if(error.code!=='42P01')throw error;}
     await transaction([...overSchemaStatements,...researchSchemaStatements()].map(text=>({text})));
   })().catch(error => { initialization = undefined; throw error; });
   return initialization;
@@ -122,7 +122,8 @@ async function ingestDataset(dataset: Dataset, deadline: number, maxPages: numbe
     }
     for (let page = 0; page < maxPages && Date.now() < deadline - 10000; page++) {
       const geometry=d.source_schema.columns.includes('geometry_wkt');
-      const rows = await archiveRows(d.dataset_id, archiveQuery(d.source_table!, { columns:d.source_schema.columns.filter(c=>c!=='geom'),filters, ...cursor, limit: geometry?100:1000 }), deadline - 5000);
+      const columns=[...new Set([...d.source_schema.columns.filter(c=>c!=='geom'),'first_seen','row_hash'])];
+      const rows = await archiveRows(d.dataset_id, archiveQuery(d.source_table!, { columns,filters, ...cursor, limit: geometry?100:1000 }), deadline - 5000);
       if (!rows.length) {
         // Exhaustion, rather than a short response, signals completion: OVER may cap SQL responses.
         await transaction([

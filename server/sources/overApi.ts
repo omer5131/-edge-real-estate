@@ -1,6 +1,15 @@
 import { createHash } from 'node:crypto';
 
 export const OVER_ORIGIN = 'https://www.over.org.il';
+let nextRequestAt = 0;
+// Shared by the archive workers in this process. Parallel processing must not
+// become a burst of requests against the public source API.
+async function paceRequest(deadline: number) {
+  const now = Date.now(), slot = Math.max(now, nextRequestAt);
+  if (slot + 1000 >= deadline) throw new Error('OVER request budget exhausted; checkpoint retained');
+  nextRequestAt = slot + 1100;
+  if (slot > now) await new Promise(resolve => setTimeout(resolve, slot - now));
+}
 export type Watermark = { seen: string; hash: string };
 export type ArchiveSchema = { table: string; columns: string[]; tables?: { table: string }[]; first_seen_column?: string; total?: number };
 export type ArchiveRow = Record<string, unknown> & { first_seen: string; row_hash: string };
@@ -64,6 +73,7 @@ export function payloadHash(row: unknown): string {
 export async function overJson(path: string, deadline = Date.now() + 90000): Promise<any> {
   let last: unknown;
   for (let attempt = 0; attempt < 3; attempt++) {
+    await paceRequest(deadline);
     const remaining = deadline - Date.now();
     if (remaining < 1000) throw new Error('OVER request budget exhausted; checkpoint retained');
     const controller = new AbortController();
@@ -72,6 +82,13 @@ export async function overJson(path: string, deadline = Date.now() + 90000): Pro
       const response = await fetch(new URL(path, OVER_ORIGIN), { signal: controller.signal, headers: { Accept: 'application/json', 'User-Agent': 'EdgeRealEstate/2.0' } });
       if (!response.ok) {
         const error = new Error(`OVER HTTP ${response.status} for ${path.split('?')[0]}`);
+        if (response.status === 429) {
+          const header = response.headers.get('Retry-After');
+          const retryMs = header && Number.isFinite(Number(header)) ? Number(header) * 1000 : header ? Date.parse(header) - Date.now() : 60000;
+          nextRequestAt = Math.max(nextRequestAt, Date.now() + Math.max(1000, Number.isFinite(retryMs) ? retryMs : 60000));
+          // Defer to a later collection batch rather than hammering the endpoint.
+          throw Object.assign(error, { permanent: true, rateLimited: true });
+        }
         if (![408,429,500,502,503,504].includes(response.status)) throw Object.assign(error, { permanent: true });
         throw error;
       }

@@ -13,7 +13,9 @@ export function fieldExpression(f:Field):string {
     const clean=`replace(replace(btrim(${source}),',',''),'%','')`;
     return `CASE WHEN ${clean} ~ '^-?[0-9]+([.][0-9]+)?$' THEN ${clean}::numeric ELSE NULL END`;
   }
-  return `NULLIF(${source},'')`;
+  const text=`NULLIF(${source},'')`;
+  if(['locality_code','statistical_area_code','block','parcel','subparcel','institution_code'].includes(f.name))return `regexp_replace(${text},'[.]0+$','')`;
+  return text;
 }
 export function datasetDdl(d:ResearchDataset):string[] {
   const table=identifier(datasetTable(d.id)),view=identifier(semanticView(d));
@@ -35,7 +37,7 @@ export function researchSchemaStatements():string[] {
  return [
   `CREATE TABLE IF NOT EXISTS research_semantic_catalog(dataset_id uuid PRIMARY KEY REFERENCES over_datasets(dataset_id),slug text UNIQUE NOT NULL,view_name text UNIQUE NOT NULL,definition jsonb NOT NULL,updated_at timestamptz NOT NULL DEFAULT now())`,
   ...researchCatalog.flatMap(d=>[...datasetDdl(d),`INSERT INTO research_semantic_catalog(dataset_id,slug,view_name,definition) VALUES(${literal(d.id)}::uuid,${literal(d.slug)},${literal(semanticView(d))},${literal(JSON.stringify(d))}::jsonb) ON CONFLICT(dataset_id) DO UPDATE SET view_name=EXCLUDED.view_name,definition=EXCLUDED.definition,updated_at=now()`])
-,`CREATE TABLE IF NOT EXISTS research_schema_versions(version text PRIMARY KEY,applied_at timestamptz NOT NULL DEFAULT now())`,`INSERT INTO research_schema_versions(version) VALUES('research-v1') ON CONFLICT DO NOTHING`
+,`CREATE TABLE IF NOT EXISTS research_schema_versions(version text PRIMARY KEY,applied_at timestamptz NOT NULL DEFAULT now())`,`INSERT INTO research_schema_versions(version) VALUES('research-v2') ON CONFLICT DO NOTHING`
  ];
 }
 export function semanticDefinition(d:ResearchDataset) {

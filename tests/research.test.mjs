@@ -16,6 +16,9 @@ test('all dataset tables and typed semantic views migrate idempotently; correcti
  const q=buildResearchQuery(d,{filters:[{field:'municipality',value:'חיפה'}],columns:['municipality','observation_year','average_wage']});
  const rows=(await db.query(q.text,q.params)).rows;assert.equal(rows.length,1);assert.equal(Number(rows[0].average_wage),12000);assert.equal((await db.query(`SELECT count(*)::int n FROM ${table}`)).rows[0].n,3);
  const result=(await db.query(`SELECT average_wage FROM ${semanticView(d)} WHERE municipality='נתניה'`)).rows;assert.equal(result[0].average_wage,null);
+ const census=researchCatalog.find(d=>d.slug==='census_2022');
+ await db.query(`INSERT INTO ${datasetTable(census.id)}(_edge_hash,_edge_source_key,_edge_payload) VALUES('code-test','code-test',$1::jsonb)`,[JSON.stringify({SEMEL_YISHUV:'4000.0',STAT_2022:'514.0',first_seen:'2026-01-01'})]);
+ const code=(await db.query(`SELECT locality_code,statistical_area_code FROM ${semanticView(census)}`)).rows[0];assert.equal(code.locality_code,'4000');assert.equal(code.statistical_area_code,'514');
  }finally{await db.close()}
 });
 test('query builder parameterizes values, rejects SQL identifiers/operators and invalid metrics',()=>{
