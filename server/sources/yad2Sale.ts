@@ -9,20 +9,16 @@ const TARGETS=[
   {slug:'yoseftal-petah-tikva',path:'center-and-sharon',area:'4',city:'7900',neighborhood:'751'},
 ];
 
-function clean(s:string){return s.replace(/&nbsp;/g,' ').replace(/\s+/g,' ').trim()}
+function clean(s:string){return s.replace(/&nbsp;|&#160;|\u00a0/g,' ').replace(/[‎‏]/g,'').replace(/\s+/g,' ').trim()}
 function htmlRows(html:string){
-  const text=clean(html.replace(/<style[\s\S]*?<\/style>/gi,' ').replace(/<[^>]+>/g,' '));
+  const text=clean(html.replace(/<script[\s\S]*?<\/script>/gi,' ').replace(/<style[\s\S]*?<\/style>/gi,' ').replace(/<[^>]+>/g,' '));
   const out:any[]=[];
-  const patterns=[
-    /₪\s?([\d,]{6,9})\s+([^₪]{3,100}?)\s+(\d+(?:\.\d+)?)\s*חדרים[^•]{0,60}•\s*קומה\s*([^•]{1,20})\s*•\s*(\d{2,3})\s*מ״ר/g,
-    /([^₪]{3,100}?)\s+₪\s?([\d,]{6,9})[^\d]{0,40}(\d+(?:\.\d+)?)\s*חדרים[^\d]{0,40}(\d{2,3})\s*מ״ר/g
-  ];
+  const pattern=/₪\s*([\d,]{6,10})\s+(.{2,120}?)\s+(\d+(?:\.\d+)?)\s*חדרים\s*[•·]?\s*קומה\s*([^•·]{1,20})\s*[•·]\s*(\d{2,3})\s*מ[״"]?ר/g;
   let m:any;
-  while((m=patterns[0].exec(text))!==null){
-    out.push({price:Number(m[1].replace(/,/g,'')),address:clean(m[2]),rooms:Number(m[3]),floor:clean(m[4]),sqm:Number(m[5])});
-  }
-  while((m=patterns[1].exec(text))!==null){
-    out.push({price:Number(m[2].replace(/,/g,'')),address:clean(m[1]),rooms:Number(m[3]),floor:null,sqm:Number(m[4])});
+  while((m=pattern.exec(text))!==null){
+    const before=clean(m[2]);
+    const address=clean(before.replace(/(?:דירה|דירת גן|גג\/פנטהאוז|בית פרטי|דו משפחתי).*$/,'').split(/(?:בלעדי|נדל"ן|נכסים)/).pop()||before);
+    out.push({price:Number(m[1].replace(/,/g,'')),address,rooms:Number(m[3]),floor:clean(m[4]),sqm:Number(m[5])});
   }
   const seen=new Set<string>();
   return out.filter(x=>x.price>=300000&&x.price<=15000000&&x.sqm>=15&&x.sqm<=400)
@@ -41,7 +37,7 @@ export async function ingestYad2Sale(){
         response=await fetch(url,{headers:{'user-agent':'Mozilla/5.0 EdgeRealEstate/1.0','accept-language':'he-IL,he;q=0.9'},signal:c.signal});
       }finally{clearTimeout(timer)}
       if(!response.ok)throw new Error('Yad2 sale '+response.status);
-      const rows=htmlRows(await response.text());fetched+=rows.length;
+      const html=await response.text();const rows=htmlRows(html);fetched+=rows.length;if(!rows.length){errors++;console.error('yad2 sale zero parsed',t.slug,'html',html.length,'type',response.headers.get('content-type'))}
       for(const row of rows){
         const ext=sha256({slug:t.slug,address:row.address,rooms:row.rooms,sqm:row.sqm});
         const existed=await sql`SELECT id FROM listings WHERE source_id='yad2_sale' AND source_listing_id=${ext}`;
