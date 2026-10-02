@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
-import { queryDatabase, databaseTransaction } from '../db.js';
-import { scrapeJson, pageRules, listingFields, normalizeListing, validatePage, yad2Url, recentListing, requestBudget, partitionListings } from './scrapingBee.js';
+import { queryDatabase as defaultQuery, databaseTransaction as defaultTransaction } from '../db.js';
+import { scrapeJson as defaultScrape, pageRules, listingFields, normalizeListing, validatePage, yad2Url, recentListing, requestBudget, partitionListings } from './scrapingBee.js';
+import {collectionPlan,eligibleNewListing} from './yad2Incremental.js';
 
 export function listingWrite(market:string,row:any,scopeId:string,crawlId:string) {
  const {id,data}=normalizeListing(row);
@@ -21,7 +22,7 @@ async function projectLegacy(market:string) {
  const fk=market==='sale'?'listing_id':'rental_listing_id';
  const price=market==='sale'?'asking_price_nis':'asking_rent_nis';
  // Only exact city/neighborhood matches are resolved; nationwide unmatched rows remain in research.
- await databaseTransaction([
+ await defaultTransaction([
  {text:`INSERT INTO ${table}(source_id,source_listing_id,city_id,neighborhood_id,canonical_address,url,first_seen_at,last_seen_at,status)
  SELECT $1,d.listing_id,c.id,n.id,d.address,d.url,d.first_seen_at,d.last_seen_at,d.status FROM yad2_dataset d
  LEFT JOIN LATERAL(SELECT id FROM cities WHERE name_he=d.city ORDER BY id LIMIT 1)c ON true
@@ -35,7 +36,8 @@ async function projectLegacy(market:string) {
  ON CONFLICT DO NOTHING`,params:[`yad2_${market}`,market]}
  ]);
 }
-export async function runYad2Dataset() {
+export async function runYad2Dataset(deps:{queryDatabase?:typeof defaultQuery,databaseTransaction?:typeof defaultTransaction,scrapeJson?:typeof defaultScrape,projectLegacy?:(market:string)=>Promise<void>}={}) {
+ const queryDatabase=deps.queryDatabase??defaultQuery, databaseTransaction=deps.databaseTransaction??defaultTransaction, scrapeJson=deps.scrapeJson??defaultScrape;
  if(!process.env.SCRAPINGBEE_API_KEY)throw new Error('SCRAPINGBEE_API_KEY is not configured');
  const budget=requestBudget(Number(process.env.YAD2_MAX_REQUESTS??60));
  const lock=randomUUID();
@@ -52,19 +54,31 @@ export async function runYad2Dataset() {
   const scopes=await queryDatabase('SELECT * FROM yad2_crawl_scopes WHERE enabled ORDER BY id');
   for(const scope of scopes) {
    if(budget.used>=Number(process.env.YAD2_MAX_REQUESTS??60)){report.scopes.push({id:scope.id,status:'partial',error:'Request budget reached'});continue;}
-   let pages=Number(scope.cycle_pages??0),seen=0,invalid=0,unknownDates=0;const startingPages=pages;
+   let pages=Number(scope.cycle_pages??0),seen=0,invalid=0,unknownDates=0,knownPages=0;const startingPages=pages;
    const scopeLimit=Number(scope.config?.max_requests??10);
    const scopeBudget=requestBudget(scopeLimit);
    const take=()=>{if(scopeBudget.used>=scopeLimit)throw new Error('Request budget reached; crawl incomplete');budget.take();scopeBudget.take();};
    const cycleId=scope.cycle_id??crawlId;
    try {
-    if(!scope.cycle_id)await queryDatabase('UPDATE yad2_crawl_scopes SET cycle_id=$2::uuid,cursor_url=url,cycle_pages=0,last_page_ids=NULL WHERE id=$1',[scope.id,cycleId]);
-    let url:string|null=yad2Url(scope.cursor_url??scope.url,scope.market);let lastIds=scope.last_page_ids;const visited=new Set<string>();const ids=new Set<string>();
-    const maxPages=Number(scope.config?.max_pages??process.env.YAD2_MAX_PAGES??10000);
-    if(!Number.isInteger(maxPages)||maxPages<1)throw new Error('Invalid page limit');
+    if(!scope.cycle_id) {
+     const checkpoint=(await queryDatabase('UPDATE yad2_crawl_scopes SET cycle_id=$2::uuid,cycle_started_at=now(),backfill_started_at=coalesce(backfill_started_at,now()),cursor_url=url,cycle_pages=0,last_page_ids=NULL WHERE id=$1 RETURNING cycle_started_at,backfill_started_at',[scope.id,cycleId]))[0];
+     Object.assign(scope,checkpoint);pages=0;
+    }else if(!scope.cycle_started_at||!scope.backfill_started_at) {
+     const checkpoint=(await queryDatabase('UPDATE yad2_crawl_scopes SET cycle_started_at=coalesce(cycle_started_at,now()),backfill_started_at=coalesce(backfill_started_at,now()) WHERE id=$1 RETURNING cycle_started_at,backfill_started_at',[scope.id]))[0];
+     Object.assign(scope,checkpoint);
+    }
+    const plan=collectionPlan(scope);const maxPages=plan.maxPages;
+    // Incremental retries start at page one: cached IDs make replay cheap, and
+    // new arrivals must not be hidden behind yesterday's unfinished cursor.
+    if(plan.incremental)pages=0;
+    let url:string|null=yad2Url(plan.incremental?scope.url:scope.cursor_url??scope.url,scope.market);let lastIds=plan.incremental?null:scope.last_page_ids;const visited=new Set<string>();const ids=new Set<string>();
+    let discoveryTruncated=false;
     while(url) {
      await heartbeat();
-     if(pages-startingPages>=maxPages)throw new Error('Per-run scope page cap reached; remaining pages resume next run.');
+     if((plan.incremental?pages:pages-startingPages)>=maxPages) {
+      if(plan.incremental){discoveryTruncated=true;break;}
+      throw new Error('Per-run scope page cap reached; remaining pages resume next run.');
+     }
      if(visited.has(url))throw new Error('Pagination loop; scope incomplete');
      visited.add(url);
      const page=validatePage(await scrapeJson(url,pageRules,fetch,take));pages++;
@@ -72,28 +86,39 @@ export async function runYad2Dataset() {
      invalid+=partition.invalid;report.excluded=(report.excluded??0)+partition.excluded;
      const pageIds=page.listings.map((r:any)=>normalizeListing(r).id).sort();
      if(pageIds.length && JSON.stringify(pageIds)===JSON.stringify(lastIds))throw new Error('Repeated page across checkpoint; scope incomplete');
-     let newIds=0;
+     // Load identities in one DB round trip. Known rows never get rewritten,
+     // refreshed, or fetched again, even if their asking price changed.
+     const knownRows=await queryDatabase('SELECT i.listing_id,d.listing_id IS NOT NULL AS stored,c.data FROM unnest($2::text[]) i(listing_id) LEFT JOIN yad2_dataset d ON d.market=$1 AND d.listing_id=i.listing_id LEFT JOIN yad2_publication_cache c ON c.market=$1 AND c.listing_id=i.listing_id WHERE d.listing_id IS NOT NULL OR c.listing_id IS NOT NULL',[scope.market,pageIds]);
+     const known=new Map(knownRows.map((r:any)=>[r.listing_id,r]));
+     let newIds=0;let unknownIds=0;
      for(const original of page.listings) {
       if(scope.config?.city_names&&!scope.config.city_names.includes(original.city)){report.filtered=(report.filtered??0)+1;continue;}
       const item=normalizeListing(original);
       if(ids.has(item.id))continue;ids.add(item.id);newIds++;
+      if(known.has(item.id)) {
+       // A cache-only row may be a detail fetch committed just before a crash.
+       // Recover that pending insert without paying for another detail request.
+       const knownRow:any=known.get(item.id);const pending=!knownRow.stored&&knownRow.data?knownRow:null;
+       if(pending && eligibleNewListing(pending.data,scope.config??{},plan)) {
+        await heartbeat();await databaseTransaction(listingWrite(scope.market,pending.data,scope.id,cycleId));seen++;report.listings++;
+       }
+       if(pending&&!pending.data.published_at)unknownDates++;
+       report.known_skipped=(report.known_skipped??0)+1;continue;
+      }
+      unknownIds++;
       let summary=original;
       // Feed omits creation dates. Validate once per identity, including rejected old ads.
       if(!summary.published_at) {
-       const cached=(await queryDatabase('SELECT data FROM yad2_publication_cache WHERE market=$1 AND listing_id=$2',[scope.market,item.id]))[0];
-       let detail=cached?.data;
-       if(!cached) {
-        await heartbeat();detail=await scrapeJson(item.data.url,listingFields,fetch,take);
-        normalizeListing(detail);
-        await queryDatabase('INSERT INTO yad2_publication_cache(market,listing_id,data) VALUES($1,$2,$3::jsonb) ON CONFLICT DO NOTHING',[scope.market,item.id,JSON.stringify(detail)]);
-        report.date_lookups=(report.date_lookups??0)+1;
-       }
+       await heartbeat();const detail=await scrapeJson(item.data.url,listingFields,fetch,take);
+       normalizeListing(detail);
+       await queryDatabase('INSERT INTO yad2_publication_cache(market,listing_id,data) VALUES($1,$2,$3::jsonb) ON CONFLICT DO NOTHING',[scope.market,item.id,JSON.stringify(detail)]);
+       report.date_lookups=(report.date_lookups??0)+1;
        summary={...detail,...Object.fromEntries(Object.entries(original).filter(([,v])=>v!==null&&v!==undefined))};
       }
       if(!summary.published_at)unknownDates++;
-      if(!recentListing(summary,scope.config??{})){report.filtered=(report.filtered??0)+1;continue;}
+      if(!eligibleNewListing(summary,scope.config??{},plan)){report.filtered=(report.filtered??0)+1;continue;}
       let row=summary;
-      if(scope.config?.details===true) {
+      if(scope.config?.details===true && original.published_at) {
        await heartbeat();
        row=await scrapeJson(item.data.url,listingFields,fetch,take);
        // Identity comes from the discovered real link, never from AI inference.
@@ -103,20 +128,21 @@ export async function runYad2Dataset() {
      }
      if(page.listings.some((r:any)=>recentListing(r,scope.config??{})) && !newIds)throw new Error('Repeated results page; scope incomplete');
      url=page.next_url?yad2Url(new URL(page.next_url,url).toString(),scope.market):null;
+     knownPages=unknownIds===0&&pageIds.length>0?knownPages+1:0;
+     if(plan.incremental&&knownPages>=plan.knownPageStop){discoveryTruncated=!!url;url=null;}
      lastIds=pageIds;
-     if(url)await queryDatabase('UPDATE yad2_crawl_scopes SET cursor_url=$2,cycle_pages=$3,last_page_ids=$4::jsonb WHERE id=$1',[scope.id,url,pages,JSON.stringify(pageIds)]);
+     if(url&&!plan.incremental)await queryDatabase('UPDATE yad2_crawl_scopes SET cursor_url=$2,cycle_pages=$3,last_page_ids=$4::jsonb WHERE id=$1',[scope.id,url,pages,JSON.stringify(pageIds)]);
     }
     await heartbeat();
     if(invalid || unknownDates)throw new Error(`Incomplete extraction: ${invalid} invalid listings, ${unknownDates} missing publication dates`);
     // Require three successful complete cycles missing from every enabled scope that saw this listing.
     // Aging out of a publication window is not evidence that a listing disappeared.
-    if(scope.config?.published_within_days)await queryDatabase('UPDATE yad2_crawl_scopes SET last_completed_at=now(),last_error=NULL,cycle_id=NULL,cursor_url=NULL,cycle_pages=0,last_page_ids=NULL WHERE id=$1',[scope.id]);
-    else await databaseTransaction(completeScopeWrites(scope.id,cycleId));
-    report.scopes.push({id:scope.id,status:'success',pages,seen,requests:scopeBudget.used});
-   }catch(e:any){const error=e.message;const status=/^(Request budget reached|Per-run scope page cap reached)/.test(error)?'partial':'failed';report.scopes.push({id:scope.id,status,pages,seen,requests:scopeBudget.used,error});await queryDatabase('UPDATE yad2_crawl_scopes SET last_error=$2 WHERE id=$1',[scope.id,error]);}
+    await queryDatabase('UPDATE yad2_crawl_scopes SET last_completed_at=cycle_started_at,backfill_completed_at=coalesce(backfill_completed_at,now()),last_error=NULL,cycle_id=NULL,cycle_started_at=NULL,cursor_url=NULL,cycle_pages=0,last_page_ids=NULL WHERE id=$1',[scope.id]);
+    report.scopes.push({id:scope.id,status:'success',phase:plan.incremental?'incremental':'backfill',coverage:plan.incremental?'bounded-front-pages':'source-pagination',discovery_truncated:discoveryTruncated,pages,seen,requests:scopeBudget.used});
+   }catch(e:any){const error=e.message;const status=/^(Request budget reached|Per-run scope page cap reached)/.test(error)?'partial':'failed';report.scopes.push({id:scope.id,status,pages,seen,requests:scopeBudget.used,error});await queryDatabase('UPDATE yad2_crawl_scopes SET last_error=$2 WHERE id=$1',[scope.id,error]);if(/ScrapingBee HTTP (401|403)/.test(error))throw e;}
   }
   report.requests=budget.used;
-  for(const market of ['sale','rent'])await projectLegacy(market);
+  for(const market of ['sale','rent'])await (deps.projectLegacy??projectLegacy)(market);
   report.complete=report.scopes.length>0&&report.scopes.every((s:any)=>s.status==='success');
   report.ok=report.scopes.length>0&&report.scopes.every((s:any)=>s.status!=='failed');
   await queryDatabase('UPDATE yad2_crawls SET finished_at=now(),status=$2,report=$3::jsonb WHERE id=$1::uuid',[crawlId,report.complete?'success':'partial',JSON.stringify(report)]);

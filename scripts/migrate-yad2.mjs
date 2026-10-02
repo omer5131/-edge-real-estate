@@ -11,7 +11,7 @@ export function migrationStatements(text) {
 if(!process.env.DATABASE_URL)console.log('Yad2 schema migration skipped: DATABASE_URL is not configured.');
 else {
  const sql=neon(process.env.DATABASE_URL);
- const text=['011_yad2_scrapingbee.sql','012_yad2_focused_scopes.sql','013_yad2_publication_cache.sql'].map(file=>fs.readFileSync(new URL('../db/'+file,import.meta.url),'utf8')).join('\n');
+ const text=['011_yad2_scrapingbee.sql','012_yad2_focused_scopes.sql','013_yad2_publication_cache.sql','014_yad2_incremental.sql'].map(file=>fs.readFileSync(new URL('../db/'+file,import.meta.url),'utf8')).join('\n');
  await sql.transaction(migrationStatements(text).map(s=>sql.query(s)));
  console.log('Yad2 dataset and change history schema ready.');
 }
