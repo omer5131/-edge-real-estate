@@ -1,5 +1,5 @@
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   AlertTriangle, ArrowLeft, CheckCircle2, Database, ExternalLink,
   Layers3, MapPinned, MessageSquare, RefreshCw, Search, ShieldCheck, Sparkles, Target, X
@@ -43,7 +43,7 @@ function Confidence({value,sample}:{value:string;sample?:number}){
   return <span className={'confidence '+confClass(value)}><ShieldCheck size={13}/>{confHe(value)}{sample!=null?' · n='+sample:''}</span>;
 }
 
-function Metric({label,value,sub}:{label:string;value:React.ReactNode;sub?:React.ReactNode}){
+function Metric({label,value,sub}:{label:string;value:ReactNode;sub?:ReactNode}){
   return <div className="metric"><span>{label}</span><strong>{value}</strong>{sub&&<small>{sub}</small>}</div>;
 }
 
