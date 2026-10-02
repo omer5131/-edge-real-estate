@@ -128,7 +128,7 @@ export async function bootstrapEdge(){
       current.rentObservedAt=area.rent_observed_at||null;
       current.dataAvailable=current.sampleSize>0;
       current.insight=current.sampleSize>0
-        ? `נתוני אמת · ${current.sampleSize} עסקאות · confidence: ${current.dataConfidence}`
+        ? ('נתוני אמת · '+current.sampleSize+' עסקאות · confidence: '+current.dataConfidence)
         : 'אין עדיין מספיק עסקאות אמת לאזור הזה.';
     }
 
