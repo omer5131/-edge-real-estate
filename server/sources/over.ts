@@ -13,19 +13,24 @@ function recordsFrom(payload:any):Record<string,unknown>[] {
   return [];
 }
 
-async function json(url:string,retries=2){
+async function json(url:string,retries=3){
   let last:any;
-  for(let attempt=0;attempt<=retries;attempt++){
-    const controller=new AbortController();
-    const timeout=setTimeout(()=>controller.abort(),20000);
-    try{
-      const response=await fetch(url,{headers:{'user-agent':'EdgeRealEstate/1.0'},signal:controller.signal});
-      if(!response.ok) throw new Error(`OVER ${response.status}: ${url}`);
-      return await response.json();
-    }catch(e){
-      last=e;
-      if(attempt<retries) await new Promise(r=>setTimeout(r,500*(attempt+1)));
-    }finally{clearTimeout(timeout);}
+  const origins=['https://www.over.org.il','https://over.org.il'];
+  const original=new URL(url);
+  for(const origin of origins){
+    const candidate=new URL(original.pathname+original.search,origin).toString();
+    for(let attempt=0;attempt<=retries;attempt++){
+      const controller=new AbortController();
+      const timeout=setTimeout(()=>controller.abort(),25000);
+      try{
+        const response=await fetch(candidate,{headers:{'user-agent':'EdgeRealEstate/1.0','accept':'application/json'},signal:controller.signal});
+        if(!response.ok) throw new Error(`OVER ${response.status}: ${candidate}`);
+        return await response.json();
+      }catch(e){
+        last=e;
+        if(attempt<retries) await new Promise(r=>setTimeout(r,750*(attempt+1)));
+      }finally{clearTimeout(timeout);}
+    }
   }
   throw last;
 }
