@@ -164,7 +164,7 @@ function PropertyView({item,onBack}:{item:Opportunity;onBack:()=>void}){
   if(loading)return <div className="screen"><div className="loading"><RefreshCw className="spin"/>טוען Property Intelligence…</div></div>;
   if(!data||data.error)return <div className="screen"><button className="back" onClick={onBack}><ArrowLeft/>חזרה</button><Empty title="לא ניתן לטעון את הנכס" body={data?.error||'שגיאת API'}/></div>;
   const l=data.listing||{};
-  const toggleSub=async()=>{setSubBusy(true);await fetch('/api/research',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action:l.subscription_id?'unsubscribe':'subscribe',entity_id:item.id,entity_type:'listing'})});const r=await fetch('/api/property?id='+encodeURIComponent(item.id),{cache:'no-store'});setData(await r.json());setSubBusy(false)};
+  const toggleSub=async()=>{setSubBusy(true);await fetch('/api/opportunities',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action:l.subscription_id?'unsubscribe':'subscribe',entity_id:item.id,entity_type:'listing'})});const r=await fetch('/api/property?id='+encodeURIComponent(item.id),{cache:'no-store'});setData(await r.json());setSubBusy(false)};
   return <div className="screen">
     <button className="back" onClick={onBack}><ArrowLeft size={15}/>חזרה להזדמנויות</button>
     <div className="page-head"><div><span className="eyebrow">Property Intelligence · {data.tier==='full'?'Full research':'Basic'}</span><h1>{l.address||item.address}</h1>
@@ -216,9 +216,9 @@ function DataConsole({status}:{status:DataStatus|null}){
 
 function Research({onOpen}:{onOpen:(x:any)=>void}){
  const [assets,setAssets]=useState<any[]>([]),[q,setQ]=useState(''),[only,setOnly]=useState(false),[busy,setBusy]=useState(false);
- const load=async()=>{setBusy(true);try{const r=await fetch('/api/research?q='+encodeURIComponent(q)+(only?'&subscribed=true':''),{cache:'no-store'});const j=await r.json();setAssets(j.assets||[])}finally{setBusy(false)}};
+ const load=async()=>{setBusy(true);try{const r=await fetch('/api/opportunities?mode=research&q='+encodeURIComponent(q)+(only?'&subscribed=true':''),{cache:'no-store'});const j=await r.json();setAssets(j.assets||[])}finally{setBusy(false)}};
  useEffect(()=>{load()},[only]);
- const sub=async(a:any)=>{await fetch('/api/research',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action:a.subscription_id?'unsubscribe':'subscribe',entity_id:a.id,entity_type:'listing'})});await load()};
+ const sub=async(a:any)=>{await fetch('/api/opportunities',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action:a.subscription_id?'unsubscribe':'subscribe',entity_id:a.id,entity_type:'listing'})});await load()};
  return <div className="screen"><div className="page-head"><div><span className="eyebrow">Research Universe</span><h1>חקור את כל הנכסים — לא רק הזדמנויות</h1><p>כל נכס שנקלט זמין למחקר בסיסי. Follow מפעיל מחקר מלא ומעקב לאורך זמן.</p></div><div className="hero-stat"><strong>{assets.length}</strong><span>נכסים בתוצאה</span></div></div>
  <div className="research-tools"><div className="search"><Search size={15}/><input value={q} onChange={e=>setQ(e.target.value)} onKeyDown={e=>e.key==='Enter'&&load()} placeholder="כתובת, שכונה או עיר"/><button onClick={load}>חפש</button></div><button className={only?'active':''} onClick={()=>setOnly(!only)}><Bookmark size={14}/>במעקב בלבד</button></div>
  {busy?<div className="empty">טוען…</div>:assets.length===0?<Empty title="אין נכסים בתוצאה" body="ה-Research Universe יתמלא מכל מודעות המכירה שנקלטות, ללא תלות ב-Edge Score."/>:
@@ -228,11 +228,11 @@ function Research({onOpen}:{onOpen:(x:any)=>void}){
 
 function Admin(){
  const [d,setD]=useState<any>(null),[saving,setSaving]=useState(false);
- const load=async()=>{const r=await fetch('/api/admin',{cache:'no-store'});setD(await r.json())};useEffect(()=>{load()},[]);
+ const load=async()=>{const r=await fetch('/api/ask?mode=admin',{cache:'no-store'});setD(await r.json())};useEffect(()=>{load()},[]);
  if(!d)return <div className="screen"><div className="empty">טוען הגדרות…</div></div>;
  const cfg=d.config||{};const fields=[['base_score','Base score'],['price_gap_weight','Price-gap weight'],['price_gap_min','Price-gap min'],['price_gap_max','Price-gap max'],['renewal_project_weight','Renewal / project'],['renewal_execution_bonus','Execution bonus'],['seller_reduction_weight','Price-reduction weight'],['comp_min_required','Minimum comps'],['low_comp_risk','Low-comp risk']];
- const save=async()=>{setSaving(true);await fetch('/api/admin',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action:'score',...cfg})});await load();setSaving(false)};
- const area=async(a:any)=>{await fetch('/api/admin',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action:'area',neighborhood_id:a.id,followed:!a.followed,research_depth:'full'})});await load()};
+ const save=async()=>{setSaving(true);await fetch('/api/ask',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({mode:'admin',action:'score',...cfg})});await load();setSaving(false)};
+ const area=async(a:any)=>{await fetch('/api/ask',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({mode:'admin',action:'area',neighborhood_id:a.id,followed:!a.followed,research_depth:'full'})});await load()};
  return <div className="screen"><div className="page-head"><div><span className="eyebrow">Administration</span><h1>איך Edge מחפש ומדרג</h1><p>שינוי נוסחה יוצר גרסת Score חדשה. שינוי אזור מגדיר את יקום המחקר והאיסוף הבא.</p></div></div>
  <div className="admin-grid"><div className="panel"><h3>Score formula</h3><div className="formula">Score = Base + Price Gap + Renewal + Seller + Comp Confidence − Risk</div><div className="config-grid">{fields.map(([k,l])=><label key={k}><span>{l}</span><input type="number" step="0.1" value={cfg[k]??''} onChange={e=>setD({...d,config:{...cfg,[k]:Number(e.target.value)}})}/></label>)}</div><button className="primary" onClick={save} disabled={saving}>{saving?'שומר…':'שמור ויצור גרסת Score חדשה'}</button><small className="version">Active: {cfg.model_version}</small></div>
  <div className="panel"><h3>Followed areas</h3><p className="panel-sub">אזורים פעילים נכנסים לאיסוף, מחקר ומעקב. אפשר להוסיף שכונות חדשות לבסיס הנתונים ואז להפעיל אותן כאן.</p><div className="area-admin">{d.areas.map((a:any)=><button key={a.id} className={a.followed?'followed':''} onClick={()=>area(a)}><div><strong>{a.name_he}</strong><span>{a.city}</span></div><span>{a.followed?'במעקב':'לא במעקב'}</span></button>)}</div></div></div></div>
