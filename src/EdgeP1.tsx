@@ -11,6 +11,7 @@ type Area={
   transactions_12m:number;confidence:string;sample_size:number;latest_deal_date:string|null;
   renewal_projects:number|null;existing_units:number|null;planned_units:number|null;
   median_rent_nis:number|null;median_rent_pp_sqm:number|null;rent_sample_size:number|null;rent_observed_at:string|null;
+  plans?:any[];infrastructure?:any[];
 };
 type Opportunity={
   id:string;address:string;neighborhood_id:string;neighborhood:string;city:string;asking_price:number;
@@ -57,6 +58,13 @@ function AreaMap({area}:{area:Area}){
   const d=0.008;
   const bbox=[c.lng-d,c.lat-d,c.lng+d,c.lat+d].join('%2C');
   const src='https://www.openstreetmap.org/export/embed.html?bbox='+bbox+'&layer=mapnik&marker='+c.lat+'%2C'+c.lng;
+  const marker=(lat:number,lon:number)=>{
+    const x=Math.max(2,Math.min(98,((lon-(c.lng-d))/(2*d))*100));
+    const y=Math.max(2,Math.min(98,(((c.lat+d)-lat)/(2*d))*100));
+    return {left:x+'%',top:y+'%'};
+  };
+  const planMarkers=(area.plans||[]).filter((x:any)=>x.lat!=null&&x.lon!=null).slice(0,40);
+  const infraMarkers=(area.infrastructure||[]).filter((x:any)=>x.lat!=null&&x.lon!=null).slice(0,80);
   return <div className="map-wrap">
     <div className="layerbar">
       {Object.entries(layers).map(([k,v])=><button key={k} className={v?'active':''} onClick={()=>setLayers(x=>({...x,[k]:!v}))}>
@@ -64,12 +72,16 @@ function AreaMap({area}:{area:Area}){
       </button>)}
     </div>
     <iframe title={'Map '+area.name} src={src} className="map-frame"/>
+    <div className="marker-layer">
+      {layers.planning&&planMarkers.map((p:any)=><span key={'p'+p.id} className="map-marker plan" style={marker(Number(p.lat),Number(p.lon))} title={p.name||p.plan_number||'תכנית'}/>)}
+      {layers.infrastructure&&infraMarkers.map((i:any)=><span key={'i'+i.id} className={'map-marker infra '+(i.category||'')} style={marker(Number(i.lat),Number(i.lon))} title={i.name||'תשתית'}/>)}
+    </div>
     <div className="map-overlay">
       {layers.transactions&&<span>עסקאות: {area.sample_size}</span>}
       {layers.rent&&<span>שכירות: {area.rent_sample_size??'לא נאסף'}</span>}
       {layers.renewal&&<span>התחדשות: {area.renewal_projects??'לא נאסף'}</span>}
-      {layers.planning&&<span>תכנון: ממתין ל-XPLAN</span>}
-      {layers.infrastructure&&<span>תשתיות: ממתין לשכבת תחבורה</span>}
+      {layers.planning&&<span>תכנון: {(area.plans||[]).length}</span>}
+      {layers.infrastructure&&<span>תשתיות: {(area.infrastructure||[]).length}</span>}
     </div>
   </div>;
 }
@@ -106,13 +118,19 @@ function Opportunities({items,onOpen}:{items:Opportunity[];onOpen:(x:Opportunity
       <div className="search"><Search size={15}/><input value={q} onChange={e=>setQ(e.target.value)} placeholder="חפש כתובת או שכונה"/></div>
     </div>
     {filtered.length===0?<Empty title="אין כרגע הזדמנויות מאומתות" body="Edge לא יציג נכסי דמו. המלאי יופיע כאן לאחר קליטת מודעות מכירה אמיתיות וחיבורן ל-comps תקינים."/>:
-    <div className="table-wrap"><table><thead><tr><th>נכס</th><th>מבוקש</th><th>₪/מ"ר</th><th>שווי comps</th><th>פער</th><th>Seller</th><th>ראיות</th><th>Score</th></tr></thead>
+    <>
+    <div className="opp-cards">{filtered.map(x=><button className="opp-card" key={x.id} onClick={()=>onOpen(x)}>
+      <div className="opp-title"><div><strong>{x.address}</strong><span>{x.neighborhood}, {x.city}</span></div>{x.score==null?<span className="no-score">ללא Score</span>:<span className="score">{x.score}</span>}</div>
+      <div className="opp-metrics"><Metric label="מבוקש" value={money(x.asking_price)}/><Metric label='₪/מ"ר' value={money(x.price_sqm)}/><Metric label="פער comps" value={pct(x.discount_pct)}/><Metric label="ימים בשוק" value={x.days_on_market}/></div>
+      <div className="opp-foot"><Confidence value={x.confidence} sample={x.comp_count}/><span>{x.seller_motivation||'—'}</span></div>
+    </button>)}</div>
+    <div className="table-wrap opp-table"><table><thead><tr><th>נכס</th><th>מבוקש</th><th>₪/מ"ר</th><th>שווי comps</th><th>פער</th><th>Seller</th><th>ראיות</th><th>Score</th></tr></thead>
     <tbody>{filtered.map(x=><tr key={x.id} onClick={()=>onOpen(x)}>
       <td><strong>{x.address}</strong><small>{x.neighborhood}, {x.city}</small></td><td>{money(x.asking_price)}</td><td>{money(x.price_sqm)}</td>
       <td>{money(x.adjusted_value)}</td><td>{pct(x.discount_pct)}</td><td>{x.seller_motivation||'—'}<small>{x.days_on_market} ימים</small></td>
       <td><Confidence value={x.confidence} sample={x.comp_count}/><small>עד {date(x.latest_comp_date)}</small></td>
       <td>{x.score==null?<span className="muted">אין Score</span>:<span className="score">{x.score}</span>}</td>
-    </tr>)}</tbody></table></div>}
+    </tr>)}</tbody></table></div></>}
   </div>;
 }
 
@@ -130,7 +148,9 @@ function AreaView({area}:{area:Area}){
         <div className="panel"><h3>שכירות</h3>{area.median_rent_nis==null?<Empty title="טרם נאסף מדגם שכירות" body="הערכה לא תוצג עד שקליטת מודעות שכירות אמיתיות תסתיים."/>:
           <div className="metric-grid"><Metric label="חציון מבוקש" value={money(area.median_rent_nis)}/><Metric label='₪/מ"ר' value={money(area.median_rent_pp_sqm)}/><Metric label="מדגם" value={num(area.rent_sample_size)}/></div>}</div>
         <div className="panel"><h3>התחדשות ותכנון</h3>{area.renewal_projects==null?<Empty title="שכבת ההתחדשות עדיין לא מוכנה" body="לא מוצגים נתוני דמו או הערכות ידניות."/>:
-          <div className="metric-grid"><Metric label="פרויקטים" value={num(area.renewal_projects)}/><Metric label="יח״ד קיימות" value={num(area.existing_units)}/><Metric label="יח״ד מתוכננות" value={num(area.planned_units)}/></div>}</div>
+          <div className="metric-grid"><Metric label="פרויקטים" value={num(area.renewal_projects)}/><Metric label="יח״ד קיימות" value={num(area.existing_units)}/><Metric label="יח״ד מתוכננות" value={num(area.planned_units)}/><Metric label="תכניות XPLAN" value={num((area.plans||[]).length)}/></div>}</div>
+        <div className="panel"><h3>תשתיות סביב האזור</h3>{!(area.infrastructure||[]).length?<Empty title="אין עדיין שכבות תחבורה שנקלטו" body="הקולקטור יציג כאן תחנות ומתקנים מתוכננים לאחר הסנכרון."/>:
+          <div className="feature-list">{(area.infrastructure||[]).slice(0,8).map((i:any)=><div className="feature-row" key={i.id}><strong>{i.name}</strong><span>{i.category} · {i.status||'—'}</span></div>)}</div>}</div>
       </div>
     </div>
   </div>;
