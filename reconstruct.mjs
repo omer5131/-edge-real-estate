@@ -219,4 +219,20 @@ if (fs.existsSync(appPath)) {
   fs.writeFileSync(appPath, app, 'utf8');
 }
 
+
+const p1Main = [
+  "import React from 'react';",
+  "import ReactDOM from 'react-dom/client';",
+  "import './index.css';",
+  "import EdgeP1 from './EdgeP1';",
+  "",
+  "ReactDOM.createRoot(document.getElementById('root')!).render(",
+  "  <React.StrictMode>",
+  "    <EdgeP1 />",
+  "  </React.StrictMode>",
+  ");",
+  ""
+].join("\n");
+fs.writeFileSync('src/main.tsx', p1Main, 'utf8');
+
 console.log(`Reconstructed ${Object.keys(files).length} Edge source files and live-data bootstrap.`);
