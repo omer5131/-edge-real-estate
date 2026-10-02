@@ -21,6 +21,7 @@ export default async function handler(req:VercelRequest,res:VercelResponse){
   if(req.query.mode==='data-explorer')return (await import('../server/http/data-explorer.js')).default(req,res);
   if(req.query.mode==='yad2-research')return (await import('../server/http/yad2-research.js')).default(req,res);
   if(req.query.mode==='yad2-admin')return (await import('../server/http/yad2-admin.js')).default(req,res);
+  if(['area-tiles','area-dashboard','area-score-model','area-refresh'].includes(String(req.query.mode)))return (await import('../server/http/area-intelligence.js')).default(req,res);
   if(req.method==='GET' && String(req.query.mode||'')==='run_collection'){
     const token=typeof req.query.token==='string'?req.query.token.trim():'';
     if(!token)return res.status(401).json({error:'run_token_required'});
