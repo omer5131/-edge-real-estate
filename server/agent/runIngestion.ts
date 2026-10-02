@@ -10,31 +10,36 @@ const TARGET_CITIES=['חיפה','נתניה','פתח תקווה'];
 
 export async function runEdgeIngestion(){
  const report:Record<string,unknown>={startedAt:new Date().toISOString(),jobs:[]};
- const jobs=report.jobs as unknown[];
+ const jobs=report.jobs as any[];
 
- for(const settlement of TARGET_CITIES){
-   const r=await withRun('over_deals','transactions',{settlement},runId=>ingestDealsForSettlement(settlement,runId));
-   jobs.push({source:'over_deals',settlement,...r});
+ async function job(label:string,fn:()=>Promise<any>){
+   const startedAt=new Date().toISOString();
+   try{
+     const result=await fn();
+     const row={job:label,ok:true,startedAt,finishedAt:new Date().toISOString(),...result};
+     jobs.push(row);
+     return result;
+   }catch(error:any){
+     const row={job:label,ok:false,startedAt,finishedAt:new Date().toISOString(),error:error?.message??String(error)};
+     jobs.push(row);
+     console.error('Edge job failed',label,error);
+     return null;
+   }
  }
 
- const resolved=await withRun('over_deals','neighborhood_resolution',{},()=>resolveTransactionNeighborhoods());
- jobs.push({source:'over_deals',job:'neighborhood_resolution',...resolved});
+ for(const settlement of TARGET_CITIES){
+   await job(`transactions:${settlement}`,()=>withRun('over_deals','transactions',{settlement},runId=>ingestDealsForSettlement(settlement,runId)));
+ }
 
- const renewal=await withRun('urban_renewal_gov','renewal_projects',{},runId=>ingestUrbanRenewalOfficial(runId));
- jobs.push({source:'urban_renewal_gov',...renewal});
-
- const parcel=await withRun('over_nadlan','parcel_enrichment',{},runId=>enrichRecentParcels(runId));
- jobs.push({source:'over_nadlan',...parcel});
-
- const listings=await withRun('over_listing_archive','listing_history',{},runId=>ingestListingArchive(runId));
- jobs.push({source:'over_listing_archive',...listings});
-
- const rents=await withRun('yad2_rent','rental_snapshots',{},()=>ingestYad2Rent());
- jobs.push({source:'yad2_rent',...rents});
-
- const scores=await withRun('over_listing_archive','opportunity_scoring',{model:'edge-v0.1'},()=>recomputeOpportunityScores());
- jobs.push({source:'edge-derived',...scores});
+ await job('neighborhood_resolution',()=>withRun('over_deals','neighborhood_resolution',{},()=>resolveTransactionNeighborhoods()));
+ await job('renewal_projects',()=>withRun('urban_renewal_gov','renewal_projects',{},runId=>ingestUrbanRenewalOfficial(runId)));
+ await job('parcel_enrichment',()=>withRun('over_nadlan','parcel_enrichment',{},runId=>enrichRecentParcels(runId)));
+ await job('listing_history',()=>withRun('over_listing_archive','listing_history',{},runId=>ingestListingArchive(runId)));
+ await job('rental_snapshots',()=>withRun('yad2_rent','rental_snapshots',{},()=>ingestYad2Rent()));
+ await job('opportunity_scoring',()=>withRun('over_listing_archive','opportunity_scoring',{model:'edge-v0.1'},()=>recomputeOpportunityScores()));
 
  report.finishedAt=new Date().toISOString();
+ report.ok=jobs.some(j=>j.ok);
+ report.failedJobs=jobs.filter(j=>!j.ok).length;
  return report;
 }
