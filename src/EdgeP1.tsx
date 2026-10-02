@@ -192,10 +192,17 @@ function DataConsole({status}:{status:DataStatus|null}){
       <Metric label="Sale listings" value={num(status.counts?.listings)}/><Metric label="Rental listings" value={num(status.counts?.rental_listings)}/>
       <Metric label="XPLAN plans" value={num(status.counts?.planning_plans)}/><Metric label="Infrastructure" value={num(status.counts?.infrastructure_projects)}/>
     </div>
-    <div className="panel"><h3>Sources</h3><div className="table-wrap"><table><thead><tr><th>מקור</th><th>בריאות</th><th>הצלחה אחרונה</th><th>כשל אחרון</th><th>שגיאה</th></tr></thead><tbody>
-      {(status.freshness||[]).map((s:any)=><tr key={s.source_id}><td><strong>{s.name}</strong><small>{s.source_id}</small></td>
+    <div className="panel"><h3>Provider health</h3><p className="panel-sub">Freshness + run outcome + raw ingestion + usable canonical coverage.</p>
+      <div className="provider-cards">{(status.freshness||[]).filter((s:any)=>s.is_enabled).map((s:any)=><div className={'provider-card '+s.health} key={'m'+s.source_id}>
+        <div className="provider-head"><div><strong>{s.name}</strong><small>{s.source_id}</small></div><span className={'health '+s.health}>{s.health==='healthy'?<CheckCircle2 size={13}/>:<AlertTriangle size={13}/>} {s.health}</span></div>
+        <div className="provider-stats"><Metric label="Fetched" value={num(s.fetched_count)}/><Metric label="Raw" value={num(s.raw_rows)}/><Metric label="Usable" value={num(s.canonical_rows)}/></div>
+        <div className="provider-reason">{s.health_reason||'—'}<small>Last run: {date(s.last_finished_at)}</small></div>
+      </div>)}</div>
+      <div className="table-wrap provider-table"><table><thead><tr><th>מקור</th><th>Health</th><th>Run</th><th>Fetched</th><th>Raw</th><th>Usable</th><th>Last run</th><th>Reason</th></tr></thead><tbody>
+      {(status.freshness||[]).filter((s:any)=>s.is_enabled).map((s:any)=><tr key={s.source_id}><td><strong>{s.name}</strong><small>{s.source_id}</small></td>
         <td><span className={'health '+s.health}>{s.health==='healthy'?<CheckCircle2 size={13}/>:<AlertTriangle size={13}/>} {s.health}</span></td>
-        <td>{date(s.last_success_at)}</td><td>{date(s.last_error_at)}</td><td className="err">{s.last_error||'—'}</td></tr>)}
+        <td>{s.run_status||'—'}</td><td>{num(s.fetched_count)}</td><td>{num(s.raw_rows)}</td><td>{num(s.canonical_rows)}</td>
+        <td>{date(s.last_finished_at)}</td><td className="err">{s.health_reason||s.error_summary||'—'}</td></tr>)}
     </tbody></table></div></div>
     <div className="panel"><h3>Coverage by target neighborhood</h3><div className="table-wrap"><table><thead><tr><th>שכונה</th><th>Target parcels</th><th>עסקאות 12M</th><th>Confidence</th><th>עסקה אחרונה</th></tr></thead><tbody>
       {(status.quality||[]).map((q:any)=><tr key={q.slug}><td>{q.name_he}</td><td>{q.target_parcels}</td><td>{q.sample_12m}</td><td><Confidence value={q.confidence} sample={q.sample_12m}/></td><td>{date(q.latest_deal_date)}</td></tr>)}
