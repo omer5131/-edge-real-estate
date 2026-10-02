@@ -2,7 +2,7 @@
 import { sql } from '../db.js';
 import { sha256, text, pick, int } from '../normalize.js';
 
-const SERVICE='https://ags.iplan.gov.il/arcgis/rest/services/PlanningPublic/Xplan/MapServer';
+const SERVICE='https://ags.iplan.gov.il/arcgisiplan/rest/services/PlanningPublic/Xplan/MapServer';
 const TARGETS=[
   {slug:'kiryat-eliezer-haifa',lat:32.82646,lon:34.97872},
   {slug:'kiryat-sprinzak-haifa',lat:32.82023,lon:34.96238},
@@ -15,7 +15,9 @@ async function getJson(url:string){
   try{
     const r=await fetch(url,{headers:{'user-agent':'EdgeRealEstate/1.0'},signal:c.signal});
     if(!r.ok) throw new Error('XPLAN '+r.status);
-    return r.json();
+    const body=await r.text();const ct=r.headers.get('content-type')||'';
+    if(!body.trim().startsWith('{')&&!body.trim().startsWith('['))throw new Error('XPLAN non-JSON '+ct+' '+body.slice(0,80));
+    return JSON.parse(body);
   }finally{clearTimeout(t)}
 }
 function attr(a:any,names:string[]){for(const n of names){if(a?.[n]!=null&&String(a[n]).trim())return a[n]}return null}
