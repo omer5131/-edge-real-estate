@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Edge Collector</title>
+<style>
+body{font-family:system-ui,-apple-system,sans-serif;background:#f6f5f1;color:#17211d;margin:0;padding:24px}
+main{max-width:760px;margin:auto}.card{background:#fff;border:1px solid #ddd;border-radius:14px;padding:18px;margin:12px 0}
+button,input{font:inherit;padding:10px 12px;border-radius:9px;border:1px solid #bbb}button{background:#173d32;color:white;cursor:pointer}button:disabled{opacity:.5}
+pre{white-space:pre-wrap;background:#f2f2ef;padding:12px;border-radius:8px;overflow:auto}.muted{color:#68736e}
+</style>
+</head>
+<body><main>
+<h1>Edge Data Collector</h1>
+<p class="muted">רענון ידני של עסקאות, התחדשות עירונית, מודעות, שכירות וציוני הזדמנות.</p>
+<div class="card">
+<label>Collector secret<br><input id="secret" type="password" autocomplete="current-password" placeholder="CRON_SECRET"></label>
+<button id="run">Run collector now</button>
+<button id="status">Refresh status</button>
+</div>
+<div class="card"><strong>Status</strong><pre id="out">Ready.</pre></div>
+<script>
+const out=document.getElementById('out'),run=document.getElementById('run'),status=document.getElementById('status'),secret=document.getElementById('secret');
+async function refresh(){
+ out.textContent='Loading status…';
+ const r=await fetch('/api/data-status'); out.textContent=JSON.stringify(await r.json(),null,2);
+}
+status.onclick=refresh;
+run.onclick=async()=>{
+ const token=secret.value.trim(); if(!token){out.textContent='Enter CRON_SECRET first.';return;}
+ run.disabled=true;out.textContent='Collector running…';
+ try{
+  const r=await fetch('/api/ingest',{method:'POST',headers:{Authorization:'Bearer '+token}});
+  out.textContent=JSON.stringify(await r.json(),null,2);
+ }catch(e){out.textContent=String(e)}finally{run.disabled=false}
+};
+refresh();
+</script></main></body></html>
