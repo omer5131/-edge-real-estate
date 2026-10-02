@@ -8,7 +8,8 @@ export default async function handler(req:VercelRequest,res:VercelResponse) {
    if(!['sale','rent'].includes(String(q.market)))return res.status(400).json({error:'market_required'});
    return res.json({rows:await queryDatabase('SELECT * FROM yad2_listing_changes WHERE market=$1 AND listing_id=$2 ORDER BY id DESC LIMIT 500',[q.market,q.history])});
   }
-  const where:string[]=[];const params:any[]=[];
+  // Keep history, but the live research feed must age out of the requested window.
+  const where:string[]=["published_at ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' AND published_at >= to_char(current_date - 30, 'YYYY-MM-DD') AND published_at <= to_char(current_date, 'YYYY-MM-DD')", "EXISTS(SELECT 1 FROM yad2_crawl_scopes s WHERE s.enabled AND s.market=yad2_dataset.market AND s.config->'city_names' ? yad2_dataset.city)"];const params:any[]=[];
   const add=(expr:string,value:any)=>{params.push(value);where.push(expr.replace('?',`$${params.length}`));};
   for(const field of ['market','city','neighborhood','status'])if(typeof q[field]==='string')add(`${field}=?`,q[field]);
   for(const [param,col,op] of [['minPrice','price','>='],['maxPrice','price','<='],['minRooms','rooms','>='],['maxRooms','rooms','<='],['minArea','area_sqm','>='],['maxArea','area_sqm','<=']]) {

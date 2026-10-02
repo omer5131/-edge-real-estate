@@ -2,9 +2,27 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {PGlite} from '@electric-sql/pglite';
-import {normalizeListing,yad2Url,validatePage,scrapeJson,recentListing,requestBudget} from '../.server-test/server/sources/scrapingBee.js';
+import {normalizeListing,yad2Url,validatePage,scrapeJson,recentListing,requestBudget,parseYad2Html,partitionListings} from '../.server-test/server/sources/scrapingBee.js';
 import {listingWrite,completeScopeWrites} from '../.server-test/server/sources/yad2Dataset.js';
 const row={url:'https://www.yad2.co.il/realestate/item/abc123',price:1200000,city:'חיפה',rooms:3,area_sqm:80};
+test('regional listing URLs preserve stable IDs and exclude developer promotions',()=>{
+ const url='https://www.yad2.co.il/realestate/item/coastal-north/abc123?spot=platinum';
+ assert.equal(normalizeListing({...row,url}).id,'abc123');
+ assert.equal(normalizeListing({...row,url}).data.url,url.split('?')[0]);
+ const p=partitionListings([row,{url:'/www.yad2.co.il/yad1/project/coastal-north/11236/apartment/100'},{}]);
+ assert.equal(p.listings.length,1);assert.equal(p.excluded,1);assert.equal(p.invalid,1);
+});
+test('native page parser uses source dates, real links and source pagination, not bump dates',()=>{
+ const item={token:'abc123',price:5000,address:{city:{text:'חיפה'},street:{text:'Test'},house:{floor:0}},additionalDetails:{roomsCount:3,squareMeter:80},dates:{createdAt:'2026-09-15T10:00:00',rebouncedAt:'2026-10-02T10:00:00'}};
+ const link='/realestate/item/coastal-north/abc123';
+ const html=props=>`<a href="${link}">Listing</a><script id="__NEXT_DATA__">${JSON.stringify({props:{pageProps:props}})}</script>`;
+ const feed=parseYad2Html(html({feed:{private:[item],lookalike:[{...item,token:'other'}],pagination:{total:2,totalPages:2}},initialSearchFormInputs:{page:1}}),'https://www.yad2.co.il/realestate/rent?city=4000',true);
+ assert.equal(feed.listings.length,1);assert.equal(feed.listings[0].published_at,'2026-09-15');assert.equal(feed.listings[0].floor,0);assert.ok(feed.next_url.includes('city=4000'));assert.ok(feed.next_url.includes('page=2'));
+ const detail=parseYad2Html(html({dehydratedState:{queries:[{queryKey:['item','abc123'],state:{data:item}}]}}),'https://www.yad2.co.il'+link,false);
+ assert.equal(detail.published_at,'2026-09-15');
+ assert.throws(()=>parseYad2Html('<html>Blocked</html>',row.url,true));
+ assert.throws(()=>parseYad2Html(html({dehydratedState:{queries:[]}}),row.url,false));
+});
 test('identity stays stable after price changes; missing numbers remain null',()=>{
  assert.equal(normalizeListing(row).id,normalizeListing({...row,price:1000000}).id);
  assert.equal(normalizeListing({url:row.url}).data.price,null);

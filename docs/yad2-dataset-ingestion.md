@@ -4,11 +4,11 @@ Current defaults: Haifa (4000), Netanya (7400), Petah Tikva (7900), both sale an
 
 Only explicitly verified original publication dates within the last 30 days enter the dataset; unknown dates, older ads, future dates and city mismatches are filtered. first_seen and bump dates are not substitutes. Results pages may still contain older ads: filtering limits stored rows, not the provider requests needed to read pages. Missing publication dates can reduce coverage. No assumption that pagination is ordered by original publication date.
 
-Default details=false: one request per results page, no per-listing requests. Explicit detail mode remains available for selected scopes. Each run has a hard default budget of 60 HTTP attempts including retries (YAD2_MAX_REQUESTS), and 10 pages per city scope. Budget/page exhaustion leaves the scope incomplete and checkpointed; it never proves disappearance. Publication-window scopes do not reconcile disappearance, because aging out is not removal. History remains in the database.
+Default details=false: one request per results page plus a one-time detail request for each unknown listing to verify its original publication date. Yad2's feed omits this date. Migration 013 adds a date/detail cache, including rejected older ads, so replay and subsequent price updates do not refetch known details. Explicit details=true additionally refreshes details each observation. Each run has a hard default budget of 60 HTTP attempts including retries (YAD2_MAX_REQUESTS), 10 attempts per city/market scope (config.max_requests), and 10 pages per scope per run. Initial coverage is partial: these are cost ceilings, not a promise to collect every recent ad. Budget/page exhaustion leaves the scope incomplete and checkpointed; it never proves disappearance. Publication-window scopes do not reconcile disappearance, because aging out is not removal. History remains in the database.
 
 # Yad2 nationwide research dataset
 
-ScrapingBee is the HTTP and extraction provider. It takes public Yad2 URLs; the Yad2 marketing page is not a bulk export endpoint. `ai_extract_rules` generates structured JSON, using JavaScript rendering and optional stealth proxies. The collector validates responses before writing.
+ScrapingBee fetches public Yad2 HTML using JavaScript rendering and optional stealth proxies. The collector reads native __NEXT_DATA__ JSON without AI extraction charges, preserves regional item URLs, excludes developer promotions, and validates responses before writing. Missing or changed native data fails safely.
 
 ## Activation
 
@@ -22,7 +22,7 @@ Previous implementation defaults were nationwide `/realestate/forsale` and `/rea
 
 Every scope follows actual next-page links until exhausted. If Yad2 limits broad searches, divide them into exhaustive smaller scopes (city/region/property type); a finished root pagination chain is not proof that Yad2 exposes every live listing. Reported coverage means the public pages actually traversed. A cap, blocked page, repeated page, malformed extraction or a failed listing detail marks the scope failed, retaining collected rows but skipping removal reconciliation. Completed pages are checkpointed. A failed run resumes from the last unfinished page in the same reconciliation cycle; upserts make replay safe. The missing-listing count advances only after the entire cycle completes. Requests are sequential, bounded by a default 10,000-page per-scope cap and the workflow's 350-minute timeout. Inspect scope completion and runtime before assuming daily nationwide coverage.
 
-With details enabled, each discovered listing detail page is fetched once per scope cycle for descriptions, images, features, entry dates and other available property facts. Listing-summary-only mode is cheaper but cannot capture all detail changes. AI extraction can vary and needs live sampling; all unknowns remain null and unknown dates are never invented. Prices are asking prices, not completed deals, and rental prices are monthly.
+With details enabled, discovered details are refreshed each observation. Default cached-detail mode captures current feed prices but cannot capture every later detail change. Unknown fields remain null and dates are never invented. Only dates.createdAt is treated as original publication; updatedAt and rebouncedAt are not. Prices are asking prices, not completed deals, and rental prices are monthly.
 
 ## Persistence and history
 
@@ -40,6 +40,6 @@ For changing pagination structure or the provider, update the ScrapingBee adapte
 
 Historical listing backfill to 2022 cannot be recovered from today's live pages. This source starts observing at activation; OVER historical transaction imports remain separate.
 
-ScrapingBee charges for rendering/proxies and adds credits for AI extraction. Detail mode adds a request per listing, per scope. Validate a small scope with a real key, check output and credit consumption, then scale. No successful real API request or production DB migration has been claimed by the local tests.
+ScrapingBee charges for rendering/proxies; this collector no longer requests AI extraction. A request ceiling is not a credit ceiling, since proxy settings affect cost. Validate small samples and check account consumption before raising the budget. Native feed and original detail dates were verified against live HTML; local tests do not substitute for production-run coverage.
 
 Validation: `npm run test:yad2` tests stable IDs, blocked/empty pages, retry behavior and real PostgreSQL-compatible trigger/upsert history with PGlite. `npm run build` checks frontend and server compilation; `npm run test:over` protects existing ingestion.
