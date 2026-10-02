@@ -5,8 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "node reconstruct.mjs && vite",
-    "build": "node reconstruct.mjs && tsc -b && vite build",
-    "preview": "vite preview --host 0.0.0.0"
+    "build": "node reconstruct.mjs && tsc -b && tsc -p tsconfig.server.json --noEmit false --outDir .server-build && vite build && node scripts/migrate-over.mjs",
+    "preview": "vite preview --host 0.0.0.0",
+    "backfill:over": "node scripts/over-backfill.mjs",
+    "check:server": "tsc -p tsconfig.server.json",
+    "test:over": "tsc -p tsconfig.server.json --noEmit false --outDir .server-test && node --test tests/over-api.test.mjs"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.0.2",
@@ -26,7 +29,9 @@
     "tailwind-merge": "^3.3.1"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
     "@tailwindcss/vite": "^4.1.12",
+    "@types/node": "^26.6.4",
     "@types/react": "^19.1.10",
     "@types/react-dom": "^19.1.7",
     "@vercel/node": "^5.3.24",

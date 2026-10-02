@@ -188,7 +188,7 @@ function PropertyView({item,onBack}:{item:Opportunity;onBack:()=>void}){
 function DataConsole({status}:{status:DataStatus|null}){
   if(!status)return <div className="screen"><div className="loading"><RefreshCw className="spin"/>טוען מצב מקורות…</div></div>;
   return <div className="screen">
-    <div className="page-head"><div><span className="eyebrow">Data & Agents</span><h1>בריאות מקורות ו-ETL</h1><p>זהו מקור האמת התפעולי של Edge — לא סטטוס דמו.</p></div></div>
+    <div className="page-head"><div><span className="eyebrow">Data & Agents</span><h1>בריאות מקורות ו-ETL</h1><a href="/datasets.html">OVER · מחקר מאגרים ועדכונים יומיים ↗</a><p>זהו מקור האמת התפעולי של Edge — לא סטטוס דמו.</p></div></div>
     <div className="summary-strip">
       <Metric label="עסקאות" value={num(status.counts?.transactions)}/><Metric label="Comparable" value={num(status.counts?.comparable_transactions)}/>
       <Metric label="Excluded" value={num(status.counts?.excluded_transactions)}/><Metric label="Target parcels" value={num(status.counts?.target_parcels)}/>

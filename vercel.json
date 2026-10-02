@@ -5,6 +5,10 @@
     {
       "path": "/api/ingest",
       "schedule": "15 2 * * *"
+    },
+    {
+      "path": "/api/over-datasets",
+      "schedule": "45 2 * * *"
     }
   ]
 }

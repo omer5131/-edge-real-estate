@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.vite/
+.DS_Store
+.server-test/
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+.vercel/
+.server-build/

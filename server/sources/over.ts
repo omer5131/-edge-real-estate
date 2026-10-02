@@ -51,9 +51,10 @@ function txExternalId(r:Record<string,unknown>){
 }
 
 async function upsertTransaction(r:Record<string,unknown>,runId:string,cityId:string,parcelId:string|null,neighborhoodId:string|null){
+  const date=isoDate(pick(r,['deal_date','date','sale_date','DEALDATETIME','תאריך עסקה','תאריך']));
+  if(!date || date<'2022-01-01') return 'skipped';
   const externalId=txExternalId(r);
   const rawId=await raw('over_deals',externalId,'transaction',r,runId);
-  const date=isoDate(pick(r,['deal_date','date','sale_date','DEALDATETIME','תאריך עסקה','תאריך']));
   const amount=n(pick(r,['amount','deal_amount','price','DEALAMOUNT','שווי','מחיר']));
   const declared=n(pick(r,['declared_amount'])) ?? amount;
   const area=n(pick(r,['area','area_sqm','asset_area','AREA','שטח']));
@@ -204,7 +205,7 @@ export async function ingestTargetParcelDeals(runId:string){
         fetched+=rows.length;
         for(const row of rows){
           const state=await upsertTransaction(row,runId,String(t.city_id),String(t.parcel_id),String(t.neighborhood_id));
-          state==='inserted'?inserted++:updated++;
+          if(state==='inserted')inserted++;else if(state==='updated')updated++;
         }
         if(rows.length<PAGE_SIZE) break;
       }
@@ -271,14 +272,14 @@ export async function ingestDealsForSettlement(settlement:string,runId:string,op
     const u=new URL('/api/deals/search',OVER);
     u.searchParams.set('settlement',settlement);
     u.searchParams.set('nature','דירה בבית קומות');
-    u.searchParams.set('date_from',options.dateFrom??'2023-01-01');
+    u.searchParams.set('date_from',options.dateFrom??'2022-01-01');
     u.searchParams.set('limit',String(PAGE_SIZE));
     u.searchParams.set('offset',String(page*PAGE_SIZE));
     const rows=recordsFrom(await json(u.toString(),1));
     fetched+=rows.length;
     for(const row of rows){
       const state=await upsertTransaction(row,runId,String(c[0].id),null,null);
-      state==='inserted'?inserted++:updated++;
+      if(state==='inserted')inserted++;else if(state==='updated')updated++;
     }
     if(rows.length<PAGE_SIZE) break;
   }

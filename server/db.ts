@@ -44,3 +44,13 @@ export async function withRun<T>(
     throw error;
   }
 }
+
+export function queryDatabase(statement: string, params: unknown[] = []): Promise<any[]> {
+  if (!client) throw new Error('DATABASE_URL is not configured in this Vercel deployment');
+  return client.query(statement, params) as any;
+}
+
+export function databaseTransaction(queries: { text: string; params?: unknown[] }[]): Promise<any[][]> {
+  if (!client) throw new Error('DATABASE_URL is not configured in this Vercel deployment');
+  return client.transaction(queries.map(q => client.query(q.text, q.params ?? []))) as any;
+}
