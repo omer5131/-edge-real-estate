@@ -10,12 +10,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const secret = process.env.CRON_SECRET;
   const auth = req.headers.authorization;
   const bodySecret = typeof req.body?.secret === 'string' ? req.body.secret.trim() : '';
+  const oneTimeToken = typeof req.query?.token === 'string' ? req.query.token.trim() : '';
   const isProduction = process.env.VERCEL_ENV === 'production';
 
-  const authorized = !!secret && (
+  let authorized = !!secret && (
     auth === `Bearer ${secret}` ||
     bodySecret === secret
   );
+
+  if (!authorized && oneTimeToken) {
+    try {
+      const { sql } = await import('../server/db.js');
+      const rows = await sql`
+        UPDATE manual_run_tokens
+        SET consumed_at=now()
+        WHERE token_hash=encode(digest(${oneTimeToken},'sha256'),'hex')
+          AND consumed_at IS NULL
+          AND expires_at>now()
+        RETURNING token_hash
+      `;
+      authorized = rows.length > 0;
+    } catch (e) {
+      console.error('manual token auth failed', e);
+    }
+  }
 
   if ((secret && !authorized) || (!secret && isProduction)) {
     return res.status(401).json({
@@ -25,8 +43,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    // Dynamic import keeps dependency/bootstrap failures inside this try/catch,
-    // so the collector gets a useful JSON error instead of FUNCTION_INVOCATION_FAILED.
     const mod = await import('../server/agent/runIngestion.js');
     const report = await mod.runEdgeIngestion();
     return res.status(200).json({ ok:true, report });
