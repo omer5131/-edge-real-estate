@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-10-02T20:13:23.747Z",
+  "generatedAt": "2026-10-02T20:16:06.078Z",
   "scoreVersion": "area-score-v1",
   "refresh": {
-    "runId": "c9ddf063-85bd-4c32-a502-98fbf2bc0cc6",
+    "runId": "af0980a4-7aa3-488b-a4aa-226bc89fd88f",
     "scoreVersion": "area-score-v1",
     "dimensions": 0,
     "mappings": {
@@ -33,5 +33,8 @@
     "active_listings_mapped": 0
   },
   "metricCoverage": [],
+  "sourceReadiness": {
+    "error": "NeonDbError: aggregate function calls cannot be nested"
+  },
   "top": []
 }
