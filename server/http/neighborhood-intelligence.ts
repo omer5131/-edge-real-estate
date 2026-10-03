@@ -1,6 +1,7 @@
 import type {VercelRequest,VercelResponse} from '@vercel/node';
 import {queryDatabase} from '../db.js';
 import {refreshNeighborhoodIntelligence} from '../neighborhoodIntelligence.js';
+import {neighborhoodIdentity,refreshNeighborhoodIdentity} from '../neighborhoodIdentity.js';
 
 function authorized(req:VercelRequest){
  if(process.env.VERCEL_ENV==='preview')return true;
@@ -174,12 +175,21 @@ async function mapData(res:VercelResponse){
 export default async function handler(req:VercelRequest,res:VercelResponse){
  try{
   const mode=String(req.query.mode||req.body?.mode||'neighborhood-dashboard');
+  if(mode==='neighborhood-identity-refresh'){
+   if(!authorized(req))return res.status(401).json({error:'unauthorized'});
+   return res.status(200).json({ok:true,...await refreshNeighborhoodIdentity()});
+  }
   if(mode==='neighborhood-refresh'){
    if(!authorized(req))return res.status(401).json({error:'unauthorized'});
    return res.status(200).json({ok:true,...await refreshNeighborhoodIntelligence()});
   }
   if(req.method!=='GET')return res.status(405).json({error:'method_not_allowed'});
   if(mode==='neighborhood-map')return mapData(res);
+  if(mode==='neighborhood-identity'){
+   const id=String(req.query.neighborhoodId||'');
+   if(!/^[0-9a-f-]{36}$/i.test(id))return res.status(400).json({error:'invalid_neighborhood_id'});
+   return res.status(200).json({mode:'live',neighborhoodId:id,data:await neighborhoodIdentity(id)});
+  }
   const id=String(req.query.neighborhoodId||'');
   if(!/^[0-9a-f-]{36}$/i.test(id))return res.status(400).json({error:'invalid_neighborhood_id'});
   const section=String(req.query.section||'summary');
