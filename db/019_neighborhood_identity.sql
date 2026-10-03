@@ -1,6 +1,10 @@
 -- Canonical Neighborhood Identity Layer
 -- neighborhoods.id remains the permanent Edge neighborhood identity.
 
+ALTER TABLE neighborhood_stat_area_map DROP CONSTRAINT IF EXISTS neighborhood_stat_area_map_mapping_method_check;
+ALTER TABLE neighborhood_stat_area_map ADD CONSTRAINT neighborhood_stat_area_map_mapping_method_check
+  CHECK(mapping_method IN ('verified','polygon_overlap','configured_crosswalk','derived_address','parcel_evidence','official_crosswalk'));
+
 ALTER TABLE neighborhoods
   ADD COLUMN IF NOT EXISTS canonical_status text NOT NULL DEFAULT 'active',
   ADD COLUMN IF NOT EXISTS boundary_version text NOT NULL DEFAULT 'edge-neighborhood-v1',
