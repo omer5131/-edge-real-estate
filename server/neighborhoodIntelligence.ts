@@ -33,28 +33,62 @@ async function linkEvidence(){
  const counts:any={transactions:0,saleListings:0,rentListings:0,renewal:0,census:0,population2024:0,municipal:0};
  let rows=await queryDatabase(`
    INSERT INTO dataset_neighborhood_evidence(dataset_slug,source_record_id,neighborhood_id,source_grain,observation_date,mapping_method,mapping_confidence,payload)
-   SELECT 'transactions',ct.id::text,ct.neighborhood_id,'transaction',ct.deal_date,'canonical_neighborhood',1,
-     jsonb_build_object('price_sqm',COALESCE(ct.normalized_pp_sqm,ct.pp_sqm),'deal_date',ct.deal_date)
-   FROM comparable_transactions ct WHERE ct.neighborhood_id IS NOT NULL
+   SELECT 'transactions',ct.id::text,
+     COALESCE(ct.neighborhood_id,b.neighborhood_id,nsm.neighborhood_id),'transaction',ct.deal_date,
+     CASE WHEN ct.neighborhood_id IS NOT NULL THEN 'canonical_neighborhood'
+          WHEN b.neighborhood_id IS NOT NULL THEN 'property_building_neighborhood'
+          ELSE 'parcel_stat_area_crosswalk' END,
+     CASE WHEN ct.neighborhood_id IS NOT NULL THEN 1
+          WHEN b.neighborhood_id IS NOT NULL THEN .95
+          ELSE COALESCE(nsm.mapping_confidence,.8) END,
+     jsonb_build_object('price_sqm',COALESCE(ct.normalized_pp_sqm,ct.pp_sqm),'deal_date',ct.deal_date,
+       'resolution',CASE WHEN ct.neighborhood_id IS NOT NULL THEN 'direct'
+                         WHEN b.neighborhood_id IS NOT NULL THEN 'property_building'
+                         ELSE 'parcel_crosswalk' END)
+   FROM comparable_transactions ct
+   LEFT JOIN properties p ON p.id=ct.property_id
+   LEFT JOIN buildings b ON b.id=p.building_id
+   LEFT JOIN parcels par ON par.id=ct.parcel_id
+   LEFT JOIN neighborhood_stat_area_map nsm ON nsm.stat_area_id=par.stat_area_id
+   WHERE COALESCE(ct.neighborhood_id,b.neighborhood_id,nsm.neighborhood_id) IS NOT NULL
    ON CONFLICT(dataset_slug,source_record_id,neighborhood_id) DO UPDATE SET
      observation_date=EXCLUDED.observation_date,payload=EXCLUDED.payload,linked_at=now()
    RETURNING 1
  `); counts.transactions=rows.length;
 
  rows=await queryDatabase(`
+   WITH latest AS(
+     SELECT DISTINCT ON(listing_id) listing_id,observed_at,asking_price_nis,area_sqm,rooms,floor
+     FROM listing_snapshots ORDER BY listing_id,observed_at DESC
+   )
    INSERT INTO dataset_neighborhood_evidence(dataset_slug,source_record_id,neighborhood_id,source_grain,observation_date,mapping_method,mapping_confidence,payload)
-   SELECT CASE WHEN y.market='rent' THEN 'rent_listings' ELSE 'sale_listings' END,
-     l.id::text,l.neighborhood_id,'listing',COALESCE(NULLIF(y.published_at,'')::date,l.first_seen_at::date),
-     'canonical_neighborhood',1,
-     jsonb_build_object('market',y.market,'price',y.price,'area_sqm',y.area_sqm,'rooms',y.rooms,'status',y.status)
-   FROM listings l
-   JOIN yad2_dataset y ON y.listing_id=l.source_listing_id
+   SELECT 'sale_listings',l.id::text,l.neighborhood_id,'listing',
+     COALESCE(s.observed_at::date,l.last_seen_at::date),'canonical_neighborhood',1,
+     jsonb_build_object('asking_price_nis',s.asking_price_nis,'area_sqm',s.area_sqm,'rooms',s.rooms,'floor',s.floor,
+       'status',l.status,'first_seen_at',l.first_seen_at,'last_seen_at',l.last_seen_at)
+   FROM listings l LEFT JOIN latest s ON s.listing_id=l.id
    WHERE l.neighborhood_id IS NOT NULL
    ON CONFLICT(dataset_slug,source_record_id,neighborhood_id) DO UPDATE SET
      observation_date=EXCLUDED.observation_date,payload=EXCLUDED.payload,linked_at=now()
-   RETURNING dataset_slug
- `);
- for(const row of rows){if(row.dataset_slug==='rent_listings')counts.rentListings++;else counts.saleListings++;}
+   RETURNING 1
+ `); counts.saleListings=rows.length;
+
+ rows=await queryDatabase(`
+   WITH latest AS(
+     SELECT DISTINCT ON(rental_listing_id) rental_listing_id,observed_at,asking_rent_nis,area_sqm,rooms,floor
+     FROM rental_listing_snapshots ORDER BY rental_listing_id,observed_at DESC
+   )
+   INSERT INTO dataset_neighborhood_evidence(dataset_slug,source_record_id,neighborhood_id,source_grain,observation_date,mapping_method,mapping_confidence,payload)
+   SELECT 'rent_listings',l.id::text,l.neighborhood_id,'listing',
+     COALESCE(s.observed_at::date,l.last_seen_at::date),'canonical_neighborhood',1,
+     jsonb_build_object('asking_rent_nis',s.asking_rent_nis,'area_sqm',s.area_sqm,'rooms',s.rooms,'floor',s.floor,
+       'status',l.status,'first_seen_at',l.first_seen_at,'last_seen_at',l.last_seen_at)
+   FROM rental_listings l LEFT JOIN latest s ON s.rental_listing_id=l.id
+   WHERE l.neighborhood_id IS NOT NULL
+   ON CONFLICT(dataset_slug,source_record_id,neighborhood_id) DO UPDATE SET
+     observation_date=EXCLUDED.observation_date,payload=EXCLUDED.payload,linked_at=now()
+   RETURNING 1
+ `); counts.rentListings=rows.length;
 
  rows=await queryDatabase(`
    INSERT INTO dataset_neighborhood_evidence(dataset_slug,source_record_id,neighborhood_id,source_grain,observation_date,mapping_method,mapping_confidence,payload)
@@ -131,29 +165,46 @@ async function upsertMetric(key:string,sqlBody:string){
 async function refreshMetrics(){
  const day=asOf(); let count=0;
  count+=(await upsertMetric('transaction_count_12m',`
-   SELECT neighborhood_id,'${day}'::date,'transaction_count_12m',count(*)::numeric,count(*)::int,
+   SELECT resolved_neighborhood_id,'${day}'::date,'transaction_count_12m',count(*)::numeric,count(*)::int,
      LEAST(1,count(*)::numeric/20),count(*)::int,ARRAY['transactions'],
      jsonb_build_object('dataset','transactions','source_grain','transaction','window','12 months')
-   FROM comparable_transactions WHERE neighborhood_id IS NOT NULL AND deal_date>=current_date-interval '12 months'
-   GROUP BY neighborhood_id
+   FROM (
+     SELECT ct.*,COALESCE(ct.neighborhood_id,b.neighborhood_id,nsm.neighborhood_id) resolved_neighborhood_id
+     FROM comparable_transactions ct
+     LEFT JOIN properties p ON p.id=ct.property_id LEFT JOIN buildings b ON b.id=p.building_id
+     LEFT JOIN parcels par ON par.id=ct.parcel_id LEFT JOIN neighborhood_stat_area_map nsm ON nsm.stat_area_id=par.stat_area_id
+   ) q
+   WHERE resolved_neighborhood_id IS NOT NULL AND deal_date>=current_date-interval '12 months'
+   GROUP BY resolved_neighborhood_id
  `)).length;
  count+=(await upsertMetric('median_price_sqm_12m',`
-   SELECT neighborhood_id,'${day}'::date,'median_price_sqm_12m',
+   SELECT resolved_neighborhood_id,'${day}'::date,'median_price_sqm_12m',
      percentile_cont(.5) WITHIN GROUP(ORDER BY COALESCE(normalized_pp_sqm,pp_sqm)),
      count(*)::int,LEAST(1,count(*)::numeric/20),count(*)::int,ARRAY['transactions'],
      jsonb_build_object('dataset','transactions','source_grain','transaction','window','12 months')
-   FROM comparable_transactions
-   WHERE neighborhood_id IS NOT NULL AND deal_date>=current_date-interval '12 months' AND COALESCE(normalized_pp_sqm,pp_sqm)>0
-   GROUP BY neighborhood_id
+   FROM (
+     SELECT ct.*,COALESCE(ct.neighborhood_id,b.neighborhood_id,nsm.neighborhood_id) resolved_neighborhood_id
+     FROM comparable_transactions ct
+     LEFT JOIN properties p ON p.id=ct.property_id LEFT JOIN buildings b ON b.id=p.building_id
+     LEFT JOIN parcels par ON par.id=ct.parcel_id LEFT JOIN neighborhood_stat_area_map nsm ON nsm.stat_area_id=par.stat_area_id
+   ) q
+   WHERE resolved_neighborhood_id IS NOT NULL AND deal_date>=current_date-interval '12 months' AND COALESCE(normalized_pp_sqm,pp_sqm)>0
+   GROUP BY resolved_neighborhood_id
  `)).length;
  count+=(await upsertMetric('price_change_1y',`
    WITH x AS(
-    SELECT neighborhood_id,
+    SELECT resolved_neighborhood_id neighborhood_id,
      percentile_cont(.5) WITHIN GROUP(ORDER BY COALESCE(normalized_pp_sqm,pp_sqm)) FILTER(WHERE deal_date>=current_date-interval '12 months') p1,
      percentile_cont(.5) WITHIN GROUP(ORDER BY COALESCE(normalized_pp_sqm,pp_sqm)) FILTER(WHERE deal_date<current_date-interval '12 months') p0,
      count(*) FILTER(WHERE deal_date>=current_date-interval '12 months')::int n
-    FROM comparable_transactions WHERE neighborhood_id IS NOT NULL AND deal_date>=current_date-interval '24 months'
-    GROUP BY neighborhood_id
+    FROM (
+      SELECT ct.*,COALESCE(ct.neighborhood_id,b.neighborhood_id,nsm.neighborhood_id) resolved_neighborhood_id
+      FROM comparable_transactions ct
+      LEFT JOIN properties p ON p.id=ct.property_id LEFT JOIN buildings b ON b.id=p.building_id
+      LEFT JOIN parcels par ON par.id=ct.parcel_id LEFT JOIN neighborhood_stat_area_map nsm ON nsm.stat_area_id=par.stat_area_id
+    ) q
+    WHERE resolved_neighborhood_id IS NOT NULL AND deal_date>=current_date-interval '24 months'
+    GROUP BY resolved_neighborhood_id
    )
    SELECT neighborhood_id,'${day}'::date,'price_change_1y',100*(p1/p0-1),n,LEAST(1,n::numeric/20),n,
      ARRAY['transactions'],jsonb_build_object('dataset','transactions','current_median',p1,'prior_median',p0)
