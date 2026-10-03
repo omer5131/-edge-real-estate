@@ -51,6 +51,14 @@
     {
       "source": "/api/semantic",
       "destination": "/api/ask?mode=data-explorer&view=semantic"
+    },
+    {
+      "source": "/api/neighborhood-identity",
+      "destination": "/api/ask?mode=neighborhood-identity"
+    },
+    {
+      "source": "/api/neighborhood-identity-refresh",
+      "destination": "/api/ask?mode=neighborhood-identity-refresh"
     }
   ]
 }
