@@ -1,1 +1,1 @@
-Trigger CBS seed and neighborhood refresh validation.
+Trigger CBS seed and neighborhood refresh validation - retry with curl downloader.
