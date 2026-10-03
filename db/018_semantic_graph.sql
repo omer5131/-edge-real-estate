@@ -72,7 +72,7 @@ INSERT INTO semantic_relationships(relationship_key,from_entity,to_entity,relati
  ('parcel_stat_area','parcel','statistical_area','belongs_to','{"from":"parcels.stat_area_id","to":"statistical_areas.id"}',NULL,.95,'Parcel point/polygon assigned to statistical area.'),
  ('building_neighborhood','building','neighborhood','belongs_to','{"from":"buildings.neighborhood_id","to":"neighborhoods.id"}',NULL,1,'Preferred direct neighborhood link for buildings.'),
  ('listing_neighborhood','listing','neighborhood','belongs_to','{"from":"listings.neighborhood_id","to":"neighborhoods.id"}',NULL,1,'Preferred direct neighborhood link for listings.'),
- ('transaction_neighborhood','transaction','neighborhood','resolved_to','{"table":"comparable_transactions","from":"neighborhood_id","to":"neighborhoods.id"}',NULL,.95,'Use comparable_transactions for valuation and neighborhood transaction analytics.')
+ ('transaction_neighborhood','transaction','neighborhood','resolved_to','{"evidence_table":"dataset_neighborhood_evidence","dataset_slug":"transactions","priority":["comparable_transactions.neighborhood_id","property->building.neighborhood_id","parcel->statistical_area->neighborhood_stat_area_map"]}',NULL,.95,'Transaction neighborhood resolution uses the canonical resolver priority. For dashboard drilldown join dataset_neighborhood_evidence(dataset_slug=transactions) to comparable_transactions by source_record_id.')
 ON CONFLICT(relationship_key) DO UPDATE SET
  join_rule=EXCLUDED.join_rule,inheritance_rule=EXCLUDED.inheritance_rule,confidence=EXCLUDED.confidence,description=EXCLUDED.description;
 
@@ -84,6 +84,15 @@ INSERT INTO semantic_dataset_roles(table_name,entity_key,dataset_role,source_gra
  ('transactions','transaction','raw_canonical_market','transaction','parcel/property/city resolution','none',
   ARRAY['source inspection'],ARRAY['valuation when comparable_transactions is available'],
   'Raw canonical executed transactions. Prefer comparable_transactions for neighborhood valuation.'),
+ ('rental_listings','listing','canonical_rent_listing','listing','direct neighborhood_id','none',
+  ARRAY['active rent inventory','asking rent','rent listing identity'],ARRAY['executed rent','signed lease price'],
+  'Join latest rental_listing_snapshots for current asking rent.'),
+ ('rental_listing_snapshots','listing','rent_snapshot','listing snapshot','via rental_listings.neighborhood_id','none',
+  ARRAY['current asking rent','rent per sqm','rooms','area'],ARRAY['signed lease price'],
+  'Multiple observations per rental listing; select latest observed_at for current state.'),
+ ('listing_snapshots','listing','sale_snapshot','listing snapshot','via listings.neighborhood_id','none',
+  ARRAY['current asking sale price','asking price per sqm','rooms','area'],ARRAY['executed transaction price'],
+  'Multiple observations per listing; select latest observed_at for current state.'),
  ('listings','listing','canonical_sale_listing','listing','direct neighborhood_id','none',
   ARRAY['active sale inventory','listing identity'],ARRAY['current price without latest snapshot'],
   'Join latest listing_snapshots for current asking price.'),
