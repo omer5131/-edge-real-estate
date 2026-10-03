@@ -21,7 +21,7 @@ function relationFor(listing:any,row:any){
 }
 
 function relationScore(relation:string){
-  return relation==='same_building'?1:relation==='same_street'?.92:relation==='nearby'?.82:relation==='same_neighborhood'?.68:.45;
+  return relation==='same_building'?1:relation==='same_street'?0.92:relation==='nearby'?0.82:relation==='same_neighborhood'?0.68:0.45;
 }
 
 export function buildValuationFromRows(listing:any,rows:any[]):ValuationResponse{
