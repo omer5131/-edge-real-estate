@@ -1,4 +1,5 @@
 name: Phase 1 CI
+# Backend contract gate for Phase 1 market intelligence.
 
 on:
   push:
