@@ -1,7 +1,7 @@
 import {queryDatabase} from './db.js';
 
 export async function refreshNeighborhoodIdentity(){
-  const result={sourceMappings:0,parcelMappings:0,parcelEnrichment:0,statAreaMappings:0,geometriesPromoted:0,aliases:0,hierarchyEdges:0};
+  const result={sourceMappings:0,parcelMappings:0,parcelEnrichment:0,statAreaMappings:0,officialCrosswalk:0,geometriesPromoted:0,aliases:0,hierarchyEdges:0};
 
   let rows=await queryDatabase(`
     INSERT INTO neighborhood_aliases(neighborhood_id,source_id,alias,normalized_alias,language,alias_type,confidence,is_primary)
@@ -119,39 +119,99 @@ export async function refreshNeighborhoodIdentity(){
       overlap_pct=EXCLUDED.overlap_pct,evidence=EXCLUDED.evidence,mapped_at=now()
   `);
 
+
+  const official=await queryDatabase(`
+    WITH raw AS(
+      SELECT k.locality_code,k.statistical_area_code,k.neighborhood_names,
+        c.id city_id,s.id stat_area_id
+      FROM cbs_neighborhood_stat_area_key k
+      JOIN cities c ON c.settlement_code=k.locality_code
+      JOIN statistical_areas s ON s.city_id=c.id AND s.stat_area_code=k.statistical_area_code AND s."year"=2022
+    ), names AS(
+      SELECT r.*,unnest(r.neighborhood_names) source_neighborhood
+      FROM raw r
+    ), norm AS(
+      SELECT n.*,
+        lower(regexp_replace(replace(replace(source_neighborhood,'״',''),'"',''),'[[:space:][:punct:]]','','g')) normalized_source
+      FROM names n
+    ), matched AS(
+      SELECT DISTINCT no.id neighborhood_id,n.stat_area_id,n.source_neighborhood
+      FROM norm n
+      JOIN neighborhoods no ON no.city_id=n.city_id
+      LEFT JOIN neighborhood_aliases a ON a.neighborhood_id=no.id
+      WHERE lower(regexp_replace(replace(replace(no.name_he,'״',''),'"',''),'[[:space:][:punct:]]','','g'))=n.normalized_source
+         OR a.normalized_alias=n.normalized_source
+    ), multiplicity AS(
+      SELECT stat_area_id,count(DISTINCT neighborhood_id)::int neighborhood_count
+      FROM matched GROUP BY stat_area_id
+    )
+    INSERT INTO neighborhood_stat_area_map(
+      neighborhood_id,stat_area_id,overlap_ratio,mapping_method,mapping_confidence,mapping_version,source_evidence,mapped_at
+    )
+    SELECT m.neighborhood_id,m.stat_area_id,
+      CASE WHEN x.neighborhood_count=1 THEN 1::numeric ELSE NULL END,
+      'official_crosswalk',
+      CASE WHEN x.neighborhood_count=1 THEN .98 ELSE .85 END,
+      'cbs-2022-neighborhood-key',
+      jsonb_build_object(
+        'source','CBS 2022 main streets and neighborhoods key',
+        'source_neighborhood',m.source_neighborhood,
+        'exclusive',x.neighborhood_count=1,
+        'neighborhoods_in_stat_area',x.neighborhood_count
+      ),
+      now()
+    FROM matched m JOIN multiplicity x USING(stat_area_id)
+    ON CONFLICT(neighborhood_id,stat_area_id) DO UPDATE SET
+      overlap_ratio=EXCLUDED.overlap_ratio,
+      mapping_method='official_crosswalk',
+      mapping_confidence=GREATEST(neighborhood_stat_area_map.mapping_confidence,EXCLUDED.mapping_confidence),
+      mapping_version=EXCLUDED.mapping_version,
+      source_evidence=EXCLUDED.source_evidence,
+      mapped_at=now()
+    RETURNING neighborhood_id
+  `);
+  result.officialCrosswalk=official.length;
+
   const candidates=await queryDatabase(`
-    WITH strong AS(
-      SELECT m.neighborhood_id,s.geom,m.mapping_confidence
+    WITH mapped AS(
+      SELECT m.neighborhood_id,s.geom,m.mapping_confidence,m.overlap_ratio,
+        COALESCE((m.source_evidence->>'exclusive')::boolean,false) exclusive
       FROM neighborhood_stat_area_map m
       JOIN statistical_areas s ON s.id=m.stat_area_id
       WHERE s.geom IS NOT NULL AND m.mapping_confidence>=.85
     ), agg AS(
-      SELECT neighborhood_id,ST_Multi(ST_Union(geom)) geom,
-        avg(mapping_confidence)::numeric avg_confidence,
-        count(*)::int area_count
-      FROM strong GROUP BY neighborhood_id
+      SELECT neighborhood_id,
+        ST_Multi(ST_Union(geom)) FILTER(WHERE exclusive OR overlap_ratio=1) geom,
+        avg(mapping_confidence) FILTER(WHERE exclusive OR overlap_ratio=1)::numeric avg_confidence,
+        count(*)::int total_areas,
+        count(*) FILTER(WHERE exclusive OR overlap_ratio=1)::int exclusive_areas
+      FROM mapped GROUP BY neighborhood_id
     )
-    SELECT neighborhood_id,geom,LEAST(.96,avg_confidence)::numeric confidence,area_count
-    FROM agg WHERE area_count>=1
+    SELECT neighborhood_id,geom,
+      LEAST(.96,COALESCE(avg_confidence,.8) * (exclusive_areas::numeric/NULLIF(total_areas,0)))::numeric confidence,
+      exclusive_areas area_count
+    FROM agg
+    WHERE exclusive_areas>=1
+      AND exclusive_areas::numeric/NULLIF(total_areas,0)>=.8
   `);
 
   for(const c of candidates){
-    const version='edge-neighborhood-v1-cbs';
+    const version='edge-neighborhood-v1-cbs-official';
     await queryDatabase(`
       UPDATE neighborhood_geometries SET is_active=false
       WHERE neighborhood_id=$1 AND is_active AND geometry_version<>$2
     `,[c.neighborhood_id,version]);
     const inserted=await queryDatabase(`
       INSERT INTO neighborhood_geometries(neighborhood_id,geometry_version,geom,geometry_method,source_id,confidence,is_active,evidence)
-      VALUES($1,$2,$3::geometry,'cbs_stat_area_union','cbs',$4,true,$5::jsonb)
+      VALUES($1,$2,$3::geometry,'cbs_official_stat_area_union','cbs',$4,true,$5::jsonb)
       ON CONFLICT(neighborhood_id,geometry_version) DO UPDATE SET
         geom=EXCLUDED.geom,confidence=EXCLUDED.confidence,is_active=true,evidence=EXCLUDED.evidence
       RETURNING id
     `,[c.neighborhood_id,version,c.geom,c.confidence,JSON.stringify({statistical_area_count:c.area_count})]);
     if(inserted.length)result.geometriesPromoted++;
     await queryDatabase(`
-      UPDATE neighborhoods SET geom=$2::geometry,boundary_version=$3,geometry_method='cbs_stat_area_union',
-        geometry_source='cbs',geometry_confidence=$4,updated_at=now()
+      UPDATE neighborhoods SET geom=$2::geometry,boundary_version=$3,geometry_method='cbs_official_stat_area_union',
+        geometry_source='cbs-2022-neighborhood-key',geometry_confidence=$4,updated_at=now()
       WHERE id=$1
     `,[c.neighborhood_id,c.geom,version,c.confidence]);
   }
