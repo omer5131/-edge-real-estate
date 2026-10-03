@@ -1,0 +1,44 @@
+
+> edge-real-estate-intelligence@0.2.0 test:areas
+> tsc -p tsconfig.server.json --noEmit false --outDir .server-test && node --test tests/area-scoring.test.mjs
+
+TAP version 13
+# Subtest: freshness decays and excludes stale listings
+ok 1 - freshness decays and excludes stale listings
+  ---
+  duration_ms: 0.924197
+  type: 'test'
+  ...
+# Subtest: deal score uses freshness and confidence weights
+ok 2 - deal score uses freshness and confidence weights
+  ---
+  duration_ms: 0.312701
+  type: 'test'
+  ...
+# Subtest: bayesian shrinkage protects tiny samples
+ok 3 - bayesian shrinkage protects tiny samples
+  ---
+  duration_ms: 0.165839
+  type: 'test'
+  ...
+# Subtest: area score reweights only when coverage is sufficient
+ok 4 - area score reweights only when coverage is sufficient
+  ---
+  duration_ms: 0.349159
+  type: 'test'
+  ...
+# Subtest: confidence and percentile are deterministic
+ok 5 - confidence and percentile are deterministic
+  ---
+  duration_ms: 0.977697
+  type: 'test'
+  ...
+1..5
+# tests 5
+# suites 0
+# pass 5
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 64.951284
