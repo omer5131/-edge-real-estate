@@ -35,3 +35,5 @@
 .ni-data-badge.validated{background:#dff2e6;color:#1c633c}.ni-data-badge.provisional{background:#fff0c9;color:#7d5900}
 .ni-trend-chart{width:100%;height:180px;color:#286a4a;background:#fafcfa;border:1px solid var(--ni-line);border-radius:12px;padding:10px;box-sizing:border-box}
 .ni-chart-legend{display:flex;gap:18px;font-size:10px;color:var(--ni-muted);margin-bottom:8px}.ni-chart-legend span:first-child:before,.ni-chart-legend span:last-child:before{content:'';display:inline-block;width:12px;height:2px;margin-right:5px;vertical-align:middle;background:#286a4a}.ni-chart-legend span:last-child:before{background:#808780}
+
+.ni-value-signal{display:inline-flex;align-items:center;border-radius:999px;padding:4px 7px;font-size:10px;font-weight:800;text-transform:capitalize;background:#eef1ee;color:#536158}.ni-value-signal.discount{background:#dff2e6;color:#1c633c}.ni-value-signal.premium{background:#f5e4df;color:#8b3a30}.ni-value-signal.insufficient{background:#eceeed;color:#7b857f}
