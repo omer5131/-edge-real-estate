@@ -17,7 +17,7 @@ export function buildActiveMarketFromRows(listing:any,rows:any[]):SimilarListing
     const add=(s:number,w:number)=>{score+=clamp(s)*w;total+=w};
     const addr=normalizeAddress(r.canonical_address);
     const street=streetKey(addr);
-    const relation=subjectAddress&&addr&&subjectAddress===addr?1:subjectStreet&&street&&subjectStreet===street?.9:.68;
+    const relation=subjectAddress&&addr&&subjectAddress===addr?1:subjectStreet&&street&&subjectStreet===street?0.9:0.68;
     add(relation,.25);
     if(listing.area_sqm&&r.area_sqm)add(1-Math.abs(Number(listing.area_sqm)-Number(r.area_sqm))/Math.max(Number(listing.area_sqm),1),.40);
     if(listing.rooms!=null&&r.rooms!=null)add(1-Math.abs(Number(listing.rooms)-Number(r.rooms))/Math.max(Number(listing.rooms),1),.25);
