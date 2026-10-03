@@ -107,6 +107,30 @@ export default async function handler(req:VercelRequest,res:VercelResponse){
    evidence:{status:similar.length>=3?'supported':similar.length?'provisional':'insufficient_evidence',confidence:similar.length?Number(Math.min(.8,.25+similar.length*.07).toFixed(2)):null,sampleSize:similar.length,observedAt:similar[0]?.last_seen_at||null,modelVersion:'similar-listings-v1',sourceIds:['listings','listing_snapshots'],notes:['v1 similarity uses neighborhood, area, rooms and floor; distance requires stronger canonical location coverage.']}
   };
 
+  const [areaSummary]=await sql`SELECT neighborhood_id::text,neighborhood_slug,neighborhood_name,city_name,
+    transaction_count_12m,median_price_sqm_12m::float8,price_change_1y::float8,population_growth_22_24::float8,
+    renewal_expansion_ratio::float8,estimated_gross_yield::float8,confidence_score::float8,confidence_level,coverage_pct::float8,updated_at
+    FROM semantic_neighborhood_summary WHERE neighborhood_id=${listing.neighborhood_id}::uuid`;
+  const [cbsProfile]=await sql`SELECT observation_year,population::float8,population_growth_from_2022_pct::float8,
+    employment_pct::float8,academic_certificate_pct::float8,median_annual_employee_wage::float8,
+    average_household_size::float8,owner_households_pct::float8,renter_households_pct::float8,median_age::float8,
+    statistical_area_count,mapping_confidence::float8,profile_quality,safe_for_score,crosswalk_method,source_evidence,calculated_at
+    FROM semantic_neighborhood_cbs_profile WHERE neighborhood_id=${listing.neighborhood_id}::uuid
+    ORDER BY observation_year DESC LIMIT 1`;
+  const areaContext={
+    summary:areaSummary||null,
+    cbs:cbsProfile||null,
+    evidence:{
+      status:cbsProfile?.safe_for_score?'supported':cbsProfile?'provisional':'insufficient_evidence',
+      confidence:cbsProfile?.mapping_confidence==null?null:Number(cbsProfile.mapping_confidence),
+      sampleSize:cbsProfile?.statistical_area_count==null?null:Number(cbsProfile.statistical_area_count),
+      observedAt:cbsProfile?.calculated_at||areaSummary?.updated_at||null,
+      modelVersion:'area-context-v1',
+      sourceIds:['semantic_neighborhood_summary','semantic_neighborhood_cbs_profile'],
+      notes:cbsProfile&&!cbsProfile.safe_for_score?['CBS neighborhood profile is provisional until the official neighborhood/statistical-area crosswalk is validated.']:[]
+    }
+  };
+
   const renewal=await sql`SELECT project_name name,plan_number,status,existing_units,planned_units,permits_count,in_execution,
     source_url official_url,map_url,observed_at FROM renewal_projects WHERE neighborhood_id=${listing.neighborhood_id}::uuid
     ORDER BY in_execution DESC,permits_count DESC NULLS LAST,observed_at DESC LIMIT 10`;
@@ -116,6 +140,6 @@ export default async function handler(req:VercelRequest,res:VercelResponse){
   const [seller]=await sql`SELECT * FROM listing_seller_signals WHERE listing_id=${id}::uuid`;
   const [rent]=await sql`SELECT * FROM neighborhood_rent_metrics WHERE neighborhood_id=${listing.neighborhood_id}::uuid`;
   const [score]=await sql`SELECT score,price_gap_score,renewal_score,seller_motivation_score,comp_confidence_score,risk_deduction,model_version,inputs,explanation,calculated_at FROM opportunity_scores WHERE entity_type='listing' AND entity_id=${id}::uuid ORDER BY calculated_at DESC LIMIT 1`;
-  res.status(200).json({tier:'full',listing,comps:basicComps,valuation,activeMarket,renewal,plans,infrastructure,history,seller:seller||{},rent:rent||null,score:score||null,confidence:confidence||{confidence:'insufficient',sample_12m:0}});
+  res.status(200).json({tier:'full',listing,comps:basicComps,valuation,activeMarket,areaContext,renewal,plans,infrastructure,history,seller:seller||{},rent:rent||null,score:score||null,confidence:confidence||{confidence:'insufficient',sample_12m:0}});
  }catch(e){res.status(503).json({error:String(e)});}
 }
