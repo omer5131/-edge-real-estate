@@ -28,11 +28,11 @@ async function hydrateSupportingGeography(){
     ),3)) geom
    FROM src
   )
-  INSERT INTO statistical_areas(city_id,stat_area_code,year,geom,source_id,observed_at)
+  INSERT INTO statistical_areas(city_id,stat_area_code,"year",geom,source_id,observed_at)
   SELECT c.id,n.statistical_area_code,n.boundary_year,n.geom,'cbs',now()
   FROM norm n JOIN cities c ON c.settlement_code=n.locality_code
   WHERE n.geom IS NOT NULL AND NOT ST_IsEmpty(n.geom)
-  ON CONFLICT(city_id,stat_area_code,year) DO UPDATE SET geom=EXCLUDED.geom,observed_at=now()
+  ON CONFLICT(city_id,stat_area_code,"year") DO UPDATE SET geom=EXCLUDED.geom,observed_at=now()
   RETURNING id
  `);
  out.statisticalAreas=rows.length;
