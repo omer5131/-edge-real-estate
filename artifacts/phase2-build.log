@@ -1,0 +1,10 @@
+
+> edge-real-estate-intelligence@0.2.0 build
+> node reconstruct.mjs && node scripts/inject-neighborhood-ui.mjs && tsc -b && tsc -p tsconfig.server.json --noEmit false --outDir .server-build && vite build && node scripts/migrate-over.mjs && node scripts/migrate-yad2.mjs && node scripts/migrate-research.mjs && node scripts/migrate-area-intelligence.mjs
+
+Reconstructed 18 Edge source files and live-data bootstrap.
+Neighborhood intelligence UI injected.
+src/components/DealRoom.tsx(48,219): error TS1005: '}' expected.
+src/components/DealRoom.tsx(48,220): error TS1381: Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+src/components/DealRoom.tsx(67,358): error TS1005: '}' expected.
+src/components/DealRoom.tsx(67,359): error TS1381: Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
