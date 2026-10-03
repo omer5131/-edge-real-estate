@@ -47,6 +47,10 @@
     {
       "source": "/api/neighborhood-refresh",
       "destination": "/api/ask?mode=neighborhood-refresh"
+    },
+    {
+      "source": "/api/semantic",
+      "destination": "/api/ask?mode=data-explorer&view=semantic"
     }
   ]
 }
