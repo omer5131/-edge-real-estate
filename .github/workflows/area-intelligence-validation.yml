@@ -2,34 +2,29 @@ name: Area Intelligence Validation
 
 on:
   push:
-    branches:
-      - area-intelligence-foundation
-      - main
+    branches: [main]
     paths:
       - "db/015_area_intelligence.sql"
-      - "package.json"
-      - "scripts/migrate-yad2.mjs"
-      - "scripts/validate-area-intelligence.mjs"
-      - "scripts/inject-neighborhood-ui.mjs"
-      - "ui/neighborhood-intelligence.css"
-      - "ui/NeighborhoodIntelligence.tsx"
-      - "server/agent/deepseekAgents.ts"
-      - "server/http/data-explorer.ts"
-      - "server/http/neighborhood-intelligence.ts"
-      - "server/neighborhoodIntelligence.ts"
-      - "db/018_semantic_graph.sql"
-      - "db/017_neighborhood_intelligence.sql"
       - "db/016_statistical_area_identity.sql"
+      - "db/017_neighborhood_intelligence.sql"
+      - "db/018_semantic_graph.sql"
       - "server/areaScoring.ts"
       - "server/areaIntelligence.ts"
+      - "server/neighborhoodIntelligence.ts"
       - "server/http/area-intelligence.ts"
+      - "server/http/neighborhood-intelligence.ts"
+      - "server/http/data-explorer.ts"
+      - "server/http/agent-chat.ts"
+      - "server/agent/deepseekAgents.ts"
       - "scripts/migrate-area-intelligence.mjs"
+      - "scripts/validate-area-intelligence.mjs"
+      - "scripts/migrate-yad2.mjs"
       - "tests/area-scoring.test.mjs"
-      - ".github/workflows/area-intelligence-validation.yml"
+      - "package.json"
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   validate:
@@ -44,86 +39,30 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Verify DB secret exists
-        run: |
-          test -n "$DATABASE_URL" || (echo "DATABASE_URL repository secret is missing" && exit 1)
-      - name: Capture frontend typecheck
+      - name: Verify DB secret
+        run: test -n "$DATABASE_URL"
+      - name: Frontend typecheck
         run: |
           node reconstruct.mjs
           node scripts/inject-neighborhood-ui.mjs
-          mkdir -p artifacts
-          npx tsc -b --pretty false > artifacts/typecheck.log 2>&1 || true
-      - name: Commit typecheck diagnostics
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add artifacts/typecheck.log
-          if git diff --cached --quiet; then echo "Typecheck log unchanged"; else git commit -m "Record frontend typecheck diagnostics"; git push; fi
-      - name: Capture server typecheck
-        run: |
-          mkdir -p artifacts
-          npx tsc -p tsconfig.server.json --pretty false > artifacts/server-typecheck.log 2>&1 || true
-      - name: Commit server typecheck diagnostics
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add artifacts/server-typecheck.log
-          if git diff --cached --quiet; then echo "Server typecheck log unchanged"; else git commit -m "Record server typecheck diagnostics"; git push; fi
-      - name: Capture remaining build stages
-        run: |
-          mkdir -p artifacts
-          npx vite build > artifacts/vite-build.log 2>&1 || true
-          node scripts/migrate-over.mjs > artifacts/migrate-over.log 2>&1 || true
-          node scripts/migrate-yad2.mjs > artifacts/migrate-yad2.log 2>&1 || true
-          node scripts/migrate-research.mjs > artifacts/migrate-research.log 2>&1 || true
-      - name: Commit remaining build diagnostics
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add artifacts/vite-build.log artifacts/migrate-over.log artifacts/migrate-yad2.log artifacts/migrate-research.log
-          if git diff --cached --quiet; then echo "Build-stage logs unchanged"; else git commit -m "Record remaining build diagnostics"; git push; fi
-      - name: Test scoring primitives
-        run: |
-          mkdir -p artifacts
-          npm run test:areas > artifacts/test-areas.log 2>&1 || true
-      - name: Commit scoring-test diagnostics
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add artifacts/test-areas.log
-          if git diff --cached --quiet; then echo "Scoring-test log unchanged"; else git commit -m "Record scoring test diagnostics"; git push; fi
-      - name: Apply additive area schema
-        run: |
-          mkdir -p artifacts
-          npm run migrate:areas > artifacts/migration.log 2>&1 || true
-      - name: Commit migration diagnostics
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add artifacts/migration.log
-          if git diff --cached --quiet; then echo "Migration log unchanged"; else git commit -m "Record neighborhood migration diagnostics"; git push; fi
+          npx tsc -b --pretty false
+      - name: Server typecheck
+        run: npx tsc -p tsconfig.server.json --pretty false
+      - name: Scoring tests
+        run: npm run test:areas
+      - name: Apply semantic/area migrations
+        run: npm run migrate:areas
       - name: Build server modules
+        run: npx tsc -p tsconfig.server.json --noEmit false --outDir .server-build
+      - name: Refresh and validate neighborhood intelligence
         run: |
           mkdir -p artifacts
-          npx tsc -p tsconfig.server.json --noEmit false --outDir .server-build > artifacts/server-build.log 2>&1 || true
-      - name: Commit server-build diagnostics
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add artifacts/server-build.log
-          if git diff --cached --quiet; then echo "Server-build log unchanged"; else git commit -m "Record server build diagnostics"; git push; fi
-      - name: Refresh and write sanitized validation report
-        run: |
-          mkdir -p artifacts
-          node scripts/validate-area-intelligence.mjs > artifacts/neighborhood-validation.log 2>&1 || true
-      - name: Commit validation report
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add artifacts/neighborhood-validation.json artifacts/neighborhood-validation.log
-          if git diff --cached --quiet; then
-            echo "Validation report unchanged"
-          else
-            git commit -m "Record area intelligence validation"
-            git push
-          fi
+          node scripts/validate-area-intelligence.mjs | tee artifacts/neighborhood-validation.log
+      - name: Upload validation report
+        uses: actions/upload-artifact@v4
+        with:
+          name: neighborhood-intelligence-validation
+          path: |
+            artifacts/neighborhood-validation.json
+            artifacts/neighborhood-validation.log
+          retention-days: 14
