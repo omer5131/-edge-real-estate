@@ -21,7 +21,3 @@ FROM neighborhood_cbs_profiles p
 JOIN neighborhoods n ON n.id=p.neighborhood_id
 JOIN cities c ON c.id=n.city_id;
 
-COMMENT ON COLUMN neighborhood_cbs_profiles.profile_quality IS
- 'validated = safe official 2022-compatible neighborhood crosswalk; provisional = useful contextual rollup from reviewed mapping but not score-safe.';
-COMMENT ON COLUMN neighborhood_cbs_profiles.safe_for_score IS
- 'Only true when CBS neighborhood mapping is sufficiently verified for investment-score input.';
