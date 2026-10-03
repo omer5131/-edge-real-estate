@@ -1,0 +1,202 @@
+import React,{useEffect,useMemo,useState} from 'react';
+import './neighborhood-intelligence.css';
+
+type NeighborhoodMapRow={
+ neighborhood_id:string;slug:string;name_he:string;city:string;
+ deal_heat:number|null;investment_score:number|null;confidence_score:number|null;confidence_level:string|null;
+ coverage_pct:number|null;deal_count:number;transaction_count_12m:number;median_price_sqm_12m:number|null;
+ price_change_1y:number|null;renewal_expansion_ratio:number|null;estimated_gross_yield:number|null;
+ average_wage:number|null;net_internal_migration:number|null;construction_starts:number|null;geometry:any|null;
+};
+type Summary={neighborhood:any;metrics:any[];datasets:any[]};
+type LayerKey='deal_heat'|'investment_score'|'median_price_sqm_12m'|'price_change_1y'|'renewal_expansion_ratio'|'estimated_gross_yield'|'average_wage';
+const layers:{key:LayerKey;label:string;unit:string}[]=[
+ {key:'deal_heat',label:'Deal Heat',unit:'/100'},
+ {key:'investment_score',label:'Area Score',unit:'/100'},
+ {key:'median_price_sqm_12m',label:'Executed ₪/m²',unit:'₪'},
+ {key:'price_change_1y',label:'1Y Price Change',unit:'%'},
+ {key:'renewal_expansion_ratio',label:'Renewal Expansion',unit:'x'},
+ {key:'estimated_gross_yield',label:'Gross Yield',unit:'%'},
+ {key:'average_wage',label:'City Wage Context',unit:'₪'}
+];
+
+const money=(v:any)=>v==null?'—':'₪'+Math.round(Number(v)).toLocaleString('he-IL');
+const num=(v:any,d=1)=>v==null?'—':Number(v).toFixed(d);
+const pct=(v:any)=>v==null?'—':(Number(v)>=0?'+':'')+Number(v).toFixed(1)+'%';
+
+function flattenCoords(g:any):[number,number][]{
+ const out:[number,number][]=[];
+ const walk=(x:any)=>{
+  if(!Array.isArray(x))return;
+  if(typeof x[0]==='number'&&typeof x[1]==='number')out.push([x[0],x[1]]);
+  else x.forEach(walk);
+ };
+ walk(g?.coordinates);
+ return out;
+}
+function geoPath(g:any,b:{minX:number;maxX:number;minY:number;maxY:number},w:number,h:number){
+ if(!g)return '';
+ const sx=(x:number)=>24+(x-b.minX)/(b.maxX-b.minX||1)*(w-48);
+ const sy=(y:number)=>24+(b.maxY-y)/(b.maxY-b.minY||1)*(h-48);
+ const ring=(r:any[])=>r.map((p,i)=>(i?'L':'M')+sx(p[0]).toFixed(2)+','+sy(p[1]).toFixed(2)).join(' ')+' Z';
+ if(g.type==='Polygon')return g.coordinates.map(ring).join(' ');
+ if(g.type==='MultiPolygon')return g.coordinates.flatMap((p:any)=>p.map(ring)).join(' ');
+ return '';
+}
+function colorFor(v:number|null,min:number,max:number){
+ if(v==null||!Number.isFinite(v))return 'var(--ni-no-data)';
+ const t=Math.max(0,Math.min(1,(v-min)/(max-min||1)));
+ const hue=8+t*122;
+ return `hsl(${hue} 68% ${48-t*9}%)`;
+}
+
+function Sparkline({rows}:{rows:any[]}){
+ const points=useMemo(()=>{
+  const valid=rows.filter(r=>r.deal_date&&Number(r.normalized_pp_sqm??r.pp_sqm)>0).slice().reverse();
+  if(valid.length<2)return '';
+  const vals=valid.map(r=>Number(r.normalized_pp_sqm??r.pp_sqm));
+  const lo=Math.min(...vals),hi=Math.max(...vals);
+  return vals.map((v,i)=>`${(i/(vals.length-1))*100},${36-(v-lo)/(hi-lo||1)*30}`).join(' ');
+ },[rows]);
+ return <svg className="ni-spark" viewBox="0 0 100 40" preserveAspectRatio="none">{points&&<polyline points={points} fill="none" stroke="currentColor" strokeWidth="2"/>}</svg>;
+}
+
+export default function NeighborhoodIntelligenceShell({children}:{children:React.ReactNode}){
+ const [open,setOpen]=useState(()=>location.hash.startsWith('#/areas'));
+ const [rows,setRows]=useState<NeighborhoodMapRow[]>([]);
+ const [loading,setLoading]=useState(false);
+ const [layer,setLayer]=useState<LayerKey>('deal_heat');
+ const [selected,setSelected]=useState<string|null>(null);
+ const [summary,setSummary]=useState<Summary|null>(null);
+ const [section,setSection]=useState('overview');
+ const [sectionData,setSectionData]=useState<any[]>([]);
+ const [error,setError]=useState<string|null>(null);
+
+ useEffect(()=>{
+  const onHash=()=>setOpen(location.hash.startsWith('#/areas'));
+  addEventListener('hashchange',onHash);return()=>removeEventListener('hashchange',onHash);
+ },[]);
+ useEffect(()=>{
+  if(!open||rows.length)return;
+  setLoading(true);
+  fetch('/api/neighborhood-map').then(r=>{if(!r.ok)throw new Error('Map API '+r.status);return r.json();})
+   .then(x=>{setRows(x.neighborhoods||[]);const first=(x.neighborhoods||[]).find((n:any)=>n.deal_heat!=null||n.investment_score!=null)||(x.neighborhoods||[])[0];if(first)setSelected(first.neighborhood_id);})
+   .catch(e=>setError(String(e))).finally(()=>setLoading(false));
+ },[open,rows.length]);
+
+ useEffect(()=>{
+  if(!selected||!open)return;
+  setSummary(null);setSection('overview');setSectionData([]);
+  fetch('/api/neighborhood?neighborhoodId='+encodeURIComponent(selected)+'&section=summary')
+   .then(r=>r.json()).then(x=>setSummary(x.data||null)).catch(e=>setError(String(e)));
+ },[selected,open]);
+
+ useEffect(()=>{
+  if(!selected||section==='overview')return;
+  const apiSection=section==='market'?'transactions':section;
+  fetch('/api/neighborhood?neighborhoodId='+encodeURIComponent(selected)+'&section='+apiSection)
+   .then(r=>r.json()).then(x=>setSectionData(Array.isArray(x.data)?x.data:[])).catch(e=>setError(String(e)));
+ },[selected,section]);
+
+ const available=rows.filter(r=>r.geometry);
+ const bounds=useMemo(()=>{
+  const pts=available.flatMap(r=>flattenCoords(r.geometry));
+  return pts.length?{minX:Math.min(...pts.map(p=>p[0])),maxX:Math.max(...pts.map(p=>p[0])),minY:Math.min(...pts.map(p=>p[1])),maxY:Math.max(...pts.map(p=>p[1]))}:{minX:34,maxX:36,minY:29,maxY:34};
+ },[available]);
+ const values=rows.map(r=>Number(r[layer])).filter(Number.isFinite);
+ const min=values.length?Math.min(...values):0,max=values.length?Math.max(...values):100;
+ const current=rows.find(r=>r.neighborhood_id===selected)||null;
+ const currentMetric=layers.find(l=>l.key===layer)!;
+
+ const openArea=()=>{location.hash='#/areas';setOpen(true)};
+ const close=()=>{if(location.hash.startsWith('#/areas'))history.pushState(null,'',location.pathname+location.search);setOpen(false)};
+
+ if(!open)return <><div className="ni-launch-wrap"><button className="ni-launch" onClick={openArea}>Area Intelligence</button></div>{children}</>;
+ return <div className="ni-root">
+  <header className="ni-header">
+   <div><div className="ni-eyebrow">EDGE · NEIGHBORHOOD INTELLIGENCE</div><h1>Investment Area Map</h1></div>
+   <div className="ni-header-actions">
+    <select value={layer} onChange={e=>setLayer(e.target.value as LayerKey)}>{layers.map(x=><option key={x.key} value={x.key}>{x.label}</option>)}</select>
+    <button onClick={close}>Back to Edge</button>
+   </div>
+  </header>
+  <div className="ni-layout">
+   <section className="ni-map-panel">
+    <div className="ni-map-topline"><span>{currentMetric.label}</span><span className="ni-muted">{rows.length} neighborhoods · neighborhood_id grain</span></div>
+    {loading?<div className="ni-empty">Loading neighborhood intelligence…</div>:
+     available.length?<svg className="ni-map" viewBox="0 0 900 620" role="img" aria-label="Neighborhood heatmap">
+      {available.map(r=><path key={r.neighborhood_id} d={geoPath(r.geometry,bounds,900,620)}
+       fill={colorFor(r[layer],min,max)} className={selected===r.neighborhood_id?'selected':''}
+       onClick={()=>setSelected(r.neighborhood_id)}><title>{r.name_he}, {r.city} · {currentMetric.label}: {r[layer]??'No data'}</title></path>)}
+     </svg>:<div className="ni-empty"><strong>Neighborhood polygons are still being resolved.</strong><span>The dashboard remains usable from the neighborhood list; heat polygons appear automatically once geometry is available.</span></div>}
+    <div className="ni-legend"><span>Low</span><div className="ni-gradient"/><span>High</span><i/> <span className="ni-no-data-box"/> <span>No data</span></div>
+    <div className="ni-neighborhood-list">
+     {rows.map(r=><button key={r.neighborhood_id} className={selected===r.neighborhood_id?'active':''} onClick={()=>setSelected(r.neighborhood_id)}>
+      <span><b>{r.name_he}</b><small>{r.city}</small></span>
+      <span className="ni-list-score">{r[layer]==null?'—':layer.includes('score')||layer==='deal_heat'?Math.round(Number(r[layer])):num(r[layer])}</span>
+     </button>)}
+    </div>
+   </section>
+   <section className="ni-detail">
+    {!current?<div className="ni-empty">Choose a neighborhood to analyze.</div>:<>
+     <div className="ni-title-row"><div><div className="ni-eyebrow">{current.city}</div><h2>{current.name_he}</h2></div>
+      <div className={'ni-confidence '+(current.confidence_level||'insufficient')}>{current.confidence_level||'insufficient'} confidence</div></div>
+     <div className="ni-score-grid">
+      <div><span>Area Score</span><strong>{current.investment_score==null?'—':Math.round(current.investment_score)}</strong><small>Long-term investment context</small></div>
+      <div><span>Deal Heat</span><strong>{current.deal_heat==null?'—':Math.round(current.deal_heat)}</strong><small>{current.deal_count||0} scored active deals</small></div>
+      <div><span>Coverage</span><strong>{current.coverage_pct==null?'—':Math.round(current.coverage_pct)+'%'}</strong><small>Score component coverage</small></div>
+     </div>
+     <nav className="ni-tabs">{['overview','market','listings','renewal','evidence'].map(t=><button key={t} className={section===t?'active':''} onClick={()=>setSection(t)}>{t[0].toUpperCase()+t.slice(1)}</button>)}</nav>
+     {section==='overview'&&<Overview current={current} summary={summary}/>}
+     {section==='market'&&<Market rows={sectionData}/>}
+     {section==='listings'&&<Listings rows={sectionData}/>}
+     {section==='renewal'&&<Renewal rows={sectionData}/>}
+     {section==='evidence'&&<Evidence rows={sectionData} summary={summary}/>}
+    </>}
+   </section>
+  </div>
+  {error&&<div className="ni-error">{error}<button onClick={()=>setError(null)}>×</button></div>}
+ </div>;
+}
+
+function Overview({current,summary}:{current:NeighborhoodMapRow;summary:Summary|null}){
+ const metrics=new Map((summary?.metrics||[]).map((m:any)=>[m.metric_key,m]));
+ const cards=[
+  ['Executed price / m²',money(current.median_price_sqm_12m),'transactions'],
+  ['1Y executed price change',pct(current.price_change_1y),'transactions'],
+  ['Gross yield',current.estimated_gross_yield==null?'—':num(current.estimated_gross_yield)+'%','sale + rent listings'],
+  ['Renewal expansion',current.renewal_expansion_ratio==null?'—':num(current.renewal_expansion_ratio,2)+'x','renewal projects'],
+  ['City wage context',money(current.average_wage),'municipality inheritance'],
+  ['Net migration',current.net_internal_migration==null?'—':num(current.net_internal_migration,0),'municipality inheritance'],
+  ['Construction starts',current.construction_starts==null?'—':num(current.construction_starts,0),'municipality inheritance'],
+  ['12M transactions',String(current.transaction_count_12m||0),'comparable transactions']
+ ];
+ return <div className="ni-section">
+  <div className="ni-kpis">{cards.map(([label,value,source])=><div key={label}><span>{label}</span><strong>{value}</strong><small>{source}</small></div>)}</div>
+  <div className="ni-block">
+   <h3>Why this score</h3>
+   <div className="ni-metric-list">{Array.from(metrics.values()).slice(0,12).map((m:any)=><div key={m.metric_key}>
+    <span><b>{m.metric_key.replaceAll('_',' ')}</b><small>{(m.source_datasets||[]).join(', ')||'derived'} · n={m.sample_count??'—'}</small></span>
+    <span>{m.numeric_value==null?'—':num(m.numeric_value,2)}<em>{Math.round(Number(m.confidence||0)*100)}% conf.</em></span>
+   </div>)}</div>
+  </div>
+  <div className="ni-block"><h3>Dataset coverage</h3><div className="ni-source-chips">{(summary?.datasets||[]).map((d:any)=><span key={d.dataset_slug+d.source_grain}><b>{d.dataset_slug}</b>{d.source_grain} · {d.evidence_count} rows · {Math.round(Number(d.avg_mapping_confidence||0)*100)}%</span>)}</div></div>
+ </div>;
+}
+function Market({rows}:{rows:any[]}){
+ const prices=rows.map(r=>Number(r.normalized_pp_sqm??r.pp_sqm)).filter(v=>v>0);
+ const median=prices.length?prices.sort((a,b)=>a-b)[Math.floor(prices.length/2)]:null;
+ return <div className="ni-section"><div className="ni-market-hero"><div><span>Visible transactions</span><strong>{rows.length}</strong></div><div><span>Median visible ₪/m²</span><strong>{money(median)}</strong></div><Sparkline rows={rows}/></div>
+  <div className="ni-table-wrap"><table><thead><tr><th>Date</th><th>Price</th><th>m²</th><th>Rooms</th><th>₪/m²</th></tr></thead><tbody>{rows.slice(0,100).map(r=><tr key={r.id}><td>{r.deal_date||'—'}</td><td>{money(r.amount_nis)}</td><td>{num(r.area_sqm,0)}</td><td>{num(r.rooms,1)}</td><td>{money(r.normalized_pp_sqm??r.pp_sqm)}</td></tr>)}</tbody></table></div></div>;
+}
+function Listings({rows}:{rows:any[]}){
+ return <div className="ni-section"><div className="ni-table-wrap"><table><thead><tr><th>Score</th><th>Address</th><th>Asking</th><th>₪/m²</th><th>Rooms</th><th>m²</th><th>Status</th></tr></thead><tbody>{rows.map(r=><tr key={r.id}><td><b>{r.score==null?'—':Math.round(r.score)}</b></td><td>{r.canonical_address||'Unresolved'}</td><td>{money(r.asking_price_nis)}</td><td>{money(r.asking_price_sqm)}</td><td>{num(r.rooms,1)}</td><td>{num(r.area_sqm,0)}</td><td>{r.status}</td></tr>)}</tbody></table></div></div>;
+}
+function Renewal({rows}:{rows:any[]}){
+ return <div className="ni-section"><div className="ni-table-wrap"><table><thead><tr><th>Project</th><th>Stage</th><th>Status</th><th>Existing</th><th>Planned</th><th>Certainty</th></tr></thead><tbody>{rows.map(r=><tr key={r.id}><td><b>{r.project_name||r.plan_number||'Project'}</b><small>{r.developer||''}</small></td><td>{r.stage||'—'}</td><td>{r.status||'—'}</td><td>{r.existing_units??'—'}</td><td>{r.planned_units??'—'}</td><td>{r.planning_certainty==null?'—':Math.round(Number(r.planning_certainty)*100)+'%'}</td></tr>)}</tbody></table></div></div>;
+}
+function Evidence({rows,summary}:{rows:any[];summary:Summary|null}){
+ return <div className="ni-section"><div className="ni-callout"><b>Semantic rule:</b> every row below is linked to this neighborhood with an explicit source grain and mapping method. Municipality inheritance is context, not a neighborhood-level measurement.</div>
+ <div className="ni-table-wrap"><table><thead><tr><th>Dataset</th><th>Source grain</th><th>Observation</th><th>Mapping</th><th>Confidence</th></tr></thead><tbody>{rows.slice(0,250).map((r,i)=><tr key={r.dataset_slug+r.source_record_id+i}><td><b>{r.dataset_slug}</b></td><td>{r.source_grain}</td><td>{r.observation_date||r.observation_year||'—'}</td><td>{r.mapping_method}</td><td>{Math.round(Number(r.mapping_confidence||0)*100)}%</td></tr>)}</tbody></table></div>
+ <div className="ni-source-chips">{(summary?.datasets||[]).map((d:any)=><span key={d.dataset_slug+d.source_grain}><b>{d.dataset_slug}</b>{d.source_grain} · {d.evidence_count} evidence rows</span>)}</div></div>;
+}
