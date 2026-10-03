@@ -107,7 +107,7 @@ async function marketTrends(neighborhoodId:string){
    SELECT observation_year,population::float8,population_growth_from_2022_pct::float8,
     employment_pct::float8,academic_certificate_pct::float8,median_annual_employee_wage::float8,
     average_household_size::float8,owner_households_pct::float8,renter_households_pct::float8,
-    median_age::float8,statistical_area_count,mapping_confidence::float8,source_evidence,calculated_at
+    median_age::float8,statistical_area_count,mapping_confidence::float8,profile_quality,safe_for_score,crosswalk_method,source_evidence,calculated_at
    FROM neighborhood_cbs_profiles
    WHERE neighborhood_id=$1 ORDER BY observation_year
   `,[neighborhoodId])
@@ -156,9 +156,21 @@ async function rentals(neighborhoodId:string){
 }
 
 async function demographics(neighborhoodId:string){
+ const [profiles,metrics]=await Promise.all([
+  queryDatabase(`
+   SELECT observation_year,population::float8,population_growth_from_2022_pct::float8,
+    employment_pct::float8,academic_certificate_pct::float8,median_annual_employee_wage::float8,
+    average_household_size::float8,owner_households_pct::float8,renter_households_pct::float8,
+    median_age::float8,statistical_area_count,mapping_confidence::float8,profile_quality,safe_for_score,
+    crosswalk_method,source_evidence,calculated_at
+   FROM neighborhood_cbs_profiles
+   WHERE neighborhood_id=$1 ORDER BY observation_year
+  `,[neighborhoodId]),
+  metricSection(neighborhoodId,['demographics','economics'])
+ ]);
  return {
-  metrics:await metricSection(neighborhoodId,['demographics','economics']),
-  note:'Neighborhood-specific demographic metrics require statistical-area crosswalk evidence. Municipality-grain metrics are returned only as explicitly inherited context.'
+  profiles,metrics,
+  note:'CBS profile values are neighborhood rollups from mapped statistical areas. Provisional profiles are context-only and do not feed the investment score until the 2022 crosswalk is fully validated.'
  };
 }
 
