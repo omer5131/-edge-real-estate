@@ -11,9 +11,19 @@ async function activeModel(){
 
 
 async function hydrateSupportingGeography(){
- const out={statisticalAreas:0,parcels:0,parcelStatArea:0,evidenceCrosswalk:0,neighborhoodGeometries:0};
+ const out={cities:0,statisticalAreas:0,parcels:0,parcelStatArea:0,evidenceCrosswalk:0,neighborhoodGeometries:0};
 
  let rows=await queryDatabase(`
+  INSERT INTO cities(name_he,name_en,settlement_code)
+  SELECT DISTINCT locality_name,NULL,locality_code
+  FROM research_statistical_areas_2022
+  WHERE locality_name IS NOT NULL AND locality_name<>'' AND locality_code IS NOT NULL AND locality_code<>''
+  ON CONFLICT(name_he) DO UPDATE SET settlement_code=COALESCE(cities.settlement_code,EXCLUDED.settlement_code)
+  RETURNING id
+ `);
+ out.cities=rows.length;
+
+ rows=await queryDatabase(`
   WITH src AS(
    SELECT locality_code,statistical_area_code,COALESCE(observation_year,2022)::int boundary_year,
     ST_GeomFromText(geometry_wkt) raw_geom
