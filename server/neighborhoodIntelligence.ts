@@ -1,3 +1,4 @@
+import {refreshNeighborhoodMarketAnalytics} from './neighborhoodAnalytics.js';
 import {refreshNeighborhoodIdentity} from './neighborhoodIdentity.js';
 import {queryDatabase} from './db.js';
 import {bayesianAdjust,confidenceLevel,percentileRank,weightedAreaScore,type ScoreWeights} from './areaScoring.js';
@@ -483,6 +484,7 @@ export async function refreshNeighborhoodIntelligence(){
  const evidence=await linkEvidence();
  const metrics=await refreshMetrics();
  const dealHeat=await refreshDealHeat(model);
+ const analytics=await refreshNeighborhoodMarketAnalytics();
  const neighborhoods=await scoreNeighborhoods(model);
- return {scoreVersion:model.version,identity,geography,crosswalk,evidence,metrics,dealHeat,neighborhoods};
+ return {scoreVersion:model.version,identity,geography,crosswalk,evidence,metrics,analytics,dealHeat,neighborhoods};
 }
