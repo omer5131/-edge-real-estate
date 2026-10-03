@@ -20,7 +20,7 @@ export function buildAreaIntelligenceFromRows(input:any):NeighborhoodIntelligenc
   const planningEvidence=futureEvidence('planning_plans',Number(planning.count||0),planning.observed_at);
   const infrastructureEvidence=futureEvidence('infrastructure_projects',Number(infrastructure.count||0),infrastructure.observed_at);
   const mappingSupported=mappings.length>0&&mappings.every((m:any)=>Boolean(m.analytics_safe));
-  const mappingEvidence:EvidenceMeta={status:mappingSupported?'supported':mappings.length?'provisional':'insufficient_evidence',confidence:mappings.length?Math.min(...mappings.map((m:any)=>Number(m.mapping_confidence??0))):null,sampleSize:mappings.length,observedAt:mappings[0]?.mapped_at??null,modelVersion:mappings[0]?.mapping_version??'geo-crosswalk-v1',sourceIds:[...new Set(mappings.map((m:any)=>m.mapping_method==='official_crosswalk'?'cbs':'curated_crosswalk'))],notes:mappingSupported?[]:['At least one statistical-area mapping is not yet analytics-safe.']};
+  const mappingEvidence:EvidenceMeta={status:mappingSupported?'supported':mappings.length?'provisional':'insufficient_evidence',confidence:mappings.length?Math.min(...mappings.map((m:any)=>Number(m.mapping_confidence??0))):null,sampleSize:mappings.length,observedAt:mappings[0]?.mapped_at??null,modelVersion:mappings[0]?.mapping_version??'geo-crosswalk-v1',sourceIds:[...new Set<string>(mappings.map((m:any)=>m.mapping_method==='official_crosswalk'?'cbs':'curated_crosswalk'))],notes:mappingSupported?[]:['At least one statistical-area mapping is not yet analytics-safe.']};
   const year=cbs?.observation_year?String(cbs.observation_year):null;
   return {
     neighborhoodId,slug,name,city,
