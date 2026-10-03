@@ -8,6 +8,8 @@ on:
       - "db/016_statistical_area_identity.sql"
       - "db/017_neighborhood_intelligence.sql"
       - "db/018_semantic_graph.sql"
+      - "server/neighborhoodIdentity.ts"
+      - "db/019_neighborhood_identity.sql"
       - "server/areaScoring.ts"
       - "server/areaIntelligence.ts"
       - "server/neighborhoodIntelligence.ts"
