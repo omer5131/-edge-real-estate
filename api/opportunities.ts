@@ -1,5 +1,6 @@
 import type { VercelRequest,VercelResponse } from '@vercel/node';
 import { sql } from '../server/db.js';
+import {createDealForListing,deleteNote,getDealBundle,listDeals,saveNote,saveScenario,setDealStage,setOffer,updateDueDiligence,updateNextAction} from '../server/dealWorkflow.js';
 
 const n=(v:any)=>{const x=Number(v);return Number.isFinite(x)?x:null};
 const bool=(v:any)=>String(v||'').toLowerCase()==='true';
@@ -7,6 +8,23 @@ const bool=(v:any)=>String(v||'').toLowerCase()==='true';
 export default async function handler(req:VercelRequest,res:VercelResponse){
  if(req.method==='POST'){
   const b=req.body||{};
+  if(b.mode==='workflow'){
+   try{
+    let result:any;
+    switch(String(b.action||'')){
+     case 'create_deal': result=await createDealForListing(String(b.listing_id||'')); break;
+     case 'set_stage': result=await setDealStage(String(b.deal_id||''),String(b.stage||''),b.rejection_reason??null); break;
+     case 'next_action': result=await updateNextAction(String(b.deal_id||''),b.next_action==null?null:String(b.next_action)); break;
+     case 'set_offer': result=await setOffer(String(b.deal_id||''),b.offer_price_nis==null?null:Number(b.offer_price_nis)); break;
+     case 'save_scenario': result=await saveScenario(b); break;
+     case 'save_note': result=await saveNote(b); break;
+     case 'delete_note': result=await deleteNote(String(b.deal_id||''),String(b.note_id||'')); break;
+     case 'update_dd': result=await updateDueDiligence(b); break;
+     default:return res.status(400).json({error:'unknown_workflow_action'});
+    }
+    return res.status(200).json({ok:true,data:result});
+   }catch(e){return res.status(400).json({error:e instanceof Error?e.message:String(e)});}
+  }
   if(!b.entity_id)return res.status(400).json({error:'entity_id_required'});
   if(b.action==='unsubscribe'){
    await sql`DELETE FROM asset_subscriptions WHERE entity_type=${b.entity_type||'listing'} AND entity_id=${b.entity_id}::uuid`;
@@ -20,7 +38,19 @@ export default async function handler(req:VercelRequest,res:VercelResponse){
  }
  if(req.method!=='GET')return res.status(405).json({error:'method_not_allowed'});
 
- if(String(req.query.mode||'')==='research'){
+ const mode=String(req.query.mode||'');
+ if(mode==='deals'){
+  try{return res.status(200).json({deals:await listDeals()});}
+  catch(e){return res.status(503).json({error:e instanceof Error?e.message:String(e)});}
+ }
+ if(mode==='deal'){
+  try{
+   const data=await getDealBundle({dealId:typeof req.query.deal_id==='string'?req.query.deal_id:undefined,listingId:typeof req.query.listing_id==='string'?req.query.listing_id:undefined});
+   return data?res.status(200).json(data):res.status(404).json({error:'deal_not_found'});
+  }catch(e){return res.status(503).json({error:e instanceof Error?e.message:String(e)});}
+ }
+
+ if(mode==='research'){
   const q=String(req.query.q||'').trim(),city=String(req.query.city||'').trim(),area=String(req.query.area||'').trim();
   const minPrice=n(req.query.minPrice),maxPrice=n(req.query.maxPrice),minRooms=n(req.query.minRooms),maxRooms=n(req.query.maxRooms);
   const minSqm=n(req.query.minSqm),maxSqm=n(req.query.maxSqm),minScore=n(req.query.minScore);
