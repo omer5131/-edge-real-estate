@@ -100,7 +100,7 @@ export default function NeighborhoodIntelligenceShell({children}:{children:React
     .then(r=>r.json()).then(x=>setSectionData(x.data??{})).catch(e=>setError(String(e)));
    return;
   }
-  const apiSection=section==='market'?'transactions':section;
+  const apiSection=section==='market'?'market-trends':section;
   fetch('/api/neighborhood?neighborhoodId='+encodeURIComponent(selected)+'&section='+apiSection)
    .then(r=>r.json()).then(x=>setSectionData(x.data??[])).catch(e=>setError(String(e)));
  },[selected,section]);
@@ -166,7 +166,7 @@ export default function NeighborhoodIntelligenceShell({children}:{children:React
      <nav className="ni-tabs">{['overview','market','listings','rentals','renewal','demographics','infrastructure','supply','city-context','identity','evidence'].map(t=><button key={t} className={section===t?'active':''} onClick={()=>setSection(t)}>{t.replace('-',' ').replace(/\b\w/g,c=>c.toUpperCase())}</button>)}</nav>
      {agentAnswer&&<div className="ni-agent-answer"><b>Edge analysis</b><p>{agentAnswer}</p><button onClick={()=>setAgentAnswer('')}>Close</button></div>}
      {section==='overview'&&<Overview current={current} summary={summary}/>}
-     {section==='market'&&<Market rows={Array.isArray(sectionData)?sectionData:[]}/>}
+     {section==='market'&&<Market data={sectionData}/>}
      {section==='listings'&&<Listings rows={Array.isArray(sectionData)?sectionData:[]}/>}
      {section==='rentals'&&<Rentals data={sectionData}/>}
      {section==='renewal'&&<Renewal rows={Array.isArray(sectionData)?sectionData:[]}/>}
@@ -215,14 +215,44 @@ function Overview({current,summary}:{current:NeighborhoodMapRow;summary:Summary|
   <div className="ni-block"><h3>Dataset coverage</h3><div className="ni-source-chips">{(summary?.datasets||[]).map((d:any)=><span key={d.dataset_slug+d.source_grain}><b>{d.dataset_slug}</b>{d.source_grain} · {d.evidence_count} rows · {Math.round(Number(d.avg_mapping_confidence||0)*100)}%</span>)}</div></div>
  </div>;
 }
-function Market({rows}:{rows:any[]}){
- const prices=rows.map(r=>Number(r.normalized_pp_sqm??r.pp_sqm)).filter(v=>v>0);
- const median=prices.length?prices.sort((a,b)=>a-b)[Math.floor(prices.length/2)]:null;
- return <div className="ni-section"><div className="ni-market-hero"><div><span>Visible transactions</span><strong>{rows.length}</strong></div><div><span>Median visible ₪/m²</span><strong>{money(median)}</strong></div><Sparkline rows={rows}/></div>
-  <div className="ni-table-wrap"><table><thead><tr><th>Date</th><th>Price</th><th>m²</th><th>Rooms</th><th>₪/m²</th></tr></thead><tbody>{rows.slice(0,100).map(r=><tr key={r.id}><td>{r.deal_date||'—'}</td><td>{money(r.amount_nis)}</td><td>{num(r.area_sqm,0)}</td><td>{num(r.rooms,1)}</td><td>{money(r.normalized_pp_sqm??r.pp_sqm)}</td></tr>)}</tbody></table></div></div>;
+function Market({data}:{data:any}){
+ const history=data?.history||[];const rolling=data?.rolling||{};const cbs=(data?.cbsProfile||[]).slice(-1)[0]||{};
+ const points=(field:string)=>{
+  const valid=history.filter((r:any)=>Number(r[field])>0);if(valid.length<2)return '';
+  const vals=valid.map((r:any)=>Number(r[field]));const lo=Math.min(...vals),hi=Math.max(...vals);
+  return vals.map((v:number,i:number)=>`${(i/(vals.length-1))*100},${42-(v-lo)/(hi-lo||1)*34}`).join(' ');
+ };
+ return <div className="ni-section">
+  <div className="ni-kpis">
+   <div><span>Executed median ₪/m²</span><strong>{money(rolling.median_executed_price_sqm)}</strong><small>{rolling.executed_transaction_count??0} transactions · rolling 12m</small></div>
+   <div><span>Current asking ₪/m²</span><strong>{money(rolling.median_asking_price_sqm)}</strong><small>{rolling.active_sale_listing_count??0} active listings</small></div>
+   <div><span>Ask vs executed</span><strong>{pct(rolling.asking_to_executed_premium_pct)}</strong><small>median asking / executed</small></div>
+   <div><span>Transaction confidence</span><strong>{rolling.transaction_confidence==null?'—':Math.round(Number(rolling.transaction_confidence)*100)+'%'}</strong><small>sample-based confidence</small></div>
+  </div>
+  <div className="ni-block"><h3>Market trend</h3>
+   <div className="ni-chart-legend"><span>Executed ₪/m²</span><span>Current/historical asking ₪/m²</span></div>
+   <svg className="ni-trend-chart" viewBox="0 0 100 48" preserveAspectRatio="none">
+    {points('median_executed_price_sqm')&&<polyline points={points('median_executed_price_sqm')} fill="none" stroke="currentColor" strokeWidth="1.8"/>}
+    {points('median_asking_price_sqm')&&<polyline points={points('median_asking_price_sqm')} fill="none" stroke="gray" strokeWidth="1.3" strokeDasharray="3 2"/>}
+   </svg>
+  </div>
+  <div className="ni-table-wrap"><table><thead><tr><th>Month</th><th>Tx</th><th>Executed ₪/m²</th><th>Sale listings</th><th>Asking ₪/m²</th><th>Ask premium</th></tr></thead><tbody>{history.slice().reverse().slice(0,36).map((r:any)=><tr key={r.period_start}><td>{String(r.period_start).slice(0,7)}</td><td>{r.executed_transaction_count}</td><td>{money(r.median_executed_price_sqm)}</td><td>{r.active_sale_listing_count}</td><td>{money(r.median_asking_price_sqm)}</td><td>{pct(r.asking_to_executed_premium_pct)}</td></tr>)}</tbody></table></div>
+  <div className="ni-block"><h3>CBS profile</h3>{cbs.observation_year?<div className="ni-kpis">
+   <div><span>Population</span><strong>{cbs.population==null?'—':Math.round(cbs.population).toLocaleString()}</strong><small>CBS {cbs.observation_year}</small></div>
+   <div><span>Population growth</span><strong>{pct(cbs.population_growth_from_2022_pct)}</strong><small>2022 → 2024</small></div>
+   <div><span>Employment</span><strong>{cbs.employment_pct==null?'—':num(cbs.employment_pct)+'%'}</strong><small>CBS safe-area rollup</small></div>
+   <div><span>Academic certificate</span><strong>{cbs.academic_certificate_pct==null?'—':num(cbs.academic_certificate_pct)+'%'}</strong><small>CBS 2022 demographic reference</small></div>
+  </div>:<div className="ni-empty ni-small-empty">CBS neighborhood profile will appear when a safe statistical-area crosswalk is available.</div>}</div>
+ </div>;
 }
 function Listings({rows}:{rows:any[]}){
- return <div className="ni-section"><div className="ni-table-wrap"><table><thead><tr><th>Score</th><th>Address</th><th>Asking</th><th>₪/m²</th><th>Rooms</th><th>m²</th><th>Status</th></tr></thead><tbody>{rows.map(r=><tr key={r.id}><td><b>{r.score==null?'—':Math.round(r.score)}</b></td><td>{r.canonical_address||'Unresolved'}</td><td>{money(r.asking_price_nis)}</td><td>{money(r.asking_price_sqm)}</td><td>{num(r.rooms,1)}</td><td>{num(r.area_sqm,0)}</td><td>{r.status}</td></tr>)}</tbody></table></div></div>;
+ return <div className="ni-section">
+  <div className="ni-callout"><b>Relative-value model:</b> each listing is compared separately to executed 12-month neighborhood history, matched room/size comps when sample permits, and the current asking market. Negative percentages mean the listing asks below that benchmark.</div>
+  <div className="ni-table-wrap"><table><thead><tr><th>Score</th><th>Address</th><th>Asking</th><th>₪/m²</th><th>Vs executed</th><th>Vs matched</th><th>Vs current ask</th><th>Confidence</th><th>Method</th></tr></thead><tbody>{rows.map(r=><tr key={r.id}>
+   <td><b>{r.score==null?'—':Math.round(r.score)}</b></td><td>{r.canonical_address||'Unresolved'}</td><td>{money(r.asking_price_nis)}</td><td>{money(r.asking_price_sqm)}</td>
+   <td>{pct(r.executed_discount_pct)}</td><td>{pct(r.matched_executed_discount_pct)}</td><td>{pct(r.current_asking_discount_pct)}</td>
+   <td>{r.benchmark_confidence==null?'—':Math.round(Number(r.benchmark_confidence)*100)+'%'}</td><td>{r.benchmark_method||'—'}</td>
+  </tr>)}</tbody></table></div></div>;
 }
 function Renewal({rows}:{rows:any[]}){
  return <div className="ni-section"><div className="ni-table-wrap"><table><thead><tr><th>Project</th><th>Stage</th><th>Status</th><th>Existing</th><th>Planned</th><th>Certainty</th></tr></thead><tbody>{rows.map(r=><tr key={r.id}><td><b>{r.project_name||r.plan_number||'Project'}</b><small>{r.developer||''}</small></td><td>{r.stage||'—'}</td><td>{r.status||'—'}</td><td>{r.existing_units??'—'}</td><td>{r.planned_units??'—'}</td><td>{r.planning_certainty==null?'—':Math.round(Number(r.planning_certainty)*100)+'%'}</td></tr>)}</tbody></table></div></div>;
