@@ -228,6 +228,8 @@ function Market({data}:{data:any}){
    <div><span>Current asking ₪/m²</span><strong>{money(rolling.median_asking_price_sqm)}</strong><small>{rolling.active_sale_listing_count??0} active listings</small></div>
    <div><span>Ask vs executed</span><strong>{pct(rolling.asking_to_executed_premium_pct)}</strong><small>median asking / executed</small></div>
    <div><span>Transaction confidence</span><strong>{rolling.transaction_confidence==null?'—':Math.round(Number(rolling.transaction_confidence)*100)+'%'}</strong><small>sample-based confidence</small></div>
+   <div><span>3M transaction velocity</span><strong>{rolling.transaction_count_3m??0}</strong><small>executed deals in last 3 months</small></div>
+   <div><span>Months of inventory</span><strong>{rolling.months_of_sale_inventory==null?'—':num(rolling.months_of_sale_inventory,1)}</strong><small>active listings / monthly 12M transaction pace</small></div>
   </div>
   <div className="ni-block"><h3>Market trend</h3>
    <div className="ni-chart-legend"><span>Executed ₪/m²</span><span>Current/historical asking ₪/m²</span></div>
@@ -248,10 +250,11 @@ function Market({data}:{data:any}){
 function Listings({rows}:{rows:any[]}){
  return <div className="ni-section">
   <div className="ni-callout"><b>Relative-value model:</b> each listing is compared separately to executed 12-month neighborhood history, matched room/size comps when sample permits, and the current asking market. Negative percentages mean the listing asks below that benchmark.</div>
-  <div className="ni-table-wrap"><table><thead><tr><th>Score</th><th>Address</th><th>Asking</th><th>₪/m²</th><th>Vs executed</th><th>Vs matched</th><th>Vs current ask</th><th>Confidence</th><th>Method</th></tr></thead><tbody>{rows.map(r=><tr key={r.id}>
-   <td><b>{r.score==null?'—':Math.round(r.score)}</b></td><td>{r.canonical_address||'Unresolved'}</td><td>{money(r.asking_price_nis)}</td><td>{money(r.asking_price_sqm)}</td>
+  <div className="ni-table-wrap"><table><thead><tr><th>Signal</th><th>Score</th><th>Address</th><th>Asking</th><th>₪/m²</th><th>Vs executed</th><th>Vs matched</th><th>Vs current ask</th><th>DOM</th><th>Price cut</th><th>Confidence</th></tr></thead><tbody>{rows.map(r=><tr key={r.id}>
+   <td><b>{r.relative_value_signal||'—'}</b></td><td><b>{r.score==null?'—':Math.round(r.score)}</b></td><td>{r.canonical_address||'Unresolved'}</td><td>{money(r.asking_price_nis)}</td><td>{money(r.asking_price_sqm)}</td>
    <td>{pct(r.executed_discount_pct)}</td><td>{pct(r.matched_executed_discount_pct)}</td><td>{pct(r.current_asking_discount_pct)}</td>
-   <td>{r.benchmark_confidence==null?'—':Math.round(Number(r.benchmark_confidence)*100)+'%'}</td><td>{r.benchmark_method||'—'}</td>
+   <td>{r.days_on_market??'—'}</td><td>{pct(r.price_change_since_first_pct)}</td>
+   <td>{r.benchmark_confidence==null?'—':Math.round(Number(r.benchmark_confidence)*100)+'%'}</td>
   </tr>)}</tbody></table></div></div>;
 }
 function Renewal({rows}:{rows:any[]}){
