@@ -56,6 +56,19 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add artifacts/server-typecheck.log
           if git diff --cached --quiet; then echo "Server typecheck log unchanged"; else git commit -m "Record server typecheck diagnostics"; git push; fi
+      - name: Capture remaining build stages
+        run: |
+          mkdir -p artifacts
+          npx vite build > artifacts/vite-build.log 2>&1 || true
+          node scripts/migrate-over.mjs > artifacts/migrate-over.log 2>&1 || true
+          node scripts/migrate-yad2.mjs > artifacts/migrate-yad2.log 2>&1 || true
+          node scripts/migrate-research.mjs > artifacts/migrate-research.log 2>&1 || true
+      - name: Commit remaining build diagnostics
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add artifacts/vite-build.log artifacts/migrate-over.log artifacts/migrate-yad2.log artifacts/migrate-research.log
+          if git diff --cached --quiet; then echo "Build-stage logs unchanged"; else git commit -m "Record remaining build diagnostics"; git push; fi
       - name: Test scoring primitives
         run: npm run test:areas
       - name: Apply additive area schema
