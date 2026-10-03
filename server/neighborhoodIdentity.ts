@@ -1,0 +1,200 @@
+import {queryDatabase} from './db.js';
+
+export async function refreshNeighborhoodIdentity(){
+  const result={sourceMappings:0,parcelMappings:0,parcelEnrichment:0,statAreaMappings:0,geometriesPromoted:0,aliases:0};
+
+  let rows=await queryDatabase(`
+    INSERT INTO neighborhood_aliases(neighborhood_id,source_id,alias,normalized_alias,language,alias_type,confidence,is_primary)
+    SELECT id,'edge',name_he,
+      lower(regexp_replace(replace(replace(name_he,'״',''),'"',''),'[[:space:][:punct:]]','','g')),
+      'he','canonical_name',1,true
+    FROM neighborhoods
+    ON CONFLICT(neighborhood_id,source_id,normalized_alias,alias_type) DO NOTHING
+    RETURNING id
+  `);
+  result.aliases+=rows.length;
+
+  rows=await queryDatabase(`
+    INSERT INTO neighborhood_source_mappings(neighborhood_id,source_id,source_entity_type,source_entity_id,source_name,mapping_method,mapping_confidence,evidence)
+    SELECT l.neighborhood_id,l.source_id,'listing',l.source_listing_id,l.canonical_address,'direct_canonical',1,
+      jsonb_build_object('listing_id',l.id,'first_seen_at',l.first_seen_at,'last_seen_at',l.last_seen_at)
+    FROM listings l WHERE l.neighborhood_id IS NOT NULL
+    ON CONFLICT(source_id,source_entity_type,source_entity_id,neighborhood_id) DO UPDATE SET
+      source_name=EXCLUDED.source_name,mapping_method='direct_canonical',mapping_confidence=1,evidence=EXCLUDED.evidence,mapped_at=now()
+    RETURNING id
+  `);
+  result.sourceMappings+=rows.length;
+
+  rows=await queryDatabase(`
+    INSERT INTO neighborhood_source_mappings(neighborhood_id,source_id,source_entity_type,source_entity_id,source_name,mapping_method,mapping_confidence,evidence)
+    SELECT r.neighborhood_id,r.source_id,'renewal_project',r.source_project_id,r.project_name,'direct_canonical',1,
+      jsonb_build_object('project_id',r.id,'status',r.status,'stage',r.stage,'planning_certainty',r.planning_certainty)
+    FROM renewal_projects r WHERE r.neighborhood_id IS NOT NULL
+    ON CONFLICT(source_id,source_entity_type,source_entity_id,neighborhood_id) DO UPDATE SET
+      source_name=EXCLUDED.source_name,mapping_method='direct_canonical',mapping_confidence=1,evidence=EXCLUDED.evidence,mapped_at=now()
+    RETURNING id
+  `);
+  result.sourceMappings+=rows.length;
+
+  rows=await queryDatabase(`
+    INSERT INTO neighborhood_source_mappings(neighborhood_id,source_id,source_entity_type,source_entity_id,source_name,mapping_method,mapping_confidence,evidence)
+    SELECT ct.neighborhood_id,ct.source_id,'transaction',ct.source_external_id,ct.address_text,'direct_canonical',1,
+      jsonb_build_object('transaction_id',ct.id,'parcel_id',ct.parcel_id,'deal_date',ct.deal_date)
+    FROM comparable_transactions ct WHERE ct.neighborhood_id IS NOT NULL
+    ON CONFLICT(source_id,source_entity_type,source_entity_id,neighborhood_id) DO UPDATE SET
+      source_name=EXCLUDED.source_name,mapping_method='direct_canonical',mapping_confidence=1,evidence=EXCLUDED.evidence,mapped_at=now()
+    RETURNING id
+  `);
+  result.sourceMappings+=rows.length;
+
+  rows=await queryDatabase(`
+    INSERT INTO neighborhood_parcel_map(neighborhood_id,parcel_id,mapping_method,mapping_confidence,evidence)
+    SELECT DISTINCT ct.neighborhood_id,ct.parcel_id,'direct_transaction',1,
+      jsonb_build_object('source','comparable_transactions')
+    FROM comparable_transactions ct
+    WHERE ct.neighborhood_id IS NOT NULL AND ct.parcel_id IS NOT NULL
+    ON CONFLICT(neighborhood_id,parcel_id) DO UPDATE SET
+      mapping_method='direct_transaction',
+      mapping_confidence=GREATEST(neighborhood_parcel_map.mapping_confidence,1),
+      mapped_at=now()
+    RETURNING parcel_id
+  `);
+  result.parcelMappings=rows.length;
+
+  rows=await queryDatabase(`
+    WITH candidate AS(
+      SELECT DISTINCT ON(target.id) target.id target_id,src.geom,src.centroid,src.stat_area_id,src.city_id
+      FROM parcels target
+      JOIN neighborhood_parcel_map npm ON npm.parcel_id=target.id
+      JOIN parcels src ON src.gush=target.gush AND src.helka=target.helka
+      WHERE src.geom IS NOT NULL
+      ORDER BY target.id,(src.stat_area_id IS NOT NULL) DESC,src.observed_at DESC
+    )
+    UPDATE parcels p SET
+      geom=COALESCE(p.geom,c.geom),
+      centroid=COALESCE(p.centroid,c.centroid),
+      stat_area_id=COALESCE(p.stat_area_id,c.stat_area_id),
+      city_id=COALESCE(p.city_id,c.city_id)
+    FROM candidate c
+    WHERE p.id=c.target_id
+      AND (p.geom IS NULL OR p.centroid IS NULL OR p.stat_area_id IS NULL OR p.city_id IS NULL)
+    RETURNING p.id
+  `);
+  result.parcelEnrichment=rows.length;
+
+  rows=await queryDatabase(`
+    WITH evidence AS(
+      SELECT npm.neighborhood_id,p.stat_area_id,
+        count(DISTINCT npm.parcel_id)::int parcel_count,
+        avg(npm.mapping_confidence)::numeric avg_confidence
+      FROM neighborhood_parcel_map npm
+      JOIN parcels p ON p.id=npm.parcel_id
+      WHERE p.stat_area_id IS NOT NULL
+      GROUP BY npm.neighborhood_id,p.stat_area_id
+    )
+    INSERT INTO neighborhood_stat_area_map(neighborhood_id,stat_area_id,overlap_ratio,mapping_method,mapping_confidence,mapping_version,mapped_at)
+    SELECT neighborhood_id,stat_area_id,NULL,'parcel_evidence',
+      CASE WHEN parcel_count>=3 THEN LEAST(.98,avg_confidence)
+           WHEN parcel_count=2 THEN LEAST(.90,avg_confidence)
+           ELSE LEAST(.72,avg_confidence) END,
+      'edge-neighborhood-v1',now()
+    FROM evidence
+    ON CONFLICT(neighborhood_id,stat_area_id) DO UPDATE SET
+      mapping_method=CASE
+        WHEN neighborhood_stat_area_map.mapping_method='verified' THEN neighborhood_stat_area_map.mapping_method
+        ELSE EXCLUDED.mapping_method END,
+      mapping_confidence=GREATEST(neighborhood_stat_area_map.mapping_confidence,EXCLUDED.mapping_confidence),
+      mapped_at=now()
+    RETURNING neighborhood_id
+  `);
+  result.statAreaMappings=rows.length;
+
+  await queryDatabase(`
+    INSERT INTO neighborhood_source_mappings(neighborhood_id,source_id,source_entity_type,source_entity_id,source_name,mapping_method,mapping_confidence,overlap_pct,evidence)
+    SELECT m.neighborhood_id,'cbs','statistical_area',s.id::text,s.stat_area_code,m.mapping_method,m.mapping_confidence,m.overlap_ratio,
+      jsonb_build_object('stat_area_code',s.stat_area_code,'boundary_year',s."year")
+    FROM neighborhood_stat_area_map m JOIN statistical_areas s ON s.id=m.stat_area_id
+    ON CONFLICT(source_id,source_entity_type,source_entity_id,neighborhood_id) DO UPDATE SET
+      mapping_method=EXCLUDED.mapping_method,mapping_confidence=EXCLUDED.mapping_confidence,
+      overlap_pct=EXCLUDED.overlap_pct,evidence=EXCLUDED.evidence,mapped_at=now()
+  `);
+
+  const candidates=await queryDatabase(`
+    WITH strong AS(
+      SELECT m.neighborhood_id,s.geom,m.mapping_confidence
+      FROM neighborhood_stat_area_map m
+      JOIN statistical_areas s ON s.id=m.stat_area_id
+      WHERE s.geom IS NOT NULL AND m.mapping_confidence>=.85
+    ), agg AS(
+      SELECT neighborhood_id,ST_Multi(ST_Union(geom)) geom,
+        avg(mapping_confidence)::numeric avg_confidence,
+        count(*)::int area_count
+      FROM strong GROUP BY neighborhood_id
+    )
+    SELECT neighborhood_id,geom,LEAST(.96,avg_confidence)::numeric confidence,area_count
+    FROM agg WHERE area_count>=1
+  `);
+
+  for(const c of candidates){
+    const version='edge-neighborhood-v1-cbs';
+    await queryDatabase(`
+      UPDATE neighborhood_geometries SET is_active=false
+      WHERE neighborhood_id=$1 AND is_active AND geometry_version<>$2
+    `,[c.neighborhood_id,version]);
+    const inserted=await queryDatabase(`
+      INSERT INTO neighborhood_geometries(neighborhood_id,geometry_version,geom,geometry_method,source_id,confidence,is_active,evidence)
+      VALUES($1,$2,$3::geometry,'cbs_stat_area_union','cbs',$4,true,$5::jsonb)
+      ON CONFLICT(neighborhood_id,geometry_version) DO UPDATE SET
+        geom=EXCLUDED.geom,confidence=EXCLUDED.confidence,is_active=true,evidence=EXCLUDED.evidence
+      RETURNING id
+    `,[c.neighborhood_id,version,c.geom,c.confidence,JSON.stringify({statistical_area_count:c.area_count})]);
+    if(inserted.length)result.geometriesPromoted++;
+    await queryDatabase(`
+      UPDATE neighborhoods SET geom=$2::geometry,boundary_version=$3,geometry_method='cbs_stat_area_union',
+        geometry_source='cbs',geometry_confidence=$4,updated_at=now()
+      WHERE id=$1
+    `,[c.neighborhood_id,c.geom,version,c.confidence]);
+  }
+
+  return result;
+}
+
+export async function neighborhoodIdentity(neighborhoodId:string){
+  const [canonical,aliases,mappings,statAreas,parcels,geometries]=await Promise.all([
+    queryDatabase(`
+      SELECT s.*,CASE WHEN s.geom IS NULL THEN NULL ELSE ST_AsGeoJSON(s.geom)::jsonb END geometry
+      FROM semantic_neighborhoods s WHERE s.neighborhood_id=$1
+    `,[neighborhoodId]),
+    queryDatabase(`
+      SELECT source_id,alias,normalized_alias,language,alias_type,confidence,is_primary,metadata
+      FROM neighborhood_aliases WHERE neighborhood_id=$1 ORDER BY is_primary DESC,confidence DESC,alias
+    `,[neighborhoodId]),
+    queryDatabase(`
+      SELECT source_id,source_entity_type,source_entity_id,source_name,mapping_method,mapping_confidence,
+        overlap_pct,valid_from,valid_to,evidence,mapped_at
+      FROM neighborhood_source_mappings WHERE neighborhood_id=$1
+      ORDER BY source_entity_type,source_id,mapping_confidence DESC
+      LIMIT 1000
+    `,[neighborhoodId]),
+    queryDatabase(`
+      SELECT s.id::text stat_area_id,s.stat_area_code,s."year" boundary_year,m.mapping_method,
+        m.mapping_confidence::float8,m.overlap_ratio::float8
+      FROM neighborhood_stat_area_map m JOIN statistical_areas s ON s.id=m.stat_area_id
+      WHERE m.neighborhood_id=$1 ORDER BY m.mapping_confidence DESC,s.stat_area_code
+    `,[neighborhoodId]),
+    queryDatabase(`
+      SELECT p.id::text parcel_id,p.gush,p.helka,p.suffix,npm.mapping_method,npm.mapping_confidence::float8,
+        npm.overlap_pct::float8,(p.geom IS NOT NULL) has_geometry,p.stat_area_id::text
+      FROM neighborhood_parcel_map npm JOIN parcels p ON p.id=npm.parcel_id
+      WHERE npm.neighborhood_id=$1 ORDER BY npm.mapping_confidence DESC,p.gush,p.helka
+      LIMIT 1000
+    `,[neighborhoodId]),
+    queryDatabase(`
+      SELECT geometry_version,geometry_method,source_id,confidence::float8,is_active,valid_from,valid_to,evidence,created_at,
+        ST_AsGeoJSON(geom)::jsonb geometry
+      FROM neighborhood_geometries WHERE neighborhood_id=$1
+      ORDER BY is_active DESC,created_at DESC
+    `,[neighborhoodId])
+  ]);
+  return {canonical:canonical[0]??null,aliases,mappings,statAreas,parcels,geometries};
+}
