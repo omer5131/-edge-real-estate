@@ -6,31 +6,31 @@ TAP version 13
 # Subtest: freshness decays and excludes stale listings
 ok 1 - freshness decays and excludes stale listings
   ---
-  duration_ms: 0.636529
+  duration_ms: 0.848396
   type: 'test'
   ...
 # Subtest: deal score uses freshness and confidence weights
 ok 2 - deal score uses freshness and confidence weights
   ---
-  duration_ms: 0.202656
+  duration_ms: 0.264739
   type: 'test'
   ...
 # Subtest: bayesian shrinkage protects tiny samples
 ok 3 - bayesian shrinkage protects tiny samples
   ---
-  duration_ms: 0.115905
+  duration_ms: 0.149014
   type: 'test'
   ...
 # Subtest: area score reweights only when coverage is sufficient
 ok 4 - area score reweights only when coverage is sufficient
   ---
-  duration_ms: 0.281525
+  duration_ms: 0.33863
   type: 'test'
   ...
 # Subtest: confidence and percentile are deterministic
 ok 5 - confidence and percentile are deterministic
   ---
-  duration_ms: 0.711593
+  duration_ms: 1.026724
   type: 'test'
   ...
 1..5
@@ -41,4 +41,4 @@ ok 5 - confidence and percentile are deterministic
 # cancelled 0
 # skipped 0
 # todo 0
-# duration_ms 46.768581
+# duration_ms 62.577655
