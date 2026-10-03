@@ -1,3 +1,4 @@
+import {refreshNeighborhoodIdentity} from './neighborhoodIdentity.js';
 import {queryDatabase} from './db.js';
 import {bayesianAdjust,confidenceLevel,percentileRank,weightedAreaScore,type ScoreWeights} from './areaScoring.js';
 
@@ -475,11 +476,12 @@ async function scoreNeighborhoods(model:any){
 
 export async function refreshNeighborhoodIntelligence(){
  const model=await activeModel();
+ const identity=await refreshNeighborhoodIdentity();
  const geography=await hydrateSupportingGeography();
  const crosswalk=await refreshCrosswalk();
  const evidence=await linkEvidence();
  const metrics=await refreshMetrics();
  const dealHeat=await refreshDealHeat(model);
  const neighborhoods=await scoreNeighborhoods(model);
- return {scoreVersion:model.version,geography,crosswalk,evidence,metrics,dealHeat,neighborhoods};
+ return {scoreVersion:model.version,identity,geography,crosswalk,evidence,metrics,dealHeat,neighborhoods};
 }
