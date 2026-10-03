@@ -15,7 +15,25 @@ async function reserve(ip:string){
 }
 export default async function handler(req:VercelRequest,res:VercelResponse){
  res.setHeader('Cache-Control','no-store');
- if(req.method==='GET')return res.json({configured:!!process.env.DEEPSEEK_API_KEY,provider:'deepseek',model:process.env.DEEPSEEK_MODEL||'deepseek-flash',dailyLimits:{global:50,perIp:10},dataShared:'Dataset schema and semantic metadata; the Edge assistant also sends bounded query results to DeepSeek.'});
+ if(req.method==='GET'){
+  let readiness:any={semanticGraph:false,neighborhoods:0,metricNeighborhoods:0,scoredNeighborhoods:0,directTransactionNeighborhoods:0,directListingNeighborhoods:0,renewalNeighborhoods:0,censusNeighborhoods:0};
+  try{
+   const rows=await queryDatabase(`
+    SELECT
+      to_regclass('public.semantic_metrics') IS NOT NULL semantic_graph,
+      (SELECT count(*)::int FROM neighborhoods) neighborhoods,
+      (SELECT count(DISTINCT neighborhood_id)::int FROM neighborhood_metric_snapshots) metric_neighborhoods,
+      (SELECT count(*)::int FROM neighborhood_map_cache WHERE investment_score IS NOT NULL) scored_neighborhoods,
+      (SELECT count(DISTINCT neighborhood_id)::int FROM dataset_neighborhood_evidence WHERE dataset_slug='transactions') direct_transaction_neighborhoods,
+      (SELECT count(DISTINCT neighborhood_id)::int FROM dataset_neighborhood_evidence WHERE dataset_slug='sale_listings') direct_listing_neighborhoods,
+      (SELECT count(DISTINCT neighborhood_id)::int FROM dataset_neighborhood_evidence WHERE dataset_slug='urban_renewal_complexes') renewal_neighborhoods,
+      (SELECT count(DISTINCT neighborhood_id)::int FROM dataset_neighborhood_evidence WHERE dataset_slug='census_2022') census_neighborhoods
+   `);
+   const r=rows[0]||{};
+   readiness={semanticGraph:!!r.semantic_graph,neighborhoods:r.neighborhoods||0,metricNeighborhoods:r.metric_neighborhoods||0,scoredNeighborhoods:r.scored_neighborhoods||0,directTransactionNeighborhoods:r.direct_transaction_neighborhoods||0,directListingNeighborhoods:r.direct_listing_neighborhoods||0,renewalNeighborhoods:r.renewal_neighborhoods||0,censusNeighborhoods:r.census_neighborhoods||0};
+  }catch{}
+  return res.json({configured:!!process.env.DEEPSEEK_API_KEY,provider:'deepseek',model:process.env.DEEPSEEK_MODEL||'deepseek-flash',dailyLimits:{global:50,perIp:10},semanticReadiness:readiness,dataShared:'Dataset schema and semantic metadata; the Edge assistant also sends bounded query results to DeepSeek.'});
+ }
  if(req.method!=='POST')return res.status(405).json({error:'Method not allowed.'});
  if(!process.env.DEEPSEEK_API_KEY)return res.status(503).json({error:'DeepSeek agents are not activated. Configure DEEPSEEK_API_KEY in Vercel.'});
  const parsed=input.safeParse(req.body);if(!parsed.success)return res.status(400).json({error:'Enter a question of 1–2,000 characters. Conversation history is limited to eight messages.'});
