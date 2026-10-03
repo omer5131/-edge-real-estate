@@ -95,6 +95,11 @@ export default function NeighborhoodIntelligenceShell({children}:{children:React
 
  useEffect(()=>{
   if(!selected||section==='overview')return;
+  if(section==='identity'){
+   fetch('/api/neighborhood-identity?neighborhoodId='+encodeURIComponent(selected))
+    .then(r=>r.json()).then(x=>setSectionData(x.data??{})).catch(e=>setError(String(e)));
+   return;
+  }
   const apiSection=section==='market'?'transactions':section;
   fetch('/api/neighborhood?neighborhoodId='+encodeURIComponent(selected)+'&section='+apiSection)
    .then(r=>r.json()).then(x=>setSectionData(x.data??[])).catch(e=>setError(String(e)));
@@ -158,7 +163,7 @@ export default function NeighborhoodIntelligenceShell({children}:{children:React
       <div><span>Deal Heat</span><strong>{current.deal_heat==null?'—':Math.round(current.deal_heat)}</strong><small>{current.deal_count||0} scored active deals</small></div>
       <div><span>Coverage</span><strong>{current.coverage_pct==null?'—':Math.round(current.coverage_pct)+'%'}</strong><small>Score component coverage</small></div>
      </div>
-     <nav className="ni-tabs">{['overview','market','listings','rentals','renewal','demographics','infrastructure','supply','city-context','evidence'].map(t=><button key={t} className={section===t?'active':''} onClick={()=>setSection(t)}>{t.replace('-',' ').replace(/\b\w/g,c=>c.toUpperCase())}</button>)}</nav>
+     <nav className="ni-tabs">{['overview','market','listings','rentals','renewal','demographics','infrastructure','supply','city-context','identity','evidence'].map(t=><button key={t} className={section===t?'active':''} onClick={()=>setSection(t)}>{t.replace('-',' ').replace(/\b\w/g,c=>c.toUpperCase())}</button>)}</nav>
      {agentAnswer&&<div className="ni-agent-answer"><b>Edge analysis</b><p>{agentAnswer}</p><button onClick={()=>setAgentAnswer('')}>Close</button></div>}
      {section==='overview'&&<Overview current={current} summary={summary}/>}
      {section==='market'&&<Market rows={Array.isArray(sectionData)?sectionData:[]}/>}
@@ -169,6 +174,7 @@ export default function NeighborhoodIntelligenceShell({children}:{children:React
      {section==='infrastructure'&&<Infrastructure data={sectionData}/>}
      {section==='supply'&&<Supply data={sectionData}/>}
      {section==='city-context'&&<MetricPanel data={Array.isArray(sectionData)?{metrics:sectionData}:sectionData} title="City context inherited to neighborhood" inherited/>}
+     {section==='identity'&&<Identity data={sectionData}/>}
      {section==='evidence'&&<Evidence rows={Array.isArray(sectionData)?sectionData:[]} summary={summary}/>}
     </>}
    </section>
@@ -256,4 +262,26 @@ function Evidence({rows,summary}:{rows:any[];summary:Summary|null}){
  return <div className="ni-section"><div className="ni-callout"><b>Semantic rule:</b> every row below is linked to this neighborhood with an explicit source grain and mapping method. Municipality inheritance is context, not a neighborhood-level measurement.</div>
  <div className="ni-table-wrap"><table><thead><tr><th>Dataset</th><th>Source grain</th><th>Observation</th><th>Mapping</th><th>Confidence</th></tr></thead><tbody>{rows.slice(0,250).map((r,i)=><tr key={r.dataset_slug+r.source_record_id+i}><td><b>{r.dataset_slug}</b></td><td>{r.source_grain}</td><td>{r.observation_date||r.observation_year||'—'}</td><td>{r.mapping_method}</td><td>{Math.round(Number(r.mapping_confidence||0)*100)}%</td></tr>)}</tbody></table></div>
  <div className="ni-source-chips">{(summary?.datasets||[]).map((d:any)=><span key={d.dataset_slug+d.source_grain}><b>{d.dataset_slug}</b>{d.source_grain} · {d.evidence_count} evidence rows</span>)}</div></div>;
+}
+
+function Identity({data}:{data:any}){
+ const c=data?.canonical||{};const aliases=data?.aliases||[];const mappings=data?.mappings||[];const stats=data?.statAreas||[];const parcels=data?.parcels||[];const geometries=data?.geometries||[];
+ return <div className="ni-section">
+  <div className="ni-callout"><b>Canonical neighborhood:</b> this is the source of truth used by agents, scores and dashboards. Source labels and boundaries below are evidence mapped into this neighborhood_id.</div>
+  <div className="ni-kpis">
+   <div><span>Aliases</span><strong>{c.alias_count??aliases.length}</strong><small>resolved source labels</small></div>
+   <div><span>Source mappings</span><strong>{c.source_mapping_count??mappings.length}</strong><small>transactions, listings, CBS, renewal</small></div>
+   <div><span>CBS areas</span><strong>{c.statistical_area_count??stats.length}</strong><small>supporting statistical geography</small></div>
+   <div><span>Mapped parcels</span><strong>{c.parcel_count??parcels.length}</strong><small>cadastral evidence</small></div>
+  </div>
+  <div className="ni-block"><h3>Canonical boundary</h3><div className="ni-metric-list">
+   <div><span><b>Boundary version</b><small>{c.geometry_source||'No active source'}</small></span><span>{c.boundary_version||'—'}</span></div>
+   <div><span><b>Method</b><small>how the active polygon was formed</small></span><span>{c.geometry_method||'—'}</span></div>
+   <div><span><b>Geometry confidence</b><small>identity confidence, not investment confidence</small></span><span>{c.geometry_confidence==null?'—':Math.round(Number(c.geometry_confidence)*100)+'%'}</span></div>
+  </div></div>
+  <div className="ni-block"><h3>Aliases</h3><div className="ni-source-chips">{aliases.length?aliases.map((a:any,i:number)=><span key={i}><b>{a.alias}</b>{a.source_id||'edge'} · {Math.round(Number(a.confidence||0)*100)}%</span>):<span>No source aliases yet.</span>}</div></div>
+  <div className="ni-table-wrap"><table><thead><tr><th>Source</th><th>Entity</th><th>Name / ID</th><th>Method</th><th>Confidence</th></tr></thead><tbody>{mappings.slice(0,250).map((m:any,i:number)=><tr key={i}><td>{m.source_id}</td><td>{m.source_entity_type}</td><td>{m.source_name||m.source_entity_id}</td><td>{m.mapping_method}</td><td>{Math.round(Number(m.mapping_confidence||0)*100)}%</td></tr>)}</tbody></table></div>
+  <div className="ni-block"><h3>Boundary history</h3><div className="ni-source-chips">{geometries.length?geometries.map((g:any,i:number)=><span key={i}><b>{g.geometry_version}</b>{g.geometry_method} · {Math.round(Number(g.confidence||0)*100)}% {g.is_active?'· ACTIVE':''}</span>):<span>No promoted polygon yet.</span>}</div></div>
+  <div className="ni-block"><h3>Supporting geography</h3><div className="ni-source-chips">{stats.map((a:any)=><span key={a.stat_area_id}><b>CBS {a.stat_area_code}</b>{a.mapping_method} · {Math.round(Number(a.mapping_confidence||0)*100)}%</span>)}</div></div>
+ </div>;
 }
