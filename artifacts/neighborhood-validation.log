@@ -1,30 +1,626 @@
-file:///home/runner/work/-edge-real-estate/-edge-real-estate/node_modules/@neondatabase/serverless/index.mjs:1317
-let{status:G}=ce;if(G===400){let q=await ce.json(),ge=new N(q.message);for(let J of hi)ge[J]=q[J]??void 0;
-                                                      ^
-
-NeonDbError: ON CONFLICT DO UPDATE command cannot affect row a second time
-    at Zt.execute (file:///home/runner/work/-edge-real-estate/-edge-real-estate/node_modules/@neondatabase/serverless/index.mjs:1317:55)
-    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
-    at async hydrateSupportingGeography (file:///home/runner/work/-edge-real-estate/-edge-real-estate/.server-build/server/neighborhoodIntelligence.js:12:16)
-    at async refreshNeighborhoodIntelligence (file:///home/runner/work/-edge-real-estate/-edge-real-estate/.server-build/server/neighborhoodIntelligence.js:455:23)
-    at async file:///home/runner/work/-edge-real-estate/-edge-real-estate/scripts/validate-area-intelligence.mjs:6:15 {
-  severity: 'ERROR',
-  code: '21000',
-  detail: undefined,
-  hint: 'Ensure that no rows proposed for insertion within the same command have duplicate constrained values.',
-  position: undefined,
-  internalPosition: undefined,
-  internalQuery: undefined,
-  where: undefined,
-  schema: undefined,
-  table: undefined,
-  column: undefined,
-  dataType: undefined,
-  constraint: undefined,
-  file: 'nodeModifyTable.c',
-  line: '2804',
-  routine: 'ExecOnConflictUpdate',
-  sourceError: undefined
+{
+  "generatedAt": "2026-10-03T08:43:42.231Z",
+  "scoreVersion": "area-score-v1",
+  "aggregationKey": "neighborhood_id",
+  "refresh": {
+    "scoreVersion": "area-score-v1",
+    "geography": {
+      "cities": 1327,
+      "statisticalAreas": 3750,
+      "parcels": 18500,
+      "parcelStatArea": 0,
+      "evidenceCrosswalk": 0,
+      "neighborhoodGeometries": 0
+    },
+    "crosswalk": 0,
+    "evidence": {
+      "transactions": 41,
+      "saleListings": 42,
+      "rentListings": 1,
+      "renewal": 18,
+      "census": 0,
+      "population2024": 0,
+      "municipal": 217
+    },
+    "metrics": 106,
+    "dealHeat": 2,
+    "neighborhoods": 31
+  },
+  "coverage": {
+    "neighborhoods": 31,
+    "neighborhoods_with_geometry": 0,
+    "stat_area_links": 0,
+    "evidence_rows": 319,
+    "cached_neighborhoods": 31,
+    "deal_heat_neighborhoods": 2,
+    "investment_score_neighborhoods": 2,
+    "avg_coverage_pct": "26.77",
+    "avg_confidence_score": "55.54"
+  },
+  "mappingRates": {
+    "recent_transactions": 899,
+    "recent_transactions_with_neighborhood": 34,
+    "active_listings": 42,
+    "active_listings_with_neighborhood": 42,
+    "renewal_projects": 124,
+    "renewal_projects_with_neighborhood": 18
+  },
+  "datasetCoverage": [
+    {
+      "dataset_slug": "construction_starts",
+      "source_grain": "municipality",
+      "neighborhoods": 31,
+      "evidence_rows": 93,
+      "avg_mapping_confidence": "0.550",
+      "latest_observation": "2024-01-01T00:00:00.000Z"
+    },
+    {
+      "dataset_slug": "municipal_migration",
+      "source_grain": "municipality",
+      "neighborhoods": 31,
+      "evidence_rows": 93,
+      "avg_mapping_confidence": "0.550",
+      "latest_observation": "2024-01-01T00:00:00.000Z"
+    },
+    {
+      "dataset_slug": "municipal_wages",
+      "source_grain": "municipality",
+      "neighborhoods": 31,
+      "evidence_rows": 31,
+      "avg_mapping_confidence": "0.550",
+      "latest_observation": "2022-01-01T00:00:00.000Z"
+    },
+    {
+      "dataset_slug": "rent_listings",
+      "source_grain": "listing",
+      "neighborhoods": 1,
+      "evidence_rows": 1,
+      "avg_mapping_confidence": "1.000",
+      "latest_observation": "2026-10-02T00:00:00.000Z"
+    },
+    {
+      "dataset_slug": "sale_listings",
+      "source_grain": "listing",
+      "neighborhoods": 28,
+      "evidence_rows": 42,
+      "avg_mapping_confidence": "1.000",
+      "latest_observation": "2026-10-02T00:00:00.000Z"
+    },
+    {
+      "dataset_slug": "transactions",
+      "source_grain": "transaction",
+      "neighborhoods": 2,
+      "evidence_rows": 41,
+      "avg_mapping_confidence": "1.000",
+      "latest_observation": "2026-07-08T00:00:00.000Z"
+    },
+    {
+      "dataset_slug": "urban_renewal_complexes",
+      "source_grain": "renewal_project",
+      "neighborhoods": 6,
+      "evidence_rows": 18,
+      "avg_mapping_confidence": "1.000",
+      "latest_observation": "2026-10-03T00:00:00.000Z"
+    }
+  ],
+  "metricCoverage": [
+    {
+      "metric_key": "construction_starts",
+      "neighborhoods": 31,
+      "avg_confidence": "0.550",
+      "latest_as_of": "2026-10-03T00:00:00.000Z",
+      "source_datasets": [
+        "construction_starts"
+      ]
+    },
+    {
+      "metric_key": "deal_score_adjusted",
+      "neighborhoods": 2,
+      "avg_confidence": "0.400",
+      "latest_as_of": "2026-10-03T00:00:00.000Z",
+      "source_datasets": [
+        "sale_listings"
+      ]
+    },
+    {
+      "metric_key": "estimated_gross_yield",
+      "neighborhoods": 1,
+      "avg_confidence": "0.650",
+      "latest_as_of": "2026-10-03T00:00:00.000Z",
+      "source_datasets": [
+        "rent_listings",
+        "sale_listings"
+      ]
+    },
+    {
+      "metric_key": "median_price_sqm_12m",
+      "neighborhoods": 2,
+      "avg_confidence": "0.375",
+      "latest_as_of": "2026-10-03T00:00:00.000Z",
+      "source_datasets": [
+        "transactions"
+      ]
+    },
+    {
+      "metric_key": "municipal_average_wage",
+      "neighborhoods": 31,
+      "avg_confidence": "0.550",
+      "latest_as_of": "2026-10-03T00:00:00.000Z",
+      "source_datasets": [
+        "municipal_wages"
+      ]
+    },
+    {
+      "metric_key": "net_internal_migration",
+      "neighborhoods": 31,
+      "avg_confidence": "0.550",
+      "latest_as_of": "2026-10-03T00:00:00.000Z",
+      "source_datasets": [
+        "municipal_migration"
+      ]
+    },
+    {
+      "metric_key": "price_change_1y",
+      "neighborhoods": 2,
+      "avg_confidence": "0.375",
+      "latest_as_of": "2026-10-03T00:00:00.000Z",
+      "source_datasets": [
+        "transactions"
+      ]
+    },
+    {
+      "metric_key": "renewal_expansion_ratio",
+      "neighborhoods": 6,
+      "avg_confidence": "0.800",
+      "latest_as_of": "2026-10-03T00:00:00.000Z",
+      "source_datasets": [
+        "urban_renewal_complexes"
+      ]
+    },
+    {
+      "metric_key": "transaction_count_12m",
+      "neighborhoods": 2,
+      "avg_confidence": "0.375",
+      "latest_as_of": "2026-10-03T00:00:00.000Z",
+      "source_datasets": [
+        "transactions"
+      ]
+    }
+  ],
+  "neighborhoods": [
+    {
+      "slug": "ahuza-haifa",
+      "name_he": "אחוזה",
+      "city": "חיפה",
+      "deal_heat": null,
+      "investment_score": null,
+      "confidence_level": "low",
+      "coverage_pct": "30.00",
+      "deal_count": 0,
+      "transaction_count_12m": 0,
+      "median_price_sqm_12m": null,
+      "price_change_1y": null,
+      "estimated_gross_yield": "9.88"
+    },
+    {
+      "slug": "hadar-elyon-haifa",
+      "name_he": "הדר עליון",
+      "city": "חיפה",
+      "deal_heat": null,
+      "investment_score": null,
+      "confidence_level": "low",
+      "coverage_pct": "20.00",
+      "deal_count": 0,
+      "transaction_count_12m": 0,
+      "median_price_sqm_12m": null,
+      "price_change_1y": null,
+      "estimated_gross_yield": null
+    },
+    {
+      "slug": "yalg-haifa",
+      "name_he": "יל\"ג",
+      "city": "חיפה",
+      "deal_heat": null,
+      "investment_score": null,
+      "confidence_level": "low",
+      "coverage_pct": "20.00",
+      "deal_count": 0,
+      "transaction_count_12m": 0,
+      "median_price_sqm_12m": null,
+      "price_change_1y": null,
+      "estimated_gross_yield": null
+    },
+    {
+      "slug": "kabirim-haifa",
+      "name_he": "כבירים",
+      "city": "חיפה",
+      "deal_heat": null,
+      "investment_score": null,
+      "confidence_level": "low",
+      "coverage_pct": "20.00",
+      "deal_count": 0,
+      "transaction_count_12m": 0,
+      "median_price_sqm_12m": null,
+      "price_change_1y": null,
+      "estimated_gross_yield": null
+    },
+    {
+      "slug": "neve-david-haifa",
+      "name_he": "נווה דוד",
+      "city": "חיפה",
+      "deal_heat": null,
+      "investment_score": null,
+      "confidence_level": "low",
+      "coverage_pct": "40.00",
+      "deal_count": 0,
+      "transaction_count_12m": 0,
+      "median_price_sqm_12m": null,
+      "price_change_1y": null,
+      "estimated_gross_yield": null
+    },
+    {
+      "slug": "neve-yosef-haifa",
+      "name_he": "נווה יוסף",
+      "city": "חיפה",
+      "deal_heat": null,
+      "investment_score": null,
+      "confidence_level": "low",
+      "coverage_pct": "20.00",
+      "deal_count": 0,
+      "transaction_count_12m": 0,
+      "median_price_sqm_12m": null,
+      "price_change_1y": null,
+      "estimated_gross_yield": null
+    },
+    {
+      "slug": "kiryat-eliezer-haifa",
+      "name_he": "קריית אליעזר",
+      "city": "חיפה",
+      "deal_heat": "66.96",
+      "investment_score": "50.61",
+      "confidence_level": "low",
+      "coverage_pct": "80.00",
+      "deal_count": 4,
+      "transaction_count_12m": 10,
+      "median_price_sqm_12m": "17083.00",
+      "price_change_1y": "4.32",
+      "estimated_gross_yield": null
+    },
+    {
+      "slug": "kiryat-sprinzak-haifa",
+      "name_he": "קריית שפרינצק",
+      "city": "חיפה",
+      "deal_heat": "63.29",
+      "investment_score": "67.17",
+      "confidence_level": "low",
+      "coverage_pct": "80.00",
+      "deal_count": 4,
+      "transaction_count_12m": 5,
+      "median_price_sqm_12m": "18017.00",
+      "price_change_1y": "4.62",
+      "estimated_gross_yield": null
+    },
+    {
+      "slug": "ramot-remez-haifa",
+      "name_he": "רמות רמז",
+      "city": "חיפה",
+      "deal_heat": null,
+      "investment_score": null,
+      "confidence_level": "low",
+      "coverage_pct": "20.00",
+      "deal_count": 0,
+      "transaction_count_12m": 0,
+      "median_price_sqm_12m": null,
+      "price_change_1y": null,
+      "estimated_gross_yield": null
+    },
+    {
+      "slug": "ramat-eshkol-haifa",
+      "name_he": "רמת אשכול",
+      "city": "חיפה",
+      "deal_heat": null,
+      "investment_score": null,
+      "confidence_level": "low",
+      "coverage_pct": "20.00",
+      "deal_count": 0,
+      "transaction_count_12m": 0,
+      "median_price_sqm_12m": null,
+      "price_change_1y": null,
+      "estimated_gross_yield": null
+    },
+    {
+      "slug": "ramat-sapir-haifa",
+      "name_he": "רמת ספיר",
+      "city": "חיפה",
+      "deal_heat": null,
+      "investment_score": null,
+      "confidence_level": "low",
+      "coverage_pct": "20.00",
+      "deal_count": 0,
+      "transaction_count_12m": 0,
+      "median_price_sqm_12m": null,
+      "price_change_1y": null,
+      "estimated_gross_yield": null
+    },
+    {
+      "slug": "shambur-haifa",
+      "name_he": "שמבור",
+      "city": "חיפה",
+      "deal_heat": null,
+      "investment_score": null,
+      "confidence_level": "low",
+      "coverage_pct": "20.00",
+      "deal_count": 0,
+      "transaction_count_12m": 0,
+      "median_price_sqm_12m": null,
+      "price_change_1y": null,
+      "estimated_gross_yield": null
+    },
+    {
+      "slug": "shaar-haaliya-haifa",
+      "name_he": "שער העליה",
+      "city": "חיפה",
+      "deal_heat": null,
+      "investment_score": null,
+      "confidence_level": "low",
+      "coverage_pct": "20.00",
+      "deal_count": 0,
+      "transaction_count_12m": 0,
+      "median_price_sqm_12m": null,
+      "price_change_1y": null,
+      "estimated_gross_yield": null
+    },
+    {
+      "slug": "galei-hayam-netanya",
+      "name_he": "גלי הים",
+      "city": "נתניה",
+      "deal_heat": null,
+      "investment_score": null,
+      "confidence_level": "low",
+      "coverage_pct": "20.00",
+      "deal_count": 0,
+      "transaction_count_12m": 0,
+      "median_price_sqm_12m": null,
+      "price_change_1y": null,
+      "estimated_gross_yield": null
+    },
+    {
+      "slug": "merkaz-darom-netanya",
+      "name_he": "מרכז העיר דרום",
+      "city": "נתניה",
+      "deal_heat": null,
+      "investment_score": null,
+      "confidence_level": "low",
+      "coverage_pct": "20.00",
+      "deal_count": 0,
+      "transaction_count_12m": 0,
+      "median_price_sqm_12m": null,
+      "price_change_1y": null,
+      "estimated_gross_yield": null
+    },
+    {
+      "slug": "mishkenot-zvulun-netanya",
+      "name_he": "משכנות זבולון",
+      "city": "נתניה",
+      "deal_heat": null,
+      "investment_score": null,
+      "confidence_level": "low",
+      "coverage_pct": "20.00",
+      "deal_count": 0,
+      "transaction_count_12m": 0,
+      "median_price_sqm_12m": null,
+      "price_change_1y": null,
+      "estimated_gross_yield": null
+    },
+    {
+      "slug": "nof-hatayellet-netanya",
+      "name_he": "נוף הטיילת",
+      "city": "נתניה",
+      "deal_heat": null,
+      "investment_score": null,
+      "confidence_level": "low",
+      "coverage_pct": "20.00",
+      "deal_count": 0,
+      "transaction_count_12m": 0,
+      "median_price_sqm_12m": null,
+      "price_change_1y": null,
+      "estimated_gross_yield": null
+    },
+    {
+      "slug": "ir-yamim-netanya",
+      "name_he": "עיר ימים",
+      "city": "נתניה",
+      "deal_heat": null,
+      "investment_score": null,
+      "confidence_level": "low",
+      "coverage_pct": "20.00",
+      "deal_count": 0,
+      "transaction_count_12m": 0,
+      "median_price_sqm_12m": null,
+      "price_change_1y": null,
+      "estimated_gross_yield": null
+    },
+    {
+      "slug": "merkaz-tzafon-mizrah-netanya",
+      "name_he": "צפון מזרח מרכז העיר",
+      "city": "נתניה",
+      "deal_heat": null,
+      "investment_score": null,
+      "confidence_level": "low",
+      "coverage_pct": "20.00",
+      "deal_count": 0,
+      "transaction_count_12m": 0,
+      "median_price_sqm_12m": null,
+      "price_change_1y": null,
+      "estimated_gross_yield": null
+    },
+    {
+      "slug": "merkaz-tzafon-maarav-netanya",
+      "name_he": "צפון מערב מרכז העיר",
+      "city": "נתניה",
+      "deal_heat": null,
+      "investment_score": null,
+      "confidence_level": "low",
+      "coverage_pct": "20.00",
+      "deal_count": 0,
+      "transaction_count_12m": 0,
+      "median_price_sqm_12m": null,
+      "price_change_1y": null,
+      "estimated_gross_yield": null
+    },
+    {
+      "slug": "kiryat-nordau-netanya",
+      "name_he": "קריית נורדאו",
+      "city": "נתניה",
+      "deal_heat": null,
+      "investment_score": null,
+      "confidence_level": "medium",
+      "coverage_pct": "40.00",
+      "deal_count": 0,
+      "transaction_count_12m": 0,
+      "median_price_sqm_12m": null,
+      "price_change_1y": null,
+      "estimated_gross_yield": null
+    },
+    {
+      "slug": "kiryat-hasharon-netanya",
+      "name_he": "קרית השרון",
+      "city": "נתניה",
+      "deal_heat": null,
+      "investment_score": null,
+      "confidence_level": "low",
+      "coverage_pct": "20.00",
+      "deal_count": 0,
+      "transaction_count_12m": 0,
+      "median_price_sqm_12m": null,
+      "price_change_1y": null,
+      "estimated_gross_yield": null
+    },
+    {
+      "slug": "ramat-poleg-netanya",
+      "name_he": "רמת פולג",
+      "city": "נתניה",
+      "deal_heat": null,
+      "investment_score": null,
+      "confidence_level": "low",
+      "coverage_pct": "20.00",
+      "deal_count": 0,
+      "transaction_count_12m": 0,
+      "median_price_sqm_12m": null,
+      "price_change_1y": null,
+      "estimated_gross_yield": null
+    },
+    {
+      "slug": "hadar-hamoshavot-hadasha-petah-tikva",
+      "name_he": "הדר המושבות החדשה / אם המושבות החדשה",
+      "city": "פתח תקווה",
+      "deal_heat": null,
+      "investment_score": null,
+      "confidence_level": "low",
+      "coverage_pct": "20.00",
+      "deal_count": 0,
+      "transaction_count_12m": 0,
+      "median_price_sqm_12m": null,
+      "price_change_1y": null,
+      "estimated_gross_yield": null
+    },
+    {
+      "slug": "merkaz-hashaket-petah-tikva",
+      "name_he": "המרכז השקט / מרכז העיר",
+      "city": "פתח תקווה",
+      "deal_heat": null,
+      "investment_score": null,
+      "confidence_level": "low",
+      "coverage_pct": "20.00",
+      "deal_count": 0,
+      "transaction_count_12m": 0,
+      "median_price_sqm_12m": null,
+      "price_change_1y": null,
+      "estimated_gross_yield": null
+    },
+    {
+      "slug": "yoseftal-petah-tikva",
+      "name_he": "יוספטל",
+      "city": "פתח תקווה",
+      "deal_heat": null,
+      "investment_score": null,
+      "confidence_level": "low",
+      "coverage_pct": "40.00",
+      "deal_count": 0,
+      "transaction_count_12m": 0,
+      "median_price_sqm_12m": null,
+      "price_change_1y": null,
+      "estimated_gross_yield": null
+    },
+    {
+      "slug": "kfar-ganim-a-petah-tikva",
+      "name_he": "כפר גנים א",
+      "city": "פתח תקווה",
+      "deal_heat": null,
+      "investment_score": null,
+      "confidence_level": "low",
+      "coverage_pct": "20.00",
+      "deal_count": 0,
+      "transaction_count_12m": 0,
+      "median_price_sqm_12m": null,
+      "price_change_1y": null,
+      "estimated_gross_yield": null
+    },
+    {
+      "slug": "mahane-yehuda-petah-tikva",
+      "name_he": "מחנה יהודה",
+      "city": "פתח תקווה",
+      "deal_heat": null,
+      "investment_score": null,
+      "confidence_level": "low",
+      "coverage_pct": "20.00",
+      "deal_count": 0,
+      "transaction_count_12m": 0,
+      "median_price_sqm_12m": null,
+      "price_change_1y": null,
+      "estimated_gross_yield": null
+    },
+    {
+      "slug": "neve-gan-petah-tikva",
+      "name_he": "נווה גן",
+      "city": "פתח תקווה",
+      "deal_heat": null,
+      "investment_score": null,
+      "confidence_level": "low",
+      "coverage_pct": "20.00",
+      "deal_count": 0,
+      "transaction_count_12m": 0,
+      "median_price_sqm_12m": null,
+      "price_change_1y": null,
+      "estimated_gross_yield": null
+    },
+    {
+      "slug": "ein-ganim-petah-tikva",
+      "name_he": "עין גנים",
+      "city": "פתח תקווה",
+      "deal_heat": null,
+      "investment_score": null,
+      "confidence_level": "low",
+      "coverage_pct": "20.00",
+      "deal_count": 0,
+      "transaction_count_12m": 0,
+      "median_price_sqm_12m": null,
+      "price_change_1y": null,
+      "estimated_gross_yield": null
+    },
+    {
+      "slug": "ramat-verber-petah-tikva",
+      "name_he": "רמת ורבר",
+      "city": "פתח תקווה",
+      "deal_heat": null,
+      "investment_score": null,
+      "confidence_level": "medium",
+      "coverage_pct": "40.00",
+      "deal_count": 0,
+      "transaction_count_12m": 0,
+      "median_price_sqm_12m": null,
+      "price_change_1y": null,
+      "estimated_gross_yield": null
+    }
+  ]
 }
-
-Node.js v22.23.3

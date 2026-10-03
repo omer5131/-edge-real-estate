@@ -1,11 +1,12 @@
 {
-  "generatedAt": "2026-10-03T08:41:37.353Z",
+  "generatedAt": "2026-10-03T08:43:42.231Z",
   "scoreVersion": "area-score-v1",
   "aggregationKey": "neighborhood_id",
   "refresh": {
     "scoreVersion": "area-score-v1",
     "geography": {
-      "statisticalAreas": 0,
+      "cities": 1327,
+      "statisticalAreas": 3750,
       "parcels": 18500,
       "parcelStatArea": 0,
       "evidenceCrosswalk": 0,
