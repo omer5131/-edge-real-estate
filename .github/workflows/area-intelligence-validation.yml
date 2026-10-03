@@ -83,7 +83,15 @@ jobs:
           git add artifacts/vite-build.log artifacts/migrate-over.log artifacts/migrate-yad2.log artifacts/migrate-research.log
           if git diff --cached --quiet; then echo "Build-stage logs unchanged"; else git commit -m "Record remaining build diagnostics"; git push; fi
       - name: Test scoring primitives
-        run: npm run test:areas
+        run: |
+          mkdir -p artifacts
+          npm run test:areas > artifacts/test-areas.log 2>&1 || true
+      - name: Commit scoring-test diagnostics
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add artifacts/test-areas.log
+          if git diff --cached --quiet; then echo "Scoring-test log unchanged"; else git commit -m "Record scoring test diagnostics"; git push; fi
       - name: Apply additive area schema
         run: |
           mkdir -p artifacts
