@@ -71,6 +71,76 @@ async function renewal(neighborhoodId:string){
  `,[neighborhoodId]);
 }
 
+
+async function metricSection(neighborhoodId:string,categories:string[]){
+ return queryDatabase(`
+  SELECT DISTINCT ON(m.metric_key) m.metric_key,d.label,d.category,d.preferred_dataset,d.unit,d.description,
+   m.numeric_value::float8,m.text_value,m.sample_count,m.confidence::float8,m.evidence_count,
+   m.source_datasets,m.source_evidence,m.as_of_date,m.calculated_at
+  FROM neighborhood_metric_snapshots m
+  JOIN neighborhood_metric_definitions d ON d.metric_key=m.metric_key
+  WHERE m.neighborhood_id=$1 AND d.category=ANY($2::text[])
+  ORDER BY m.metric_key,m.as_of_date DESC,m.calculated_at DESC
+ `,[neighborhoodId,categories]);
+}
+
+async function rentals(neighborhoodId:string){
+ const [metrics,inventory]=await Promise.all([
+  metricSection(neighborhoodId,['rental']),
+  queryDatabase(`
+   WITH snap AS(
+    SELECT DISTINCT ON(rental_listing_id) rental_listing_id,asking_rent_nis,area_sqm,rooms,floor,observed_at
+    FROM rental_listing_snapshots ORDER BY rental_listing_id,observed_at DESC
+   )
+   SELECT l.id::text,l.canonical_address,l.url,l.status,l.first_seen_at,l.last_seen_at,
+    s.asking_rent_nis::float8,s.area_sqm::float8,s.rooms::float8,s.floor,s.observed_at,
+    CASE WHEN s.area_sqm>0 THEN (s.asking_rent_nis/s.area_sqm)::float8 END rent_per_sqm
+   FROM rental_listings l LEFT JOIN snap s ON s.rental_listing_id=l.id
+   WHERE l.neighborhood_id=$1
+   ORDER BY (l.status='active') DESC,l.last_seen_at DESC LIMIT 500
+  `,[neighborhoodId])
+ ]);
+ return {metrics,inventory};
+}
+
+async function demographics(neighborhoodId:string){
+ return {
+  metrics:await metricSection(neighborhoodId,['demographics','economics']),
+  note:'Neighborhood-specific demographic metrics require statistical-area crosswalk evidence. Municipality-grain metrics are returned only as explicitly inherited context.'
+ };
+}
+
+async function infrastructure(neighborhoodId:string){
+ const metrics=await metricSection(neighborhoodId,['infrastructure']);
+ const evidenceRows=await queryDatabase(`
+  SELECT dataset_slug,source_grain,count(*)::int evidence_count,
+   round(avg(mapping_confidence)::numeric,3)::float8 avg_mapping_confidence,
+   max(COALESCE(observation_date,make_date(observation_year,1,1))) latest_observation
+  FROM dataset_neighborhood_evidence
+  WHERE neighborhood_id=$1 AND dataset_slug=ANY(ARRAY[
+   'infrastructure_projects','national_transport_plans','brt_routes','light_rail_stations',
+   'rail_stations','metronit_routes','metro_stations','metro_routes','haifa_transport_2040'
+  ])
+  GROUP BY dataset_slug,source_grain ORDER BY dataset_slug
+ `,[neighborhoodId]);
+ return {metrics,evidence:evidenceRows,available:metrics.length>0||evidenceRows.length>0};
+}
+
+async function supply(neighborhoodId:string){
+ return {
+  metrics:await metricSection(neighborhoodId,['supply']),
+  renewal:await queryDatabase(`
+   SELECT count(*)::int projects,COALESCE(sum(existing_units),0)::int existing_units,
+    COALESCE(sum(planned_units),0)::int planned_units,COALESCE(sum(additional_units),0)::int additional_units
+   FROM renewal_projects WHERE neighborhood_id=$1
+  `,[neighborhoodId])
+ };
+}
+
+async function cityContext(neighborhoodId:string){
+ return metricSection(neighborhoodId,['economics','demographics','supply','municipal','education']);
+}
+
 async function evidence(neighborhoodId:string,dataset?:string){
  return queryDatabase(`
   SELECT dataset_slug,source_record_id,source_grain,observation_date,observation_year,mapping_method,
@@ -114,9 +184,14 @@ export default async function handler(req:VercelRequest,res:VercelResponse){
    section==='transactions'?await transactions(id):
    section==='listings'?await listings(id):
    section==='renewal'?await renewal(id):
+   section==='demographics'?await demographics(id):
+   section==='rentals'?await rentals(id):
+   section==='infrastructure'?await infrastructure(id):
+   section==='supply'?await supply(id):
+   section==='city-context'?await cityContext(id):
    section==='evidence'?await evidence(id,typeof req.query.dataset==='string'?req.query.dataset:undefined):
    null;
-  if(data===null)return res.status(400).json({error:'invalid_section',allowed:['summary','transactions','listings','renewal','evidence']});
+  if(data===null)return res.status(400).json({error:'invalid_section',allowed:['summary','transactions','listings','renewal','demographics','rentals','infrastructure','supply','city-context','evidence']});
   res.setHeader('Cache-Control',section==='listings'?'s-maxage=60, stale-while-revalidate=300':'s-maxage=300, stale-while-revalidate=1800');
   return res.status(200).json({mode:'live',neighborhoodId:id,section,data});
  }catch(error){return res.status(503).json({mode:'unavailable',error:String(error)});}
