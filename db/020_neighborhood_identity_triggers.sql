@@ -22,19 +22,19 @@ CREATE INDEX IF NOT EXISTS neighborhood_resolution_queue_status_idx
 CREATE OR REPLACE FUNCTION sync_listing_neighborhood_identity()
 RETURNS trigger
 LANGUAGE plpgsql
-AS $$
+AS '
 DECLARE
   entity_type_value text;
   src_city text;
   src_neighborhood text;
 BEGIN
-  entity_type_value:=CASE WHEN TG_TABLE_NAME='rental_listings' THEN 'rental_listing' ELSE 'listing' END;
+  entity_type_value:=CASE WHEN TG_TABLE_NAME=''rental_listings'' THEN ''rental_listing'' ELSE ''listing'' END;
 
-  IF NEW.source_id LIKE 'yad2_%' THEN
+  IF NEW.source_id LIKE ''yad2_%'' THEN
     SELECT d.city,d.neighborhood INTO src_city,src_neighborhood
     FROM yad2_dataset d
     WHERE d.listing_id=NEW.source_listing_id
-      AND d.market=CASE WHEN TG_TABLE_NAME='rental_listings' THEN 'rent' ELSE 'sale' END
+      AND d.market=CASE WHEN TG_TABLE_NAME=''rental_listings'' THEN ''rent'' ELSE ''sale'' END
     LIMIT 1;
   END IF;
 
@@ -46,12 +46,12 @@ BEGIN
     VALUES(
       NEW.neighborhood_id,NEW.source_id,entity_type_value,NEW.source_listing_id,
       COALESCE(src_neighborhood,NEW.canonical_address),
-      'canonical_listing_link',1,
+      ''canonical_listing_link'',1,
       jsonb_build_object(
-        'canonical_entity_id',NEW.id,
-        'source_city',src_city,
-        'source_neighborhood',src_neighborhood,
-        'address',NEW.canonical_address
+        ''canonical_entity_id'',NEW.id,
+        ''source_city'',src_city,
+        ''source_neighborhood'',src_neighborhood,
+        ''address'',NEW.canonical_address
       ),
       now()
     )
@@ -65,22 +65,22 @@ BEGIN
     )
     VALUES(
       entity_type_value,NEW.id,NEW.source_id,NEW.source_listing_id,src_city,src_neighborhood,
-      NEW.canonical_address,'resolved',1,now(),'Resolved on canonical listing write.',now()
+      NEW.canonical_address,''resolved'',1,now(),''Resolved on canonical listing write.'',now()
     )
     ON CONFLICT(entity_type,entity_id) DO UPDATE SET
       source_city=EXCLUDED.source_city,source_neighborhood=EXCLUDED.source_neighborhood,
-      source_address=EXCLUDED.source_address,status='resolved',
+      source_address=EXCLUDED.source_address,status=''resolved'',
       attempts=neighborhood_resolution_queue.attempts+1,last_attempt_at=now(),
-      resolution_notes='Resolved on canonical listing write.',updated_at=now();
+      resolution_notes=''Resolved on canonical listing write.'',updated_at=now();
 
-    IF src_neighborhood IS NOT NULL AND src_neighborhood<>'' THEN
+    IF src_neighborhood IS NOT NULL AND src_neighborhood<>'''' THEN
       INSERT INTO neighborhood_aliases(
         neighborhood_id,source_id,alias,normalized_alias,language,alias_type,confidence,is_primary
       )
       VALUES(
         NEW.neighborhood_id,NEW.source_id,src_neighborhood,
-        lower(regexp_replace(replace(replace(src_neighborhood,'״',''),'"',''),'[[:space:][:punct:]]','','g')),
-        'he','source_neighborhood',.95,false
+        lower(regexp_replace(replace(replace(src_neighborhood,''״'',''''),''"'',''''),''[[:space:][:punct:]]'','''',''g'')),
+        ''he'',''source_neighborhood'',.95,false
       )
       ON CONFLICT(neighborhood_id,source_id,normalized_alias,alias_type) DO UPDATE SET
         alias=EXCLUDED.alias,confidence=GREATEST(neighborhood_aliases.confidence,EXCLUDED.confidence);
@@ -92,22 +92,22 @@ BEGIN
     )
     VALUES(
       entity_type_value,NEW.id,NEW.source_id,NEW.source_listing_id,src_city,src_neighborhood,
-      NEW.canonical_address,'pending',1,now(),'No safe canonical neighborhood match on write.',now()
+      NEW.canonical_address,''pending'',1,now(),''No safe canonical neighborhood match on write.'',now()
     )
     ON CONFLICT(entity_type,entity_id) DO UPDATE SET
       source_city=EXCLUDED.source_city,source_neighborhood=EXCLUDED.source_neighborhood,
       source_address=EXCLUDED.source_address,
-      status=CASE WHEN neighborhood_resolution_queue.status='resolved' THEN 'resolved' ELSE 'pending' END,
+      status=CASE WHEN neighborhood_resolution_queue.status=''resolved'' THEN ''resolved'' ELSE ''pending'' END,
       attempts=neighborhood_resolution_queue.attempts+1,last_attempt_at=now(),
-      resolution_notes=CASE WHEN neighborhood_resolution_queue.status='resolved'
+      resolution_notes=CASE WHEN neighborhood_resolution_queue.status=''resolved''
         THEN neighborhood_resolution_queue.resolution_notes
-        ELSE 'No safe canonical neighborhood match on write.' END,
+        ELSE ''No safe canonical neighborhood match on write.'' END,
       updated_at=now();
   END IF;
 
   RETURN NEW;
 END;
-$$;
+';
 
 DROP TRIGGER IF EXISTS listings_neighborhood_identity_trg ON listings;
 CREATE TRIGGER listings_neighborhood_identity_trg
