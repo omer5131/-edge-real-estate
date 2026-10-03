@@ -207,7 +207,7 @@ async function linkEvidence(){
    INSERT INTO dataset_neighborhood_evidence(dataset_slug,source_record_id,neighborhood_id,source_grain,observation_year,mapping_method,mapping_confidence,payload)
    SELECT 'census_2022',c._record_id,nm.neighborhood_id,'statistical_area',2022,
      'stat_area_crosswalk',nm.mapping_confidence,
-     jsonb_build_object('population',c.population,'employment_pct',c.employment_pct,'median_employee_wage',c.median_annual_employee_wage,'academic_pct',c."AcadmCert_pcnt")
+     jsonb_build_object('population',c.population,'employment_pct',c.employment_pct,'median_employee_wage',c.median_annual_employee_wage,'academic_pct',NULLIF(to_jsonb(c)->>'AcadmCert_pcnt','')::numeric)
    FROM research_census_2022 c
    JOIN cities city ON city.settlement_code=c.locality_code
    JOIN statistical_areas s ON s.city_id=city.id AND s.stat_area_code=c.statistical_area_code AND s.year=2022
