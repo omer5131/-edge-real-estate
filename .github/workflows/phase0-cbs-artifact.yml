@@ -1,0 +1,36 @@
+name: Phase0 CBS Artifact
+
+on:
+  push:
+    branches:
+      - phase0-architecture-reconciliation
+    paths:
+      - ".github/workflows/phase0-cbs-artifact.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  download:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Download official CBS neighborhood key
+        run: |
+          primary="https://www.cbs.gov.il/he/publications/DocLib/2022/%D7%A7%D7%98%D7%9C%D7%95%D7%92/1.%20%D7%99%D7%99%D7%A9%D7%95%D7%91%D7%99%D7%9D%20%D7%95%D7%97%D7%9C%D7%95%D7%A7%D7%95%D7%AA%20%D7%92%D7%90%D7%95%D7%92%D7%A8%D7%A4%D7%99%D7%95%D7%AA/%D7%A8%D7%97%D7%95%D7%91%D7%95%D7%AA%20%D7%A2%D7%99%D7%A7%D7%A8%D7%99%D7%99%D7%9D%20%D7%95%D7%A9%D7%9B%D7%95%D7%A0%D7%95%D7%AA%20%D7%9C%D7%90%D7%A1%202022.xlsx"
+          fallback="https://www.cbs.gov.il/he/mediarelease/doclib/2022/026/%D7%A8%D7%97%D7%95%D7%91%D7%95%D7%AA%20%D7%A2%D7%99%D7%A7%D7%A8%D7%99%D7%99%D7%9D%20%D7%95%D7%A9%D7%9B%D7%95%D7%A0%D7%95%D7%AA%20%D7%9C%D7%90%D7%A1%202022.xlsx"
+          for url in "$primary" "$fallback"; do
+            if curl --fail --location --retry 3 --retry-all-errors --http1.1 -A "Mozilla/5.0" -o cbs-neighborhood-key.xlsx "$url"; then
+              if [ -s cbs-neighborhood-key.xlsx ] && head -c 2 cbs-neighborhood-key.xlsx | grep -q "PK"; then
+                exit 0
+              fi
+            fi
+            rm -f cbs-neighborhood-key.xlsx
+          done
+          exit 1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cbs-neighborhood-key
+          path: cbs-neighborhood-key.xlsx
+          retention-days: 1
