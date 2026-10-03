@@ -7,6 +7,8 @@ on:
     paths:
       - "src/**"
       - "server/**"
+      - "scripts/**"
+      - "ui/**"
       - ".github/workflows/phase2-ci.yml"
   workflow_dispatch:
 
