@@ -1,0 +1,30 @@
+file:///home/runner/work/-edge-real-estate/-edge-real-estate/node_modules/@neondatabase/serverless/index.mjs:1317
+let{status:G}=ce;if(G===400){let q=await ce.json(),ge=new N(q.message);for(let J of hi)ge[J]=q[J]??void 0;
+                                                      ^
+
+NeonDbError: inconsistent types deduced for parameter $4
+    at Zt.execute (file:///home/runner/work/-edge-real-estate/-edge-real-estate/node_modules/@neondatabase/serverless/index.mjs:1317:55)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async refreshDealHeat (file:///home/runner/work/-edge-real-estate/-edge-real-estate/.server-build/server/neighborhoodIntelligence.js:223:9)
+    at async refreshNeighborhoodIntelligence (file:///home/runner/work/-edge-real-estate/-edge-real-estate/.server-build/server/neighborhoodIntelligence.js:307:22)
+    at async file:///home/runner/work/-edge-real-estate/-edge-real-estate/scripts/validate-area-intelligence.mjs:6:15 {
+  severity: 'ERROR',
+  code: '42P08',
+  detail: 'numeric versus integer',
+  hint: undefined,
+  position: '220',
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'parse_param.c',
+  line: '220',
+  routine: 'variable_coerce_param_hook',
+  sourceError: undefined
+}
+
+Node.js v22.23.3
