@@ -1,0 +1,36 @@
+name: Phase 2.1 Stabilization CI
+
+on:
+  push:
+    branches:
+      - phase2.1-stabilization
+    paths:
+      - "api/**"
+      - "src/**"
+      - "server/**"
+      - "tests/**"
+      - "scripts/**"
+      - "ui/**"
+      - ".github/workflows/phase2.1-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Server typecheck
+        run: npm run check:server
+      - name: Context regression tests
+        run: npm run test:phase1
+      - name: Production build
+        run: npm run build
