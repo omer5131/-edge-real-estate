@@ -55,10 +55,10 @@ const statAreaSamples=await sql`
   LIMIT 5
 `;
 const targetCityCodes=await sql`
-  SELECT name_he,settlement_code,count(n.id)::int neighborhoods
+  SELECT c.name_he,c.settlement_code,count(n.id)::int neighborhoods
   FROM cities c LEFT JOIN neighborhoods n ON n.city_id=c.id
-  WHERE name_he IN ('חיפה','נתניה','פתח תקווה')
-  GROUP BY c.id,name_he,settlement_code ORDER BY name_he
+  WHERE c.name_he IN ('חיפה','נתניה','פתח תקווה')
+  GROUP BY c.id,c.name_he,c.settlement_code ORDER BY c.name_he
 `;
 
 const datasetCoverage=await sql`
