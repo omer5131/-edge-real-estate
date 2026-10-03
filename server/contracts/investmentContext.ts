@@ -4,6 +4,13 @@ export type EvidenceStatus =
   | 'insufficient_evidence'
   | 'unavailable';
 
+export const normalizeConfidence=(value:unknown):number|null=>{
+  if(value===null||value===undefined||value==='')return null;
+  const n=Number(value);if(!Number.isFinite(n))return null;
+  const scaled=n>1?n/100:n;
+  return Math.max(0,Math.min(1,scaled));
+};
+
 export type EvidenceMeta = {
   status: EvidenceStatus;
   confidence: number | null;
@@ -115,6 +122,7 @@ export type SimilarActiveListing = {
   similarityScore: number;
   sourceId: string;
   sourceUrl: string | null;
+  sourceUrlKind: 'item' | 'search' | 'unknown';
   firstSeenAt: string | null;
   lastSeenAt: string | null;
 };
@@ -122,6 +130,7 @@ export type SimilarActiveListing = {
 export type SimilarListingsResponse = {
   asset: AssetRef;
   listings: SimilarActiveListing[];
+  rejectedListings: Array<{listingId:string;address:string|null;reasons:string[]}>;
   summary: {
     inventoryCount: number;
     medianAskingPriceNis: number | null;
@@ -150,6 +159,7 @@ export type AssetContextResponse = {
     askingPricePerSqm: number | null;
     sourceId: string;
     sourceUrl: string | null;
+    sourceUrlKind: 'item' | 'search' | 'unknown';
     firstSeenAt: string | null;
     lastSeenAt: string | null;
   };
