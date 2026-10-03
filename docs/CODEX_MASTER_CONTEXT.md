@@ -243,11 +243,14 @@ The full property response is composed through the existing `api/property.ts` en
 
 Important: current CBS neighborhood profiles remain provisional and `safe_for_score=false` until the official 2022 CBS neighborhood/statistical-area workbook can be successfully acquired and validated. Do not override this guardrail.
 
-### Phase 1 — Market Intelligence services
+### Phase 1 — Market Intelligence services — COMPLETE
 Identity + CBS/Area + Transactions/Valuation + Listings + Planning.
-Acceptance: a property-context API can return subject, area intelligence, comps/valuation, active alternatives, planning context, provenance/confidence.
 
-### Phase 2 — Deal Room v1
+Acceptance passed: the listing-first property-context backend returns subject identity, deterministic closed-sale comps/valuation, separate active alternatives, neighborhood intelligence, planning/renewal/infrastructure context, and provenance/confidence.
+
+Authoritative completion record: `docs/phase1-complete.md`.
+
+### Phase 2 — Deal Room v1 — READY TO START
 Overview / Market / Comps / Area + contextual Ask Edge.
 
 ### Phase 3 — Investment workflow
@@ -475,22 +478,24 @@ Recommended Phase 1 tracks:
 
 Frontend Deal Room work begins only after the property-context backend contract passes integration verification.
 
-## 17. Phase 1 immediate handoff
+## 17. Phase 1 completion and Phase 2 handoff
 
-Phase 1 status: READY TO START.
+Phase 1 status: COMPLETE.
 
-First integration gate:
-1. Re-run a Vercel preview for the current `phase0-architecture-reconciliation` head after build-rate capacity is available.
-2. Call `api/property.ts` for subscribed real listings.
-3. Assert that `valuation`, `activeMarket`, and `areaContext` satisfy the contracts in `server/contracts/investmentContext.ts`.
-4. Add deterministic regression fixtures for:
-   - duplicate sale fingerprints
-   - sparse comps
-   - sparse active inventory
-   - missing building identity
-   - missing neighborhood identity
-   - provisional CBS profiles
-5. Only after this gate, begin broader Phase 1 service/API work.
+Completion record: `docs/phase1-complete.md`.
+
+Phase 2 status: READY TO START.
+
+Phase 1 delivered:
+1. Unified asset context composed in `server/assetContext.ts` and exposed through the existing consolidated `api/property.ts`.
+2. Closed-sale valuation v2 with duplicate collapse, selected/rejected candidates, explicit fallback semantics and evidence metadata.
+3. Active-market v2 kept semantically separate from valuation.
+4. Neighborhood intelligence contract with CBS provisional/safe-for-score guardrails.
+5. Planning context for renewal, statutory plans and infrastructure.
+6. Deterministic regression coverage plus green CI typecheck/build gate.
+7. Read-only production-data validation on subscribed real listings.
+
+Phase 2 should consume these domain contracts rather than recreate calculations in React.
 
 CBS official crosswalk acquisition remains an enrichment task, not permission to weaken the evidence guardrail.
 
