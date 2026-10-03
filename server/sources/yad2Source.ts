@@ -6,10 +6,14 @@ export function yad2Url(value:string, market?:string) {
  u.hash=''; return u.toString();
 }
 export const listingFields:any={};
-for(const field of ['url','price','city','neighborhood','address','rooms','area_sqm','floor','published_at','description','property_type','seller_type','images','features','latitude','longitude','entry_date','building_floors','condition','built_area_sqm','garden_area_sqm','property_details','amenities','source_dates','address_components','source_status']) {
+for(const field of ['url','price','city','neighborhood','address','rooms','area_sqm','floor','published_at','description','property_type','seller_type','images','features','latitude','longitude','entry_date','building_floors','condition','built_area_sqm','garden_area_sqm','property_details','amenities','source_dates','address_components','source_status','location_source','location_accuracy','location_precision_m','location_metadata']) {
  listingFields[field]=`${field} explicitly shown for this listing. Price is numeric ILS (monthly for rentals), rooms and area_sqm numeric; images and features arrays. Missing values null; preserve Hebrew. Never infer missing facts or dates.`;
 }
 listingFields.published_at='Original publication date explicitly shown, ISO YYYY-MM-DD. Null if unavailable. Never substitute update/bump dates or observation dates.';
+listingFields.location_source='Coordinate provenance: yad2, address_geocoding or verified. Null when unavailable.';
+listingFields.location_accuracy='Location accuracy: approximate, street, neighborhood, city, exact or unknown. Never infer exact from a map point or address.';
+listingFields.location_precision_m='Explicit location precision/radius in metres. Null unless supplied; never invent a radius.';
+listingFields.location_metadata='Property-only map evidence and accuracy classification basis; exclude seller contacts.';
 export const pageRules={
  page_valid:{type:'boolean',description:'True only if this is a loaded Yad2 real estate results page, including an explicit no-results page. False for captcha, error, consent or blocked pages.'},
  empty_confirmed:{type:'boolean',description:'True only if the page explicitly states there are zero real estate results.'},
@@ -28,7 +32,13 @@ export function parseYad2Html(html:string,url:string,isFeed:boolean) {
    published_at:typeof item.dates?.createdAt==='string'?item.dates.createdAt.slice(0,10):null,
    description:m.description??null,property_type:d.property?.text??null,seller_type:item.adType??null,
    images:m.images??null,features:item.inProperty?Object.entries(item.inProperty).filter(([,v])=>v===true).map(([k])=>k):null,
-   latitude:a.coords?.lat??null,longitude:a.coords?.lon??null,entry_date:d.entranceDate??null,
+   latitude:a.coords?.lat??null,longitude:a.coords?.lon??null,
+   // Treat the public map point conservatively; it does not verify a building.
+   location_source:a.coords?.lat!=null&&a.coords?.lon!=null?'yad2':null,
+   location_accuracy:a.coords?.lat!=null&&a.coords?.lon!=null?'approximate':null,
+   location_precision_m:null,
+   location_metadata:a.coords?.lat!=null&&a.coords?.lon!=null?{source_path:'address.coords',accuracy_basis:'conservative_default',source_coordinates:a.coords}:null,
+   entry_date:d.entranceDate??null,
    building_floors:a.house?.floors??null,condition:d.propertyCondition?.text??null,
    built_area_sqm:d.squareMeterBuild??null,garden_area_sqm:d.squareMeterGarden??null,
    // Retain public property metadata, excluding customer/contact data.
@@ -62,8 +72,13 @@ export function normalizeListing(row:any) {
  const data:any={};
  for(const field of Object.keys(listingFields)) data[field]=row[field]??null;
  const canonical=new URL(url);canonical.search='';data.url=canonical.toString();
- for(const f of ['price','rooms','area_sqm','latitude','longitude','building_floors','built_area_sqm','garden_area_sqm'])data[f]=number(data[f],f==='latitude'||f==='longitude');
- for(const f of ['property_details','amenities','source_dates','address_components'])if(data[f]!==null&&(typeof data[f]!=='object'||Array.isArray(data[f])))throw new Error('Invalid structured property field');
+ for(const f of ['price','rooms','area_sqm','latitude','longitude','building_floors','built_area_sqm','garden_area_sqm','location_precision_m'])data[f]=number(data[f],f==='latitude'||f==='longitude');
+ if(data.latitude!==null&&Math.abs(data.latitude)>90)throw new Error('Invalid latitude');
+ if(data.longitude!==null&&Math.abs(data.longitude)>180)throw new Error('Invalid longitude');
+ if(data.location_source!==null&&!['yad2','address_geocoding','verified'].includes(data.location_source))throw new Error('Invalid location source');
+ if(data.location_accuracy!==null&&!['approximate','street','neighborhood','city','exact','unknown'].includes(data.location_accuracy))throw new Error('Invalid location accuracy');
+ if((data.location_source!==null||data.location_accuracy!==null||data.location_precision_m!==null)&&(data.latitude===null||data.longitude===null))throw new Error('Location provenance requires coordinate pair');
+ for(const f of ['property_details','amenities','source_dates','address_components','location_metadata'])if(data[f]!==null&&(typeof data[f]!=='object'||Array.isArray(data[f])))throw new Error('Invalid structured property field');
  for(const f of ['images','features']) {if(data[f]!==null&&!Array.isArray(data[f]))throw new Error('Invalid array field');if(data[f])data[f]=[...new Set(data[f].map(String))].sort();}
  return {id,data};
 }
