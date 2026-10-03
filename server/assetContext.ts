@@ -1,3 +1,4 @@
+import {normalizeConfidence} from './contracts/investmentContext.js';
 import type {AssetContextResponse,AssetIdentity,EvidenceMeta} from './contracts/investmentContext.js';
 import {getValuationContext} from './valuationContext.js';
 import {getActiveMarketContext} from './activeMarketContext.js';
@@ -50,7 +51,7 @@ export async function getAssetContext(listing:any):Promise<AssetContextResponse>
   const asset=assetIdentityFromListing(listing);
   const evidenceItems:EvidenceMeta[]=[asset.identityEvidence,valuation.evidence,activeMarket.evidence,planning.evidence];
   if(neighborhood)evidenceItems.push(neighborhood.mapping.evidence);
-  const confidenceVals=evidenceItems.map(x=>x.confidence).filter((x):x is number=>typeof x==='number'&&Number.isFinite(x));
+  const confidenceVals=evidenceItems.map(x=>normalizeConfidence(x.confidence)).filter((x):x is number=>typeof x==='number'&&Number.isFinite(x));
   const evidence:EvidenceMeta={
     status:worstStatus(evidenceItems),
     confidence:confidenceVals.length?Number((confidenceVals.reduce((a,b)=>a+b,0)/confidenceVals.length).toFixed(3)):null,
@@ -62,6 +63,8 @@ export async function getAssetContext(listing:any):Promise<AssetContextResponse>
   };
   const asking=listing?.asking_price_ils==null?null:Number(listing.asking_price_ils);
   const area=listing?.area_sqm==null?null:Number(listing.area_sqm);
+  const sourceUrl=listing?.url??null;
+  const sourceUrlKind: 'item'|'search'|'unknown'=typeof sourceUrl==='string'&&/\/realestate\/item\//.test(sourceUrl)?'item':sourceUrl?'search':'unknown';
   return {
     asset,
     listing:{
@@ -71,7 +74,8 @@ export async function getAssetContext(listing:any):Promise<AssetContextResponse>
       floor:listing?.floor==null?null:Number(listing.floor),
       askingPricePerSqm:asking&&area?asking/area:null,
       sourceId:String(listing?.source_id||'listings'),
-      sourceUrl:listing?.url??null,
+      sourceUrl,
+      sourceUrlKind,
       firstSeenAt:listing?.first_seen_at??null,
       lastSeenAt:listing?.last_seen_at??null
     },
