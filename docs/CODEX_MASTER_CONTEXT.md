@@ -221,8 +221,27 @@ Agent rules:
 
 ## 13. Phases
 
-### Phase 0 — Architecture reconciliation
-Audit live schema/data and lock contracts before broad feature work.
+### Phase 0 — Architecture reconciliation — COMPLETE
+Phase 0 is complete. The authoritative completion record is `docs/phase0-complete.md`.
+
+Locked decisions:
+- listing-first, canonical-property-aware asset identity
+- one canonical neighborhood key
+- CBS/official data for structural area analytics
+- executed transactions for valuation
+- active listings for live competitive context
+- explicit evidence states: supported / provisional / insufficient_evidence / unavailable
+- normalized workflow storage design
+- Vercel serverless-function-count constraint and consolidated API pattern
+
+Phase 0 also implemented server modules for:
+- `server/valuationContext.ts`
+- `server/activeMarketContext.ts`
+- `server/areaContext.ts`
+
+The full property response is composed through the existing `api/property.ts` entrypoint.
+
+Important: current CBS neighborhood profiles remain provisional and `safe_for_score=false` until the official 2022 CBS neighborhood/statistical-area workbook can be successfully acquired and validated. Do not override this guardrail.
 
 ### Phase 1 — Market Intelligence services
 Identity + CBS/Area + Transactions/Valuation + Listings + Planning.
@@ -249,3 +268,241 @@ Some older repository docs refer to OVER deals as the primary market source. Whe
 - **closed executed transactions:** property valuation
 - **active listings:** current competitive context
 - **planning/renewal/infrastructure:** future-change context
+
+
+## 15. Current implementation baseline after Phase 0
+
+### Current system of record
+Neon PostgreSQL + PostGIS.
+
+Production branch:
+`br-gentle-hat-b4hixvjz`
+
+Phase 0 validation branch:
+`br-mute-violet-b4ibdibv`
+
+### Live data baseline observed in Phase 0
+Approximate audit counts:
+- transactions: 1,049
+- eligible comparable transactions: 900
+- sale listings: 42
+- listing snapshots: 42
+- rental listings: 1
+- neighborhoods: 31
+- curated neighborhood/statistical-area mappings: 9
+- neighborhood CBS profile rows: 8
+- neighborhood market periods: 83
+- neighborhood metric snapshots: 108
+- canonical properties: 0
+- canonical buildings: 0
+- deals: 0
+- subscriptions: 2
+
+These numbers are snapshots, not hardcoded business rules.
+
+### Identity state
+Current production is listing-first.
+
+Do not assume `property_id` or `building_id` exists.
+
+Minimum investor asset identity:
+```ts
+{
+  listingId: string;
+  propertyId?: string | null;
+  buildingId?: string | null;
+  neighborhoodId?: string | null;
+}
+```
+
+Deal Room, notes and workflow must function before canonical property/building enrichment is complete.
+
+### CBS state
+Available physical research layers include:
+- Census 2022
+- Area Population 2023
+- Area Population 2024
+
+Current focus-neighborhood profiles are deliberately provisional.
+
+Never promote them to deterministic score inputs unless:
+1. official crosswalk evidence is acquired,
+2. statistical-area membership is reconciled,
+3. mapping/version provenance is stored,
+4. the profile is explicitly marked analytics-safe.
+
+Until then:
+- display is allowed with provisional labeling
+- explanatory agent use is allowed with caveat
+- deterministic opportunity scoring should not depend on the provisional profile
+
+### Valuation v1 implementation
+Module:
+`server/valuationContext.ts`
+
+Executed-sale evidence only.
+
+Current similarity dimensions:
+- canonical neighborhood
+- apartment area
+- rooms
+- floor
+- transaction recency
+
+Duplicate sale representations are collapsed by a fingerprint consisting of:
+- deal date
+- sale price
+- area
+- rooms
+- floor
+
+Outputs:
+- selected comparable sales
+- similarity and weight
+- low/base/high valuation
+- base price/m²
+- discount to base valuation
+- evidence sample size
+- confidence
+- model version
+- limitation notes
+
+Next enrichment:
+same building → same street → nearby/distance → neighborhood fallback once identity/location coverage supports it.
+
+### Active-market v1 implementation
+Module:
+`server/activeMarketContext.ts`
+
+Active listings remain separate from valuation.
+
+Current matching dimensions:
+- neighborhood
+- area
+- rooms
+- floor
+
+Outputs:
+- similar active inventory
+- median ask
+- median ask/m²
+- median DOM
+- subject asking percentile
+- subject delta to median
+- price reduction/seller context
+- evidence status/confidence
+
+Sparse inventory must remain provisional rather than producing false precision.
+
+### Area Context v1 implementation
+Module:
+`server/areaContext.ts`
+
+Uses:
+- `semantic_neighborhood_summary`
+- `semantic_neighborhood_cbs_profile`
+
+It propagates CBS mapping quality into the API response.
+
+### Property context entrypoint
+Use the existing:
+`api/property.ts?id=<listing-id>`
+
+For subscribed/full assets, the target response composition is:
+- listing
+- legacy comps
+- valuation
+- activeMarket
+- areaContext
+- renewal
+- plans
+- infrastructure
+- listing history
+- seller signals
+- rental evidence
+- opportunity score
+- confidence
+
+Do not create separate serverless API files merely to mirror these sections.
+
+### Vercel constraint
+The current Vercel plan has a maximum of 12 Serverless Functions per deployment.
+
+Architecture rule:
+- domain logic belongs in `server/`
+- use consolidated API entrypoints/routers
+- count functions before adding files under `api/`
+
+A Phase 0 attempt to add standalone valuation and similar-listing endpoints exceeded this limit and was reverted/consolidated.
+
+### Deal workflow storage
+Draft additive migration:
+`db/028_deal_workflow_normalization.sql`
+
+Validated on the isolated Neon branch.
+
+Defines:
+- `deal_scenarios`
+- `investment_notes`
+- `due_diligence_items`
+- `deal_events`
+
+Do not apply to production automatically.
+Apply when the corresponding workflow phase begins and after migration review.
+
+## 16. Codex execution model
+
+Codex should use one main orchestrator and bounded specialist agents.
+
+The orchestrator owns:
+- contracts
+- dependency ordering
+- integration
+- migration review
+- acceptance
+- regression prevention
+
+Parallel agents should not redefine shared concepts.
+
+Recommended Phase 1 tracks:
+1. Identity/Geo enrichment
+2. CBS/Area Intelligence
+3. Transactions/Valuation
+4. Listings/Active Market
+5. Planning/Renewal
+6. API integration
+7. QA/Evals
+
+Frontend Deal Room work begins only after the property-context backend contract passes integration verification.
+
+## 17. Phase 1 immediate handoff
+
+Phase 1 status: READY TO START.
+
+First integration gate:
+1. Re-run a Vercel preview for the current `phase0-architecture-reconciliation` head after build-rate capacity is available.
+2. Call `api/property.ts` for subscribed real listings.
+3. Assert that `valuation`, `activeMarket`, and `areaContext` satisfy the contracts in `server/contracts/investmentContext.ts`.
+4. Add deterministic regression fixtures for:
+   - duplicate sale fingerprints
+   - sparse comps
+   - sparse active inventory
+   - missing building identity
+   - missing neighborhood identity
+   - provisional CBS profiles
+5. Only after this gate, begin broader Phase 1 service/API work.
+
+CBS official crosswalk acquisition remains an enrichment task, not permission to weaken the evidence guardrail.
+
+## 18. Phase 0 references
+
+Codex must read these before Phase 1 changes:
+- `AGENTS.md`
+- `docs/CODEX_MASTER_CONTEXT.md`
+- `docs/phase0-complete.md`
+- `docs/phase0-architecture-reconciliation.md`
+- `docs/phase0-data-lineage.md`
+- `docs/phase1-service-contracts.md`
+- `server/contracts/investmentContext.ts`
+
+If an older document conflicts with these files, this master context plus `phase0-complete.md` are authoritative.
