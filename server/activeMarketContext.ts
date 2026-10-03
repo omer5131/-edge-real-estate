@@ -1,10 +1,10 @@
 import {queryDatabase} from './db.js';
+import {classifySourceUrl} from './contracts/investmentContext.js';
 import type {SimilarListingsResponse} from './contracts/investmentContext.js';
 import {normalizeAddress,streetKey} from './valuationContext.js';
 
 const median=(xs:number[])=>{const a=xs.filter(Number.isFinite).sort((x,y)=>x-y);if(!a.length)return null;const m=Math.floor(a.length/2);return a.length%2?a[m]:(a[m-1]+a[m])/2};
 const clamp=(n:number)=>Math.max(0,Math.min(1,n));
-const urlKind=(url:unknown):'item'|'search'|'unknown'=>typeof url==='string'&&/\/realestate\/item\//.test(url)?'item':url?'search':'unknown';
 
 export function buildActiveMarketFromRows(listing:any,rows:any[]):SimilarListingsResponse{
   const asset={listingId:String(listing?.id??listing?.listing_id??''),propertyId:listing?.property_id??null,buildingId:listing?.building_id??null,neighborhoodId:listing?.neighborhood_id??null};
@@ -72,7 +72,7 @@ export function buildActiveMarketFromRows(listing:any,rows:any[]):SimilarListing
     asset,
     listings:scored.map((r:any)=>{
       const lifecycleSupported=Number(r.snapshot_count)>=2&&Number(r.observed_span_days)>=1;
-      return {listingId:String(r.id),address:r.canonical_address??null,currentAskingPriceNis:Number(r.asking_price_nis)||null,originalAskingPriceNis:lifecycleSupported&&Number(r.original_asking_price)>0?Number(r.original_asking_price):null,askingPricePerSqm:Number(r.area_sqm)>0?Number(r.asking_price_nis)/Number(r.area_sqm):null,areaSqm:Number(r.area_sqm)||null,rooms:Number(r.rooms)||null,floor:Number(r.floor)||null,daysOnMarket:lifecycleSupported?Number(r.observed_span_days):null,priceReductions:lifecycleSupported&&r.price_reductions!=null?Number(r.price_reductions):null,distanceMeters:Number.isFinite(Number(r.distance_meters))?Number(r.distance_meters):null,similarityScore:Number(r.similarity.toFixed(4)),sourceId:String(r.source_id),sourceUrl:r.url||null,sourceUrlKind:urlKind(r.url),firstSeenAt:r.first_seen_at||null,lastSeenAt:r.last_seen_at||null};
+      return {listingId:String(r.id),address:r.canonical_address??null,currentAskingPriceNis:Number(r.asking_price_nis)||null,originalAskingPriceNis:lifecycleSupported&&Number(r.original_asking_price)>0?Number(r.original_asking_price):null,askingPricePerSqm:Number(r.area_sqm)>0?Number(r.asking_price_nis)/Number(r.area_sqm):null,areaSqm:Number(r.area_sqm)||null,rooms:Number(r.rooms)||null,floor:Number(r.floor)||null,daysOnMarket:lifecycleSupported?Number(r.observed_span_days):null,priceReductions:lifecycleSupported&&r.price_reductions!=null?Number(r.price_reductions):null,distanceMeters:Number.isFinite(Number(r.distance_meters))?Number(r.distance_meters):null,similarityScore:Number(r.similarity.toFixed(4)),sourceId:String(r.source_id),sourceUrl:r.url||null,sourceUrlKind:classifySourceUrl(r.url),firstSeenAt:r.first_seen_at||null,lastSeenAt:r.last_seen_at||null};
     }),
     rejectedListings,
     summary:{inventoryCount:scored.length,medianAskingPriceNis:medAsk,medianAskingPricePerSqm:median(ppsm),medianDaysOnMarket:median(dom),subjectAskingPercentile:pct==null?null:Number(pct.toFixed(1)),subjectDeltaToMedianPct:ask&&medAsk?Number((100*(ask-medAsk)/medAsk).toFixed(2)):null},
