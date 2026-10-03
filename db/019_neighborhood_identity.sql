@@ -183,3 +183,52 @@ FROM neighborhoods n JOIN cities c ON c.id=n.city_id;
 
 COMMENT ON VIEW semantic_neighborhoods IS
  'Canonical source of truth for neighborhood identity. All agent/dashboard neighborhood joins must resolve to neighborhood_id here. Source-specific names and geometries are evidence, not alternate identities.';
+
+
+-- Canonical hierarchy edges.
+INSERT INTO geo_relationships(parent_type,parent_id,child_type,child_id,relationship_type,confidence,source_id,metadata)
+SELECT 'city',c.id,'neighborhood',n.id,'contains',1,'edge',
+       jsonb_build_object('city_name',c.name_he,'neighborhood_slug',n.slug)
+FROM neighborhoods n JOIN cities c ON c.id=n.city_id
+ON CONFLICT(parent_type,parent_id,child_type,child_id,relationship_type) DO UPDATE SET confidence=1;
+
+INSERT INTO geo_relationships(parent_type,parent_id,child_type,child_id,relationship_type,confidence,source_id,metadata)
+SELECT 'neighborhood',m.neighborhood_id,'statistical_area',m.stat_area_id,'contains',m.mapping_confidence,'cbs',
+       jsonb_build_object('mapping_method',m.mapping_method,'overlap_ratio',m.overlap_ratio,'mapping_version',m.mapping_version)
+FROM neighborhood_stat_area_map m
+ON CONFLICT(parent_type,parent_id,child_type,child_id,relationship_type) DO UPDATE SET
+ confidence=EXCLUDED.confidence,source_id=EXCLUDED.source_id,metadata=EXCLUDED.metadata;
+
+INSERT INTO geo_relationships(parent_type,parent_id,child_type,child_id,relationship_type,confidence,source_id,metadata)
+SELECT 'neighborhood',m.neighborhood_id,'parcel',m.parcel_id,'contains',m.mapping_confidence,'edge',
+       jsonb_build_object('mapping_method',m.mapping_method,'mapping_version',m.mapping_version)
+FROM neighborhood_parcel_map m
+ON CONFLICT(parent_type,parent_id,child_type,child_id,relationship_type) DO UPDATE SET
+ confidence=EXCLUDED.confidence,metadata=EXCLUDED.metadata;
+
+CREATE OR REPLACE VIEW semantic_neighborhood_mapping_quality AS
+SELECT
+ n.id neighborhood_id,n.slug,n.name_he,c.name_he city_name,
+ CASE WHEN n.geom IS NULL THEN false ELSE true END has_geometry,
+ n.geometry_method,n.geometry_source,n.geometry_confidence,n.boundary_version,
+ count(DISTINCT a.id)::int alias_count,
+ count(DISTINCT sm.id)::int source_mapping_count,
+ count(DISTINCT npm.parcel_id)::int parcel_count,
+ count(DISTINCT nsam.stat_area_id)::int statistical_area_count,
+ count(DISTINCT sm.source_id)::int source_count,
+ round(avg(sm.mapping_confidence)::numeric,3) source_mapping_confidence,
+ CASE
+   WHEN n.geom IS NOT NULL AND count(DISTINCT sm.id)>=5 THEN 'strong'
+   WHEN count(DISTINCT sm.id)>=3 OR count(DISTINCT npm.parcel_id)>=2 THEN 'usable'
+   ELSE 'limited'
+ END mapping_quality
+FROM neighborhoods n
+JOIN cities c ON c.id=n.city_id
+LEFT JOIN neighborhood_aliases a ON a.neighborhood_id=n.id
+LEFT JOIN neighborhood_source_mappings sm ON sm.neighborhood_id=n.id
+LEFT JOIN neighborhood_parcel_map npm ON npm.neighborhood_id=n.id
+LEFT JOIN neighborhood_stat_area_map nsam ON nsam.neighborhood_id=n.id
+GROUP BY n.id,n.slug,n.name_he,c.name_he,n.geom,n.geometry_method,n.geometry_source,n.geometry_confidence,n.boundary_version;
+
+COMMENT ON VIEW semantic_neighborhood_mapping_quality IS
+ 'Identity/mapping health for each canonical neighborhood. Use to decide whether geography-dependent analytics are safe.';
