@@ -207,25 +207,27 @@ export async function refreshNeighborhoodIdentity(){
   result.curatedCrosswalk=curated.length;
   const candidates=await queryDatabase(`
     WITH mapped AS(
-      SELECT m.neighborhood_id,s.geom,m.mapping_confidence,m.overlap_ratio,
-        COALESCE((m.source_evidence->>'exclusive')::boolean,false) exclusive
+      SELECT m.neighborhood_id,s.geom,m.mapping_confidence,m.overlap_ratio,m.mapping_method,
+        COALESCE((m.source_evidence->>'exclusive')::boolean,false) exclusive,
+        COALESCE((m.source_evidence->>'safe_for_polygon')::boolean,false) safe_for_polygon
       FROM neighborhood_stat_area_map m
       JOIN statistical_areas s ON s.id=m.stat_area_id
       WHERE s.geom IS NOT NULL AND m.mapping_confidence>=.85
     ), agg AS(
       SELECT neighborhood_id,
-        ST_Multi(ST_Union(geom)) FILTER(WHERE exclusive OR overlap_ratio=1) geom,
-        avg(mapping_confidence) FILTER(WHERE exclusive OR overlap_ratio=1)::numeric avg_confidence,
+        ST_Multi(ST_Union(geom)) FILTER(WHERE exclusive OR overlap_ratio=1 OR safe_for_polygon) geom,
+        avg(mapping_confidence) FILTER(WHERE exclusive OR overlap_ratio=1 OR safe_for_polygon)::numeric avg_confidence,
         count(*)::int total_areas,
-        count(*) FILTER(WHERE exclusive OR overlap_ratio=1)::int exclusive_areas
+        count(*) FILTER(WHERE exclusive OR overlap_ratio=1 OR safe_for_polygon)::int polygon_areas,
+        bool_or(mapping_method='official_crosswalk' AND exclusive) has_official
       FROM mapped GROUP BY neighborhood_id
     )
     SELECT neighborhood_id,geom,
-      LEAST(.96,COALESCE(avg_confidence,.8) * (exclusive_areas::numeric/NULLIF(total_areas,0)))::numeric confidence,
-      exclusive_areas area_count
+      LEAST(.96,COALESCE(avg_confidence,.8) * (polygon_areas::numeric/NULLIF(total_areas,0)))::numeric confidence,
+      polygon_areas area_count,has_official
     FROM agg
-    WHERE exclusive_areas>=1
-      AND exclusive_areas::numeric/NULLIF(total_areas,0)>=.8
+    WHERE polygon_areas>=1
+      AND polygon_areas::numeric/NULLIF(total_areas,0)>=.8
   `);
 
   for(const c of candidates){
