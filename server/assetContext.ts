@@ -1,4 +1,4 @@
-import {normalizeConfidence} from './contracts/investmentContext.js';
+import {classifySourceUrl,normalizeConfidence} from './contracts/investmentContext.js';
 import type {AssetContextResponse,AssetIdentity,EvidenceMeta} from './contracts/investmentContext.js';
 import {getValuationContext} from './valuationContext.js';
 import {getActiveMarketContext} from './activeMarketContext.js';
@@ -64,7 +64,7 @@ export async function getAssetContext(listing:any):Promise<AssetContextResponse>
   const asking=listing?.asking_price_ils==null?null:Number(listing.asking_price_ils);
   const area=listing?.area_sqm==null?null:Number(listing.area_sqm);
   const sourceUrl=listing?.url??null;
-  const sourceUrlKind: 'item'|'search'|'unknown'=typeof sourceUrl==='string'&&/\/realestate\/item\//.test(sourceUrl)?'item':sourceUrl?'search':'unknown';
+  const sourceUrlKind=classifySourceUrl(sourceUrl);
   return {
     asset,
     listing:{
