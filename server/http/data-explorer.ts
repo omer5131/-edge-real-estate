@@ -25,6 +25,12 @@ const definitions:Record<string,[string,string,string]>={
  streets:['Streets','One street.','Street names alone can repeat across cities; use city_id where available.'],
  research_assets:['Research assets','One normalized research asset from the research view.','Broader than followed areas; manual and system flags indicate follow-up.'],
  neighborhood_market_confidence:['Market confidence','One neighborhood quality aggregate.','Confidence is based on available comparable samples; inspect sample size and date coverage.'],
+ semantic_neighborhood_summary:['Neighborhood semantic summary','One row per neighborhood.','PRIMARY agent surface for neighborhood comparison/map questions. Values are already resolved to neighborhood_id; inherited city metrics remain explicitly contextual.'],
+ semantic_neighborhood_metrics:['Neighborhood semantic metrics','One metric observation per neighborhood/date/metric.','PRIMARY agent surface for neighborhood KPI/history questions. Inspect source_datasets, confidence, sample_count and source_evidence.'],
+ dataset_neighborhood_evidence:['Neighborhood evidence bridge','One source-record to neighborhood linkage.','Use for lineage, mapping method, source grain and confidence. Do not use as a replacement for canonical facts when a preferred semantic metric exists.'],
+ semantic_metrics:['Semantic metric dictionary','One semantic metric definition.','Defines preferred table, source grain, inheritance, units, caveats and synonyms.'],
+ semantic_relationships:['Semantic relationship graph','One approved entity relationship.','Use join_rule and inheritance_rule instead of guessing joins.'],
+ semantic_dataset_roles:['Semantic dataset roles','One table semantic role.','Explains preferred uses, avoid-for uses, source grain and neighborhood link/inheritance rules.'],
  listing_seller_signals:['Seller signals','One listing history aggregate.','Signals describe observed price changes and collection history, not verified seller intent.'],
 };
 const fields:Record<string,string>={price:'Asking price in NIS; monthly for rent, total for sale.',market:'sale or rent.',listing_id:'Source listing identifier; combine with market for Yad2 joins.',area_sqm:'Area in square meters.',rooms:'Room count; fractional values may occur.',amount_nis:'Recorded transaction amount in NIS.',asking_price_nis:'Sale asking price in NIS.',asking_rent_nis:'Monthly asking rent in NIS.',pp_sqm:'Amount divided by area; NIS/m².',normalized_pp_sqm:'Normalized transaction price/m²; inspect ownership_fraction.',ownership_fraction:'Reported share of ownership; NULL means unknown.',deal_date:'Transaction date, not ingestion date.',published_at:'Source publication value; may be missing or unverified.',first_seen_at:'First collection observation; not necessarily publication.',last_seen_at:'Last collection observation.',observed_at:'Time the record was observed.',_edge_payload:'Original source row as JSONB.',_edge_hash:'Unique payload observation hash.',_edge_source_key:'Source archive row identity; corrections can have multiple hashes.',_edge_loaded_at:'Time the observation was imported.',_edge_seen_at:'Time the observation was last seen.'};
@@ -40,6 +46,29 @@ export async function catalog(){
  }
  return datasets.sort((a,b)=>a.title.localeCompare(b.title));
 }
+
+export async function semanticGraph(){
+ const has=await queryDatabase(`SELECT to_regclass('public.semantic_entities') entity_table,to_regclass('public.semantic_metrics') metric_table`);
+ if(!has[0]?.entity_table)return {entities:[],relationships:[],metrics:[],datasets:[],rules:[]};
+ const [entities,relationships,metrics,datasets]=await Promise.all([
+  queryDatabase('SELECT entity_key,label,grain,primary_table,primary_key,description,hierarchy_level FROM semantic_entities ORDER BY hierarchy_level'),
+  queryDatabase('SELECT relationship_key,from_entity,to_entity,relationship_type,join_rule,inheritance_rule,confidence,description FROM semantic_relationships ORDER BY relationship_key'),
+  queryDatabase('SELECT metric_key,label,entity_key,preferred_table,expression_hint,time_field,unit,default_window,aggregation,source_grain,inheritance,confidence_rule,description,caveats,synonyms FROM semantic_metrics ORDER BY metric_key'),
+  queryDatabase('SELECT table_name,entity_key,dataset_role,source_grain,neighborhood_link_rule,inheritance_rule,preferred_for,avoid_for,notes FROM semantic_dataset_roles ORDER BY table_name')
+ ]);
+ return {entities,relationships,metrics,datasets,rules:[
+  'Neighborhood is the primary product analysis entity. Prefer neighborhood_id over names.',
+  'Use semantic_neighborhood_summary for cross-neighborhood/current-summary questions.',
+  'Use semantic_neighborhood_metrics for KPI values, evidence metadata, confidence and metric history.',
+  'Municipality-grain values may be inherited to neighborhoods only when the semantic role says so; label them city-level context.',
+  'Statistical-area data may roll up through neighborhood_stat_area_map; preserve observation year and mapping confidence.',
+  'Never infer neighborhood membership from a free-text name when an explicit neighborhood_id/crosswalk is unavailable.',
+  'Asking prices are listings; executed prices are transactions. Do not mix them in the same metric without an explicit semantic definition.',
+  'For valuation, prefer comparable_transactions over raw transactions.',
+  'NULL means unavailable evidence, never zero.'
+ ]};
+}
+
 export default async function handler(req:VercelRequest,res:VercelResponse){
  res.setHeader('Cache-Control','no-store');
  if(!['GET','POST'].includes(req.method||''))return res.status(405).json({error:'Method not allowed.'});
