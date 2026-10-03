@@ -61,10 +61,58 @@ async function listings(neighborhoodId:string){
   SELECT l.id::text,l.canonical_address,l.url,l.status,l.first_seen_at,l.last_seen_at,
    s.asking_price_nis::float8,s.area_sqm::float8,s.rooms::float8,s.floor::float8,
    CASE WHEN s.area_sqm>0 THEN (s.asking_price_nis/s.area_sqm)::float8 END asking_price_sqm,
-   sc.score::float8,sc.model_version,sc.calculated_at
-  FROM listings l LEFT JOIN snap s ON s.listing_id=l.id LEFT JOIN score sc ON sc.entity_id=l.id
-  WHERE l.neighborhood_id=$1 ORDER BY (l.status='active') DESC,sc.score DESC NULLS LAST,l.last_seen_at DESC LIMIT 500
+   sc.score::float8,sc.model_version,sc.calculated_at,
+   b.historical_sample_count,b.matched_historical_sample_count,
+   b.historical_median_price_sqm::float8,b.matched_historical_median_price_sqm::float8,
+   b.current_listing_sample_count,b.current_listing_median_price_sqm::float8,
+   b.executed_discount_pct::float8,b.matched_executed_discount_pct::float8,
+   b.current_asking_discount_pct::float8,b.neighborhood_price_change_1y_pct::float8,
+   b.trend_adjusted_executed_price_sqm::float8,b.trend_adjusted_discount_pct::float8,
+   b.benchmark_confidence::float8,b.benchmark_method,b.evidence benchmark_evidence
+  FROM listings l
+  LEFT JOIN snap s ON s.listing_id=l.id
+  LEFT JOIN score sc ON sc.entity_id=l.id
+  LEFT JOIN listing_market_benchmarks b ON b.listing_id=l.id
+  WHERE l.neighborhood_id=$1
+  ORDER BY (l.status='active') DESC,b.benchmark_confidence DESC NULLS LAST,sc.score DESC NULLS LAST,l.last_seen_at DESC LIMIT 500
  `,[neighborhoodId]);
+}
+
+
+async function marketTrends(neighborhoodId:string){
+ const [history,rolling,cbs]=await Promise.all([
+  queryDatabase(`
+   SELECT period_start,executed_transaction_count,
+    median_executed_price_nis::float8,median_executed_price_sqm::float8,
+    p25_executed_price_sqm::float8,p75_executed_price_sqm::float8,
+    active_sale_listing_count,median_asking_price_nis::float8,median_asking_price_sqm::float8,
+    active_rent_listing_count,median_asking_rent_nis::float8,median_rent_sqm::float8,
+    asking_to_executed_premium_pct::float8,transaction_confidence::float8,listing_confidence::float8
+   FROM neighborhood_market_periods
+   WHERE neighborhood_id=$1 AND period_type='month'
+   ORDER BY period_start
+  `,[neighborhoodId]),
+  queryDatabase(`
+   SELECT period_start,executed_transaction_count,
+    median_executed_price_nis::float8,median_executed_price_sqm::float8,
+    p25_executed_price_sqm::float8,p75_executed_price_sqm::float8,
+    active_sale_listing_count,median_asking_price_nis::float8,median_asking_price_sqm::float8,
+    active_rent_listing_count,median_asking_rent_nis::float8,median_rent_sqm::float8,
+    asking_to_executed_premium_pct::float8,transaction_confidence::float8,listing_confidence::float8
+   FROM neighborhood_market_periods
+   WHERE neighborhood_id=$1 AND period_type='rolling_12m'
+   ORDER BY period_start DESC LIMIT 1
+  `,[neighborhoodId]),
+  queryDatabase(`
+   SELECT observation_year,population::float8,population_growth_from_2022_pct::float8,
+    employment_pct::float8,academic_certificate_pct::float8,median_annual_employee_wage::float8,
+    average_household_size::float8,owner_households_pct::float8,renter_households_pct::float8,
+    median_age::float8,statistical_area_count,mapping_confidence::float8,source_evidence,calculated_at
+   FROM neighborhood_cbs_profiles
+   WHERE neighborhood_id=$1 ORDER BY observation_year
+  `,[neighborhoodId])
+ ]);
+ return {history,rolling:rolling[0]||null,cbsProfile:cbs};
 }
 
 async function renewal(neighborhoodId:string){
@@ -197,6 +245,7 @@ export default async function handler(req:VercelRequest,res:VercelResponse){
    section==='transactions'?await transactions(id):
    section==='listings'?await listings(id):
    section==='renewal'?await renewal(id):
+   section==='market-trends'?await marketTrends(id):
    section==='demographics'?await demographics(id):
    section==='rentals'?await rentals(id):
    section==='infrastructure'?await infrastructure(id):
@@ -204,7 +253,7 @@ export default async function handler(req:VercelRequest,res:VercelResponse){
    section==='city-context'?await cityContext(id):
    section==='evidence'?await evidence(id,typeof req.query.dataset==='string'?req.query.dataset:undefined):
    null;
-  if(data===null)return res.status(400).json({error:'invalid_section',allowed:['summary','transactions','listings','renewal','demographics','rentals','infrastructure','supply','city-context','evidence']});
+  if(data===null)return res.status(400).json({error:'invalid_section',allowed:['summary','transactions','market-trends','listings','renewal','demographics','rentals','infrastructure','supply','city-context','evidence']});
   res.setHeader('Cache-Control',section==='listings'?'s-maxage=60, stale-while-revalidate=300':'s-maxage=300, stale-while-revalidate=1800');
   return res.status(200).json({mode:'live',neighborhoodId:id,section,data});
  }catch(error){return res.status(503).json({mode:'unavailable',error:String(error)});}
