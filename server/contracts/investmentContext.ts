@@ -11,6 +11,9 @@ export const normalizeConfidence=(value:unknown):number|null=>{
   return Math.max(0,Math.min(1,scaled));
 };
 
+export const classifySourceUrl=(url:unknown):'item'|'search'|'unknown'=>
+  typeof url==='string'&&/\/realestate\/item\//.test(url)?'item':url?'search':'unknown';
+
 export type EvidenceMeta = {
   status: EvidenceStatus;
   confidence: number | null;
