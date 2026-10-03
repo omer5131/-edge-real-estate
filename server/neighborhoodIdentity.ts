@@ -1,7 +1,7 @@
 import {queryDatabase} from './db.js';
 
 export async function refreshNeighborhoodIdentity(){
-  const result={sourceMappings:0,parcelMappings:0,parcelEnrichment:0,statAreaMappings:0,officialCrosswalk:0,geometriesPromoted:0,aliases:0,hierarchyEdges:0};
+  const result={sourceMappings:0,parcelMappings:0,parcelEnrichment:0,statAreaMappings:0,officialCrosswalk:0,curatedCrosswalk:0,geometriesPromoted:0,aliases:0,hierarchyEdges:0};
 
   let rows=await queryDatabase(`
     INSERT INTO neighborhood_aliases(neighborhood_id,source_id,alias,normalized_alias,language,alias_type,confidence,is_primary)
@@ -172,6 +172,39 @@ export async function refreshNeighborhoodIdentity(){
   `);
   result.officialCrosswalk=official.length;
 
+  const curated=await queryDatabase(`
+    INSERT INTO neighborhood_stat_area_map(
+      neighborhood_id,stat_area_id,overlap_ratio,mapping_method,mapping_confidence,mapping_version,source_evidence,mapped_at
+    )
+    SELECT e.neighborhood_id,s.id,
+      CASE WHEN e.safe_for_analytics THEN 1::numeric ELSE NULL END,
+      'configured_crosswalk',e.confidence,
+      concat('curated-',COALESCE(e.boundary_reference_year::text,'unknown')),
+      jsonb_build_object(
+        'source','curated_crosswalk_evidence','source_name',e.source_name,'source_url',e.source_url,
+        'boundary_reference_year',e.boundary_reference_year,'safe_for_identity',e.safe_for_identity,
+        'safe_for_analytics',e.safe_for_analytics,'safe_for_polygon',e.safe_for_polygon,
+        'evidence_type',e.evidence_type,'notes',e.notes
+      ),now()
+    FROM neighborhood_crosswalk_evidence e
+    JOIN neighborhoods n ON n.id=e.neighborhood_id
+    JOIN statistical_areas s ON s.city_id=n.city_id
+      AND s.stat_area_code=e.statistical_area_code AND s."year"=2022
+    WHERE e.safe_for_identity
+    ON CONFLICT(neighborhood_id,stat_area_id) DO UPDATE SET
+      overlap_ratio=CASE WHEN neighborhood_stat_area_map.mapping_method='official_crosswalk'
+        THEN neighborhood_stat_area_map.overlap_ratio ELSE EXCLUDED.overlap_ratio END,
+      mapping_method=CASE WHEN neighborhood_stat_area_map.mapping_method='official_crosswalk'
+        THEN neighborhood_stat_area_map.mapping_method ELSE 'configured_crosswalk' END,
+      mapping_confidence=GREATEST(neighborhood_stat_area_map.mapping_confidence,EXCLUDED.mapping_confidence),
+      mapping_version=CASE WHEN neighborhood_stat_area_map.mapping_method='official_crosswalk'
+        THEN neighborhood_stat_area_map.mapping_version ELSE EXCLUDED.mapping_version END,
+      source_evidence=CASE WHEN neighborhood_stat_area_map.mapping_method='official_crosswalk'
+        THEN neighborhood_stat_area_map.source_evidence ELSE EXCLUDED.source_evidence END,
+      mapped_at=now()
+    RETURNING neighborhood_id
+  `);
+  result.curatedCrosswalk=curated.length;
   const candidates=await queryDatabase(`
     WITH mapped AS(
       SELECT m.neighborhood_id,s.geom,m.mapping_confidence,m.overlap_ratio,
