@@ -221,12 +221,12 @@ export async function refreshNeighborhoodMarketAnalytics(){
         percentile_cont(.5) WITHIN GROUP(ORDER BY COALESCE(ct.normalized_pp_sqm,ct.pp_sqm))
           FILTER(WHERE COALESCE(ct.normalized_pp_sqm,ct.pp_sqm)>0) historical_median,
         count(ct.*) FILTER(
-          WHERE (x.rooms IS NULL OR ct.rooms BETWEEN x.rooms-.5 AND x.rooms+.5)
+          WHERE (x.rooms IS NULL OR ct.rooms IS NULL OR ct.rooms BETWEEN x.rooms-.5 AND x.rooms+.5)
             AND (x.area_sqm IS NULL OR ct.area_sqm BETWEEN x.area_sqm*.8 AND x.area_sqm*1.2)
         )::int matched_n,
         percentile_cont(.5) WITHIN GROUP(ORDER BY COALESCE(ct.normalized_pp_sqm,ct.pp_sqm))
           FILTER(WHERE COALESCE(ct.normalized_pp_sqm,ct.pp_sqm)>0
-            AND (x.rooms IS NULL OR ct.rooms BETWEEN x.rooms-.5 AND x.rooms+.5)
+            AND (x.rooms IS NULL OR ct.rooms IS NULL OR ct.rooms BETWEEN x.rooms-.5 AND x.rooms+.5)
             AND (x.area_sqm IS NULL OR ct.area_sqm BETWEEN x.area_sqm*.8 AND x.area_sqm*1.2)) matched_median,
         percentile_cont(.5) WITHIN GROUP(ORDER BY COALESCE(ct.normalized_pp_sqm,ct.pp_sqm))
           FILTER(WHERE COALESCE(ct.normalized_pp_sqm,ct.pp_sqm)>0 AND ct.deal_date>=current_date-interval '6 months') recent6_median
@@ -263,8 +263,8 @@ export async function refreshNeighborhoodMarketAnalytics(){
       CASE WHEN COALESCE(h.recent6_median,h.matched_median,h.historical_median)>0 AND x.asking_ppsqm>0
            THEN 100*(x.asking_ppsqm/COALESCE(h.recent6_median,h.matched_median,h.historical_median)-1) END,
       LEAST(1,
-        (CASE WHEN h.matched_n>=5 THEN .55 WHEN h.historical_n>=8 THEN .35 ELSE .15 END)
-        +(CASE WHEN ca.n>=5 THEN .25 WHEN ca.n>=2 THEN .15 ELSE 0 END)
+        (CASE WHEN h.matched_n>=5 THEN .55 WHEN h.historical_n>=8 THEN .35 WHEN h.historical_n>=3 THEN .20 ELSE .05 END)
+        +(CASE WHEN ca.n>=5 THEN .25 WHEN ca.n>=2 THEN .15 ELSE .05 END)
         +(CASE WHEN x.area_sqm>0 AND x.asking_ppsqm>0 THEN .20 ELSE 0 END)
       ),
       CASE WHEN h.matched_n>=5 THEN 'matched_rooms_area_12m'
@@ -275,7 +275,7 @@ export async function refreshNeighborhoodMarketAnalytics(){
         'historical_window','12 months',
         'recent_executed_window','6 months',
         'current_market_source','active listing latest snapshots',
-        'matched_rule','rooms ±0.5 and area ±20%',
+        'matched_rule','area ±20%; rooms ±0.5 when transaction room count is available',
         'historical_sample',h.historical_n,'matched_sample',h.matched_n,'current_listing_sample',ca.n
       )
     FROM latest x
@@ -307,12 +307,12 @@ export async function refreshNeighborhoodMarketAnalytics(){
         percentile_cont(.5) WITHIN GROUP(ORDER BY COALESCE(ct.normalized_pp_sqm,ct.pp_sqm))
           FILTER(WHERE COALESCE(ct.normalized_pp_sqm,ct.pp_sqm)>0) historical_median,
         count(ct.*) FILTER(
-          WHERE (x.rooms IS NULL OR ct.rooms BETWEEN x.rooms-.5 AND x.rooms+.5)
+          WHERE (x.rooms IS NULL OR ct.rooms IS NULL OR ct.rooms BETWEEN x.rooms-.5 AND x.rooms+.5)
             AND (x.area_sqm IS NULL OR ct.area_sqm BETWEEN x.area_sqm*.8 AND x.area_sqm*1.2)
         )::int matched_n,
         percentile_cont(.5) WITHIN GROUP(ORDER BY COALESCE(ct.normalized_pp_sqm,ct.pp_sqm))
           FILTER(WHERE COALESCE(ct.normalized_pp_sqm,ct.pp_sqm)>0
-            AND (x.rooms IS NULL OR ct.rooms BETWEEN x.rooms-.5 AND x.rooms+.5)
+            AND (x.rooms IS NULL OR ct.rooms IS NULL OR ct.rooms BETWEEN x.rooms-.5 AND x.rooms+.5)
             AND (x.area_sqm IS NULL OR ct.area_sqm BETWEEN x.area_sqm*.8 AND x.area_sqm*1.2)) matched_median,
         percentile_cont(.5) WITHIN GROUP(ORDER BY COALESCE(ct.normalized_pp_sqm,ct.pp_sqm))
           FILTER(WHERE COALESCE(ct.normalized_pp_sqm,ct.pp_sqm)>0 AND ct.deal_date>=current_date-interval '6 months') recent6_median
@@ -450,12 +450,12 @@ export async function refreshNeighborhoodMarketAnalytics(){
         percentile_cont(.5) WITHIN GROUP(ORDER BY COALESCE(ct.normalized_pp_sqm,ct.pp_sqm))
           FILTER(WHERE COALESCE(ct.normalized_pp_sqm,ct.pp_sqm)>0) historical_median,
         count(ct.*) FILTER(
-          WHERE (x.rooms IS NULL OR ct.rooms BETWEEN x.rooms-.5 AND x.rooms+.5)
+          WHERE (x.rooms IS NULL OR ct.rooms IS NULL OR ct.rooms BETWEEN x.rooms-.5 AND x.rooms+.5)
             AND (x.area_sqm IS NULL OR ct.area_sqm BETWEEN x.area_sqm*.8 AND x.area_sqm*1.2)
         )::int matched_n,
         percentile_cont(.5) WITHIN GROUP(ORDER BY COALESCE(ct.normalized_pp_sqm,ct.pp_sqm))
           FILTER(WHERE COALESCE(ct.normalized_pp_sqm,ct.pp_sqm)>0
-            AND (x.rooms IS NULL OR ct.rooms BETWEEN x.rooms-.5 AND x.rooms+.5)
+            AND (x.rooms IS NULL OR ct.rooms IS NULL OR ct.rooms BETWEEN x.rooms-.5 AND x.rooms+.5)
             AND (x.area_sqm IS NULL OR ct.area_sqm BETWEEN x.area_sqm*.8 AND x.area_sqm*1.2)) matched_median,
         percentile_cont(.5) WITHIN GROUP(ORDER BY COALESCE(ct.normalized_pp_sqm,ct.pp_sqm))
           FILTER(WHERE COALESCE(ct.normalized_pp_sqm,ct.pp_sqm)>0 AND ct.deal_date>=current_date-interval '6 months') recent6_median
