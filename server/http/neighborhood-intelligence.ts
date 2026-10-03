@@ -39,8 +39,11 @@ async function summary(neighborhoodId:string){
 async function transactions(neighborhoodId:string){
  return queryDatabase(`
   SELECT ct.id::text,ct.deal_date,ct.amount_nis::float8,ct.area_sqm::float8,ct.rooms::float8,
-   ct.pp_sqm::float8,ct.normalized_pp_sqm::float8,ct.normalization_confidence::float8
-  FROM comparable_transactions ct WHERE ct.neighborhood_id=$1
+   ct.pp_sqm::float8,ct.normalized_pp_sqm::float8,ct.ownership_fraction::float8,
+   ct.is_comparable,ct.exclusion_reason,e.mapping_method,e.mapping_confidence::float8
+  FROM dataset_neighborhood_evidence e
+  JOIN comparable_transactions ct ON ct.id::text=e.source_record_id
+  WHERE e.neighborhood_id=$1 AND e.dataset_slug='transactions'
   ORDER BY ct.deal_date DESC LIMIT 1000
  `,[neighborhoodId]);
 }
