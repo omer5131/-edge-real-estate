@@ -231,24 +231,28 @@ export async function refreshNeighborhoodIdentity(){
   `);
 
   for(const c of candidates){
-    const version='edge-neighborhood-v1-cbs-official';
+    const isOfficial=Boolean(c.has_official);
+    const version=isOfficial?'edge-neighborhood-v1-cbs-official':'edge-neighborhood-v1-curated';
+    const method=isOfficial?'cbs_official_stat_area_union':'curated_stat_area_union';
+    const source=isOfficial?'cbs-2022-neighborhood-key':'curated_crosswalk';
     await queryDatabase(`
       UPDATE neighborhood_geometries SET is_active=false
       WHERE neighborhood_id=$1 AND is_active AND geometry_version<>$2
     `,[c.neighborhood_id,version]);
     const inserted=await queryDatabase(`
       INSERT INTO neighborhood_geometries(neighborhood_id,geometry_version,geom,geometry_method,source_id,confidence,is_active,evidence)
-      VALUES($1,$2,$3::geometry,'cbs_official_stat_area_union','cbs',$4,true,$5::jsonb)
+      VALUES($1,$2,$3::geometry,$6,$7,$4,true,$5::jsonb)
       ON CONFLICT(neighborhood_id,geometry_version) DO UPDATE SET
-        geom=EXCLUDED.geom,confidence=EXCLUDED.confidence,is_active=true,evidence=EXCLUDED.evidence
+        geom=EXCLUDED.geom,confidence=EXCLUDED.confidence,is_active=true,evidence=EXCLUDED.evidence,
+        geometry_method=EXCLUDED.geometry_method,source_id=EXCLUDED.source_id
       RETURNING id
-    `,[c.neighborhood_id,version,c.geom,c.confidence,JSON.stringify({statistical_area_count:c.area_count})]);
+    `,[c.neighborhood_id,version,c.geom,c.confidence,JSON.stringify({statistical_area_count:c.area_count,official:isOfficial}),method,source]);
     if(inserted.length)result.geometriesPromoted++;
     await queryDatabase(`
-      UPDATE neighborhoods SET geom=$2::geometry,boundary_version=$3,geometry_method='cbs_official_stat_area_union',
-        geometry_source='cbs-2022-neighborhood-key',geometry_confidence=$4,updated_at=now()
+      UPDATE neighborhoods SET geom=$2::geometry,boundary_version=$3,geometry_method=$5,
+        geometry_source=$6,geometry_confidence=$4,updated_at=now()
       WHERE id=$1
-    `,[c.neighborhood_id,c.geom,version,c.confidence]);
+    `,[c.neighborhood_id,c.geom,version,c.confidence,method,source]);
   }
 
   const hierarchy=await queryDatabase(`
