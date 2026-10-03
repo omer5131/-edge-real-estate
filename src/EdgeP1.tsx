@@ -1,5 +1,6 @@
 import EdgeAgentDrawer from './components/EdgeAgentDrawer';
 import DataExplorer from './components/DataExplorer';
+import DealRoom from './components/DealRoom';
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
@@ -314,6 +315,7 @@ export default function EdgeP1(){
   const [area,setArea]=useState<Area|null>(null);
   const [property,setProperty]=useState<Opportunity|null>(null);
   const [askOpen,setAskOpen]=useState(false);
+  const [askContext,setAskContext]=useState<any>(null);
   const [refreshing,setRefreshing]=useState(false);
 
   const load=async()=>{
@@ -346,7 +348,7 @@ export default function EdgeP1(){
     <div className="workspace">
       <header className="topbar">
         <div className="live"><span className="dot"/>LIVE · {date(data.generatedAt)}{degraded>0&&<em>{degraded} מקורות degraded</em>}</div>
-        <div className="top-actions"><button onClick={load} disabled={refreshing}><RefreshCw size={14} className={refreshing?'spin':''}/>רענן</button><button className="ask" onClick={()=>setAskOpen(true)}><MessageSquare size={15}/>Ask Edge</button></div>
+        <div className="top-actions"><button onClick={load} disabled={refreshing}><RefreshCw size={14} className={refreshing?'spin':''}/>רענן</button><button className="ask" onClick={()=>{setAskContext(null);setAskOpen(true)}}><MessageSquare size={15}/>Ask Edge</button></div>
       </header>
       <main>
         {tab==='radar'&&<Radar areas={data.areas||[]} onArea={a=>{setArea(a);setTab('area')}}/>}
@@ -355,10 +357,10 @@ export default function EdgeP1(){
         {tab==='area'&&currentArea&&<AreaView area={currentArea}/>}
         {tab==='data'&&<div className='screen'><DataExplorer/><DataConsole status={status}/></div>} 
         {tab==='admin'&&<Admin/>}
-        {tab==='property'&&property&&<PropertyView item={property} onBack={()=>setTab('opps')}/>}
+        {tab==='property'&&property&&<DealRoom item={property} onBack={()=>setTab('opps')} onAsk={ctx=>{setAskContext(ctx);setAskOpen(true)}}/>}
       </main>
     </div>
-    <EdgeAgentDrawer open={askOpen} onClose={()=>setAskOpen(false)}/>
+    <EdgeAgentDrawer open={askOpen} onClose={()=>setAskOpen(false)} context={askContext}/>
   </div>;
 }
 

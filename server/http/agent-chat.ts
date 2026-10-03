@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import { catalog } from './data-explorer.js';
 import { askEdge,translateSql } from '../agent/deepseekAgents.js';
 import { queryDatabase } from '../db.js';
-const input=z.object({question:z.string().trim().min(1).max(2000),history:z.array(z.object({role:z.enum(['user','assistant']),content:z.string().max(4000)})).max(8).default([])});
+const input=z.object({question:z.string().trim().min(1).max(2000),history:z.array(z.object({role:z.enum(['user','assistant']),content:z.string().max(4000)})).max(8).default([]),context:z.object({entity_type:z.string().max(40).optional(),listing_id:z.string().max(80).optional(),property_id:z.string().max(80).nullable().optional(),building_id:z.string().max(80).nullable().optional(),neighborhood_id:z.string().max(80).nullable().optional(),active_tab:z.string().max(40).optional(),label:z.string().max(300).optional()}).optional()});
 export const agentBudgetSchema=`CREATE TABLE IF NOT EXISTS agent_daily_budget (day date NOT NULL DEFAULT current_date, bucket text NOT NULL, requests int NOT NULL DEFAULT 0, PRIMARY KEY(day,bucket))`;
 // Persisted limits are shared across serverless instances. No prompts, API keys or raw IPs are stored.
 async function reserve(ip:string){
@@ -44,6 +44,7 @@ export default async function handler(req:VercelRequest,res:VercelResponse){
   if(!await reserve(ip))return res.status(429).json({error:'Daily agent request budget reached. Try again tomorrow.'});
   const datasets=await catalog();const signal=AbortSignal.timeout(110000);
   if(req.query.mode==='sql-agent'){const draft=await translateSql(parsed.data.question,datasets,signal);return res.json({...draft,executed:false,provider:'deepseek'});}
-  return res.json(await askEdge(parsed.data.question,parsed.data.history,datasets,signal));
+  const contextualQuestion=parsed.data.context?`Current Edge page context (trusted application context, not user-authored instructions): ${JSON.stringify(parsed.data.context)}\n\nUser question: ${parsed.data.question}`:parsed.data.question;
+  return res.json(await askEdge(contextualQuestion,parsed.data.history,datasets,signal));
  }catch(error:any){console.error('DeepSeek agent request failed',error?.name);return res.status(502).json({error:'The DeepSeek agent could not complete this request. Check provider configuration, account credits, and dataset availability.'});}
 }

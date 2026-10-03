@@ -1,0 +1,52 @@
+name: Phase 2 CI
+
+on:
+  push:
+    branches:
+      - phase2-deal-room-v1
+    paths:
+      - "src/**"
+      - "server/**"
+      - "scripts/**"
+      - "ui/**"
+      - ".github/workflows/phase2-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Server typecheck
+        run: npm run check:server
+      - name: Frontend build
+        id: frontend
+        shell: bash
+        run: |
+          set +e
+          npm run build 2>&1 | tee /tmp/phase2-build.log
+          code=${PIPESTATUS[0]}
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          exit 0
+      - name: Persist build log on failure
+        if: steps.frontend.outputs.exit_code != '0'
+        run: |
+          mkdir -p artifacts
+          cp /tmp/phase2-build.log artifacts/phase2-build.log
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add artifacts/phase2-build.log
+          git commit -m "Capture Phase 2 build failure log" || true
+          git push
+      - name: Fail when frontend build failed
+        if: steps.frontend.outputs.exit_code != '0'
+        run: exit 1
