@@ -1,0 +1,34 @@
+name: Phase 1 CI
+
+on:
+  push:
+    branches:
+      - phase1-market-intelligence
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Phase 1 regression tests
+        run: npm run test:phase1
+      - name: Server typecheck
+        run: npm run check:server
+      - name: Frontend typecheck and build
+        run: |
+          node reconstruct.mjs
+          node scripts/inject-neighborhood-ui.mjs
+          npx tsc -b
+          npx vite build
