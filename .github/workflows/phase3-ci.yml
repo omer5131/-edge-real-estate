@@ -1,0 +1,38 @@
+name: Phase 3 CI
+
+on:
+  push:
+    branches:
+      - phase3-investment-workflow
+    paths:
+      - "api/**"
+      - "server/**"
+      - "tests/**"
+      - "src/**"
+      - "scripts/**"
+      - "ui/**"
+      - "db/**"
+      - "package.json"
+      - ".github/workflows/phase3-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Server typecheck
+        run: npm run check:server
+      - name: Phase 3 regression tests
+        run: npm run test:phase3
+      - name: Production build
+        run: npm run build
