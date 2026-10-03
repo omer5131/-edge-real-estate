@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-03T08:43:42.231Z",
+  "generatedAt": "2026-10-03T08:48:08.354Z",
   "scoreVersion": "area-score-v1",
   "aggregationKey": "neighborhood_id",
   "refresh": {
@@ -45,6 +45,119 @@
     "renewal_projects": 124,
     "renewal_projects_with_neighborhood": 18
   },
+  "geographyDiagnostics": [
+    {
+      "parcels_total": 18983,
+      "parcels_with_city": 14732,
+      "parcels_with_stat_area": 9033,
+      "stat_areas_total": 3750,
+      "stat_areas_with_city": 3750,
+      "comparable_with_parcel": 906,
+      "buildings_with_geom": 0,
+      "neighborhood_buildings_with_geom": 0
+    }
+  ],
+  "geographySamples": [
+    {
+      "kind": "parcel",
+      "a": "2781",
+      "b": "38",
+      "city": "כפר הרי\"ף",
+      "x": 34.800503125773446,
+      "y": 31.739459259649145
+    },
+    {
+      "kind": "parcel",
+      "a": "2781",
+      "b": "39",
+      "city": "כפר הרי\"ף",
+      "x": 34.800749768773215,
+      "y": 31.739335065551774
+    },
+    {
+      "kind": "parcel",
+      "a": "2781",
+      "b": "36",
+      "city": "כפר הרי\"ף",
+      "x": 34.80058052056211,
+      "y": 31.739659535396946
+    },
+    {
+      "kind": "parcel",
+      "a": "2781",
+      "b": "37",
+      "city": "כפר הרי\"ף",
+      "x": 34.80081988623235,
+      "y": 31.739551707688584
+    },
+    {
+      "kind": "parcel",
+      "a": "2781",
+      "b": "34",
+      "city": "כפר הרי\"ף",
+      "x": 34.80067586327558,
+      "y": 31.73987769531517
+    }
+  ],
+  "statAreaSamples": [
+    {
+      "kind": "stat_area",
+      "a": "1",
+      "b": "2022",
+      "city": "מבשרת ציון",
+      "x": 35.163126033455846,
+      "y": 31.806734774922838
+    },
+    {
+      "kind": "stat_area",
+      "a": "4",
+      "b": "2022",
+      "city": "מבשרת ציון",
+      "x": 35.146151879411896,
+      "y": 31.80144198174458
+    },
+    {
+      "kind": "stat_area",
+      "a": "511",
+      "b": "2022",
+      "city": "פתח תקווה",
+      "x": 34.904116305020516,
+      "y": 32.10317969821541
+    },
+    {
+      "kind": "stat_area",
+      "a": "5",
+      "b": "2022",
+      "city": "כסיפה",
+      "x": 35.091270485917256,
+      "y": 31.234329025208318
+    },
+    {
+      "kind": "stat_area",
+      "a": "1",
+      "b": "2022",
+      "city": "חנתון",
+      "x": 35.24231478844193,
+      "y": 32.783329092634204
+    }
+  ],
+  "targetCityCodes": [
+    {
+      "name_he": "חיפה",
+      "settlement_code": "4000",
+      "neighborhoods": 13
+    },
+    {
+      "name_he": "נתניה",
+      "settlement_code": "7400",
+      "neighborhoods": 10
+    },
+    {
+      "name_he": "פתח תקווה",
+      "settlement_code": "7900",
+      "neighborhoods": 8
+    }
+  ],
   "datasetCoverage": [
     {
       "dataset_slug": "construction_starts",
