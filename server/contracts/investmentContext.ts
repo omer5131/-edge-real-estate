@@ -145,6 +145,42 @@ export type SimilarListingsResponse = {
   evidence: EvidenceMeta;
 };
 
+export type HistoricalSale = {
+  transactionId:string;
+  address:string|null;
+  dealDate:string;
+  salePriceNis:number;
+  pricePerSqm:number|null;
+  areaSqm:number|null;
+  rooms:number|null;
+  floor:number|null;
+  relation:'same_building'|'same_street'|'same_neighborhood';
+  similarityScore:number;
+};
+
+export type HistoricalMarketContext = {
+  similarSales:HistoricalSale[];
+  trend:Array<{
+    periodStart:string;
+    executedTransactionCount:number;
+    medianExecutedPriceNis:number|null;
+    medianExecutedPriceSqm:number|null;
+    p25ExecutedPriceSqm:number|null;
+    p75ExecutedPriceSqm:number|null;
+    activeSaleListingCount:number;
+    medianAskingPriceSqm:number|null;
+    askingToExecutedPremiumPct:number|null;
+    transactionConfidence:number|null;
+  }>;
+  summary:{
+    latestMedianExecutedPriceSqm:number|null;
+    changeVs12MonthsAgoPct:number|null;
+    latestTransactionCount:number|null;
+    latestAskingPremiumPct:number|null;
+  };
+  evidence:EvidenceMeta;
+};
+
 export type PlanningContext = {
   renewalProjects: unknown[];
   plans: unknown[];
@@ -168,6 +204,7 @@ export type AssetContextResponse = {
   };
   valuation: ValuationResponse | null;
   activeMarket: SimilarListingsResponse | null;
+  historicalMarket: HistoricalMarketContext | null;
   neighborhood: NeighborhoodIntelligenceResponse | null;
   planning: PlanningContext;
   evidence: EvidenceMeta;
