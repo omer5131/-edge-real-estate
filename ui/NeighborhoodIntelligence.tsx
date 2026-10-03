@@ -161,10 +161,15 @@ export default function NeighborhoodIntelligenceShell({children}:{children:React
      <nav className="ni-tabs">{['overview','market','listings','rentals','renewal','demographics','infrastructure','supply','city-context','evidence'].map(t=><button key={t} className={section===t?'active':''} onClick={()=>setSection(t)}>{t.replace('-',' ').replace(/\b\w/g,c=>c.toUpperCase())}</button>)}</nav>
      {agentAnswer&&<div className="ni-agent-answer"><b>Edge analysis</b><p>{agentAnswer}</p><button onClick={()=>setAgentAnswer('')}>Close</button></div>}
      {section==='overview'&&<Overview current={current} summary={summary}/>}
-     {section==='market'&&<Market rows={sectionData}/>}
-     {section==='listings'&&<Listings rows={sectionData}/>}
-     {section==='renewal'&&<Renewal rows={sectionData}/>}
-     {section==='evidence'&&<Evidence rows={sectionData} summary={summary}/>}
+     {section==='market'&&<Market rows={Array.isArray(sectionData)?sectionData:[]}/>}
+     {section==='listings'&&<Listings rows={Array.isArray(sectionData)?sectionData:[]}/>}
+     {section==='rentals'&&<Rentals data={sectionData}/>}
+     {section==='renewal'&&<Renewal rows={Array.isArray(sectionData)?sectionData:[]}/>}
+     {section==='demographics'&&<MetricPanel data={sectionData} title="Demographics & economics"/>}
+     {section==='infrastructure'&&<Infrastructure data={sectionData}/>}
+     {section==='supply'&&<Supply data={sectionData}/>}
+     {section==='city-context'&&<MetricPanel data={Array.isArray(sectionData)?{metrics:sectionData}:sectionData} title="City context inherited to neighborhood" inherited/>}
+     {section==='evidence'&&<Evidence rows={Array.isArray(sectionData)?sectionData:[]} summary={summary}/>}
     </>}
    </section>
   </div>
