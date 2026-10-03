@@ -61,6 +61,23 @@ const targetCityCodes=await sql`
   GROUP BY c.id,c.name_he,c.settlement_code ORDER BY c.name_he
 `;
 
+
+const transactionLinkDiagnostics=await sql`
+  SELECT
+    (SELECT count(*)::int FROM comparable_transactions WHERE neighborhood_id IS NOT NULL) direct_neighborhood,
+    (SELECT count(*)::int FROM comparable_transactions WHERE neighborhood_id IS NOT NULL AND parcel_id IS NOT NULL) direct_with_parcel,
+    (SELECT count(*)::int FROM comparable_transactions ct JOIN parcels p ON p.id=ct.parcel_id WHERE ct.neighborhood_id IS NOT NULL AND p.stat_area_id IS NOT NULL) direct_with_stat_area,
+    (SELECT count(*)::int FROM comparable_transactions WHERE parcel_id IS NOT NULL) all_with_parcel,
+    (SELECT count(*)::int FROM comparable_transactions ct JOIN parcels p ON p.id=ct.parcel_id WHERE p.stat_area_id IS NOT NULL) all_with_stat_area
+`;
+
+const comparableColumns=await sql`
+  SELECT column_name,data_type
+  FROM information_schema.columns
+  WHERE table_schema='public' AND table_name='comparable_transactions'
+  ORDER BY ordinal_position
+`;
+
 const datasetCoverage=await sql`
   SELECT dataset_slug,source_grain,count(DISTINCT neighborhood_id)::int neighborhoods,count(*)::int evidence_rows,
     round(avg(mapping_confidence)::numeric,3) avg_mapping_confidence,
@@ -105,6 +122,8 @@ const report={
  geographySamples,
  statAreaSamples,
  targetCityCodes,
+ transactionLinkDiagnostics,
+ comparableColumns,
  datasetCoverage,
  metricCoverage,
  neighborhoods
