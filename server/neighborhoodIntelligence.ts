@@ -240,6 +240,7 @@ async function linkEvidence(){
    JOIN cities city ON city.settlement_code=c.locality_code
    JOIN statistical_areas s ON s.city_id=city.id AND s.stat_area_code=c.statistical_area_code AND s.year=2022
    JOIN neighborhood_stat_area_map nm ON nm.stat_area_id=s.id
+     AND (nm.overlap_ratio=1 OR (nm.mapping_method='polygon_overlap' AND nm.overlap_ratio>=.8) OR COALESCE((nm.source_evidence->>'exclusive')::boolean,false))
    ON CONFLICT(dataset_slug,source_record_id,neighborhood_id) DO UPDATE SET
      observation_year=EXCLUDED.observation_year,mapping_confidence=EXCLUDED.mapping_confidence,payload=EXCLUDED.payload,linked_at=now()
    RETURNING 1
