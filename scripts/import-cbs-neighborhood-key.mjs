@@ -3,6 +3,7 @@ import {neon} from '@neondatabase/serverless';
 
 const URL='https://www.cbs.gov.il/he/mediarelease/doclib/2022/026/%D7%A8%D7%97%D7%95%D7%91%D7%95%D7%AA%20%D7%A2%D7%99%D7%A7%D7%A8%D7%99%D7%99%D7%9D%20%D7%95%D7%A9%D7%9B%D7%95%D7%A0%D7%95%D7%AA%20%D7%9C%D7%90%D7%A1%202022.xlsx';
 if(!process.env.DATABASE_URL)throw new Error('DATABASE_URL is required');
+const sql=neon(process.env.DATABASE_URL);
 
 function unzip(buffer){
  const b=Buffer.from(buffer);
@@ -86,12 +87,22 @@ function parseXlsx(buffer){
  return {headerRow:header.rownum,headers:header.vals,rows:out};
 }
 
+const [freshness]=await sql`
+  SELECT count(*)::int rows,max(imported_at) latest_import
+  FROM cbs_neighborhood_stat_area_key
+`;
+const latest=freshness?.latest_import?new Date(freshness.latest_import).getTime():0;
+const maxAgeMs=30*86400000;
+if(process.env.CBS_FORCE_IMPORT!=='true'&&Number(freshness?.rows??0)>0&&Date.now()-latest<maxAgeMs){
+ console.log(JSON.stringify({ok:true,skipped:true,reason:'CBS key is fresh',rows:freshness.rows,latestImport:freshness.latest_import},null,2));
+ process.exit(0);
+}
+
 const resp=await fetch(URL,{headers:{'user-agent':'Mozilla/5.0'}});
 if(!resp.ok)throw new Error('CBS download failed: '+resp.status);
 const doc=parseXlsx(await resp.arrayBuffer());
 if(!doc.rows.length)throw new Error('CBS key returned no rows');
 
-const sql=neon(process.env.DATABASE_URL);
 let imported=0;
 for(let i=0;i<doc.rows.length;i+=100){
  const batch=doc.rows.slice(i,i+100);
