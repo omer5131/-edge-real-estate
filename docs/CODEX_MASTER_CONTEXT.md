@@ -705,15 +705,27 @@ Real listing persistence validation on the isolated branch:
 - DD item persisted as Verified
 - timeline events persisted
 
-### Production migration gate
+### Production migration status
 
-Production currently has `deals` but does NOT yet have:
+The Phase 3 additive workflow migration is now **APPLIED TO PRODUCTION** with explicit user approval.
+
+Production now contains:
 - `deal_scenarios`
 - `investment_notes`
 - `due_diligence_items`
 - `deal_events`
 
-Do not deploy Phase 3 workflow state to production until this additive migration is explicitly approved and applied.
+Verified production indexes include:
+- `deal_scenarios_one_primary_idx`
+- `deal_scenarios_deal_idx`
+- `investment_notes_deal_idx`
+- `investment_notes_listing_idx`
+- `investment_notes_neighborhood_idx`
+- `due_diligence_deal_status_idx`
+- `deal_events_deal_time_idx`
+- `deal_events_listing_time_idx`
 
-The Neon migration-preparation helper currently rejects the multi-statement DDL with a parser error even though PostgreSQL executes the migration successfully on the isolated validation branch. If that helper remains unusable, apply the reviewed additive migration through the normal controlled migration path after explicit approval.
+The migration executed successfully as one transaction against production Neon.
+
+Phase 3 is no longer blocked on schema availability. Continue with integration acceptance, workflow UI, contextual agent support, merge/deploy and production smoke tests.
 
