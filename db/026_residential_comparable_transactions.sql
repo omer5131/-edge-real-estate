@@ -12,8 +12,7 @@ WHERE is_comparable
     OR nature ILIKE '%וילה%'
   );
 
-DROP VIEW IF EXISTS comparable_transactions;
-CREATE VIEW comparable_transactions AS
+CREATE OR REPLACE VIEW comparable_transactions AS
 SELECT
   id,source_id,source_external_id,raw_record_id,city_id,parcel_id,property_id,
   deal_date,amount_nis,area_sqm,rooms,floor,nature,pp_sqm,source_updated_at,observed_at,
