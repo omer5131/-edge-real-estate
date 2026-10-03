@@ -448,10 +448,11 @@ async function scoreNeighborhoods(model:any){
 
 export async function refreshNeighborhoodIntelligence(){
  const model=await activeModel();
+ const geography=await hydrateSupportingGeography();
  const crosswalk=await refreshCrosswalk();
  const evidence=await linkEvidence();
  const metrics=await refreshMetrics();
  const dealHeat=await refreshDealHeat(model);
  const neighborhoods=await scoreNeighborhoods(model);
- return {scoreVersion:model.version,crosswalk,evidence,metrics,dealHeat,neighborhoods};
+ return {scoreVersion:model.version,geography,crosswalk,evidence,metrics,dealHeat,neighborhoods};
 }
