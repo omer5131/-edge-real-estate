@@ -26,7 +26,7 @@ function statements(text){
 if(!process.env.DATABASE_URL)console.log('Area intelligence migration skipped: DATABASE_URL is not configured.');
 else{
  const sql=neon(process.env.DATABASE_URL);
- const text=['015_area_intelligence.sql','016_statistical_area_identity.sql','017_neighborhood_intelligence.sql','018_semantic_graph.sql']
+ const text=['015_area_intelligence.sql','016_statistical_area_identity.sql','017_neighborhood_intelligence.sql','018_semantic_graph.sql','019_neighborhood_crosswalk_evidence.sql']
    .map(file=>fs.readFileSync(new URL('../db/'+file,import.meta.url),'utf8')).join('\n');
  await sql.transaction(statements(text).map(s=>sql.query(s)));
  console.log('Area intelligence schema ready.');
