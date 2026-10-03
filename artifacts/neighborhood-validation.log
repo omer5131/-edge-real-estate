@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-03T08:48:08.354Z",
+  "generatedAt": "2026-10-03T08:52:23.591Z",
   "scoreVersion": "area-score-v1",
   "aggregationKey": "neighborhood_id",
   "refresh": {
@@ -110,35 +110,35 @@
     },
     {
       "kind": "stat_area",
-      "a": "4",
+      "a": "221",
       "b": "2022",
-      "city": "מבשרת ציון",
-      "x": 35.146151879411896,
-      "y": 31.80144198174458
+      "city": "תל אביב -יפו",
+      "x": 34.82266981259947,
+      "y": 32.119201651461616
     },
     {
       "kind": "stat_area",
-      "a": "511",
+      "a": "213",
       "b": "2022",
-      "city": "פתח תקווה",
-      "x": 34.904116305020516,
-      "y": 32.10317969821541
-    },
-    {
-      "kind": "stat_area",
-      "a": "5",
-      "b": "2022",
-      "city": "כסיפה",
-      "x": 35.091270485917256,
-      "y": 31.234329025208318
+      "city": "בית שמש",
+      "x": 34.98191153430693,
+      "y": 31.741804319877343
     },
     {
       "kind": "stat_area",
       "a": "1",
       "b": "2022",
-      "city": "חנתון",
-      "x": 35.24231478844193,
-      "y": 32.783329092634204
+      "city": "כפר גלעדי",
+      "x": 35.57643315924256,
+      "y": 33.24233711742467
+    },
+    {
+      "kind": "stat_area",
+      "a": "31",
+      "b": "2022",
+      "city": "עכו",
+      "x": 35.07792947507334,
+      "y": 32.92785510291742
     }
   ],
   "targetCityCodes": [
@@ -156,6 +156,113 @@
       "name_he": "פתח תקווה",
       "settlement_code": "7900",
       "neighborhoods": 8
+    }
+  ],
+  "transactionLinkDiagnostics": [
+    {
+      "direct_neighborhood": 41,
+      "direct_with_parcel": 41,
+      "direct_with_stat_area": 0,
+      "all_with_parcel": 906,
+      "all_with_stat_area": 0
+    }
+  ],
+  "comparableColumns": [
+    {
+      "column_name": "id",
+      "data_type": "uuid"
+    },
+    {
+      "column_name": "source_id",
+      "data_type": "text"
+    },
+    {
+      "column_name": "source_external_id",
+      "data_type": "text"
+    },
+    {
+      "column_name": "raw_record_id",
+      "data_type": "bigint"
+    },
+    {
+      "column_name": "city_id",
+      "data_type": "uuid"
+    },
+    {
+      "column_name": "parcel_id",
+      "data_type": "uuid"
+    },
+    {
+      "column_name": "property_id",
+      "data_type": "uuid"
+    },
+    {
+      "column_name": "deal_date",
+      "data_type": "date"
+    },
+    {
+      "column_name": "amount_nis",
+      "data_type": "numeric"
+    },
+    {
+      "column_name": "area_sqm",
+      "data_type": "numeric"
+    },
+    {
+      "column_name": "rooms",
+      "data_type": "numeric"
+    },
+    {
+      "column_name": "floor",
+      "data_type": "numeric"
+    },
+    {
+      "column_name": "nature",
+      "data_type": "text"
+    },
+    {
+      "column_name": "pp_sqm",
+      "data_type": "numeric"
+    },
+    {
+      "column_name": "source_updated_at",
+      "data_type": "timestamp with time zone"
+    },
+    {
+      "column_name": "observed_at",
+      "data_type": "timestamp with time zone"
+    },
+    {
+      "column_name": "neighborhood_id",
+      "data_type": "uuid"
+    },
+    {
+      "column_name": "street_id",
+      "data_type": "uuid"
+    },
+    {
+      "column_name": "address_text",
+      "data_type": "text"
+    },
+    {
+      "column_name": "ownership_fraction",
+      "data_type": "numeric"
+    },
+    {
+      "column_name": "declared_amount_nis",
+      "data_type": "numeric"
+    },
+    {
+      "column_name": "normalized_pp_sqm",
+      "data_type": "numeric"
+    },
+    {
+      "column_name": "is_comparable",
+      "data_type": "boolean"
+    },
+    {
+      "column_name": "exclusion_reason",
+      "data_type": "text"
     }
   ],
   "datasetCoverage": [
