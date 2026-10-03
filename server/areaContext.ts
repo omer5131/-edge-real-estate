@@ -1,4 +1,5 @@
 import {queryDatabase} from './db.js';
+import {normalizeConfidence} from './contracts/investmentContext.js';
 import type {EvidenceMeta,MarketMetric,NeighborhoodIntelligenceResponse} from './contracts/investmentContext.js';
 
 const numberOrNull=(v:unknown)=>v==null||v===''?null:Number(v);
@@ -11,16 +12,16 @@ export function buildAreaIntelligenceFromRows(input:any):NeighborhoodIntelligenc
   const slug=String(summary?.neighborhood_slug??identity?.slug??'');
   const name=String(summary?.neighborhood_name??identity?.name_he??'');
   const city=String(summary?.city_name??identity?.city_name??'');
-  const marketEvidence:EvidenceMeta={status:Number(summary?.transaction_count_12m||0)>=3?'supported':'insufficient_evidence',confidence:summary?.confidence_score==null?null:Number(summary.confidence_score),sampleSize:summary?.transaction_count_12m==null?null:Number(summary.transaction_count_12m),observedAt:summary?.updated_at??null,modelVersion:summary?.score_version??'area-market-v1',sourceIds:['semantic_neighborhood_summary'],notes:[]};
+  const marketEvidence:EvidenceMeta={status:Number(summary?.transaction_count_12m||0)>=3?'supported':'insufficient_evidence',confidence:normalizeConfidence(summary?.confidence_score),sampleSize:summary?.transaction_count_12m==null?null:Number(summary.transaction_count_12m),observedAt:summary?.updated_at??null,modelVersion:summary?.score_version??'area-market-v1',sourceIds:['semantic_neighborhood_summary'],notes:[]};
   const cbsSafe=Boolean(cbs?.safe_for_score);
-  const cbsEvidence:EvidenceMeta={status:cbsSafe?'supported':cbs?'provisional':'insufficient_evidence',confidence:cbs?.mapping_confidence==null?null:Number(cbs.mapping_confidence),sampleSize:cbs?.statistical_area_count==null?null:Number(cbs.statistical_area_count),observedAt:cbs?.calculated_at??null,modelVersion:'cbs-neighborhood-profile-v1',sourceIds:['semantic_neighborhood_cbs_profile'],notes:cbs&&!cbsSafe?['CBS profile is display-safe but not analytics-score-safe until the official 2022 neighborhood/statistical-area crosswalk is validated.']:[]};
+  const cbsEvidence:EvidenceMeta={status:cbsSafe?'supported':cbs?'provisional':'insufficient_evidence',confidence:normalizeConfidence(cbs?.mapping_confidence),sampleSize:cbs?.statistical_area_count==null?null:Number(cbs.statistical_area_count),observedAt:cbs?.calculated_at??null,modelVersion:'cbs-neighborhood-profile-v1',sourceIds:['semantic_neighborhood_cbs_profile'],notes:cbs&&!cbsSafe?['CBS profile is display-safe but not analytics-score-safe until the official 2022 neighborhood/statistical-area crosswalk is validated.']:[]};
   const futureEvidence=(source:string,count:number,observedAt:unknown):EvidenceMeta=>({status:count>0?'supported':'insufficient_evidence',confidence:count>0?.8:null,sampleSize:count,observedAt:observedAt?String(observedAt):null,modelVersion:'future-context-v1',sourceIds:[source],notes:[]});
   const renewal=input?.renewal??{},planning=input?.planning??{},infrastructure=input?.infrastructure??{};
   const renewalEvidence=futureEvidence('renewal_projects',Number(renewal.count||0),renewal.observed_at);
   const planningEvidence=futureEvidence('planning_plans',Number(planning.count||0),planning.observed_at);
   const infrastructureEvidence=futureEvidence('infrastructure_projects',Number(infrastructure.count||0),infrastructure.observed_at);
   const mappingSupported=mappings.length>0&&mappings.every((m:any)=>Boolean(m.analytics_safe));
-  const mappingEvidence:EvidenceMeta={status:mappingSupported?'supported':mappings.length?'provisional':'insufficient_evidence',confidence:mappings.length?Math.min(...mappings.map((m:any)=>Number(m.mapping_confidence??0))):null,sampleSize:mappings.length,observedAt:mappings[0]?.mapped_at??null,modelVersion:mappings[0]?.mapping_version??'geo-crosswalk-v1',sourceIds:[...new Set<string>(mappings.map((m:any)=>m.mapping_method==='official_crosswalk'?'cbs':'curated_crosswalk'))],notes:mappingSupported?[]:['At least one statistical-area mapping is not yet analytics-safe.']};
+  const mappingEvidence:EvidenceMeta={status:mappingSupported?'supported':mappings.length?'provisional':'insufficient_evidence',confidence:mappings.length?Math.min(...mappings.map((m:any)=>normalizeConfidence(m.mapping_confidence)??0)):null,sampleSize:mappings.length,observedAt:mappings[0]?.mapped_at??null,modelVersion:mappings[0]?.mapping_version??'geo-crosswalk-v1',sourceIds:[...new Set<string>(mappings.map((m:any)=>m.mapping_method==='official_crosswalk'?'cbs':'curated_crosswalk'))],notes:mappingSupported?[]:['At least one statistical-area mapping is not yet analytics-safe.']};
   const year=cbs?.observation_year?String(cbs.observation_year):null;
   return {
     neighborhoodId,slug,name,city,
@@ -53,7 +54,7 @@ export function buildAreaIntelligenceFromRows(input:any):NeighborhoodIntelligenc
       metric('planning_housing_units','Housing units in plans',numberOrNull(planning.housing_units),'units',null,planningEvidence)
     ],
     infrastructure:[metric('infrastructure_project_count','Infrastructure projects',Number(infrastructure.count||0),'count',null,infrastructureEvidence)],
-    mapping:{statisticalAreas:mappings.map((m:any)=>({code:String(m.stat_area_code),year:m.boundary_year==null?null:Number(m.boundary_year),weight:m.overlap_ratio==null?null:Number(m.overlap_ratio),method:String(m.mapping_method),confidence:m.mapping_confidence==null?null:Number(m.mapping_confidence),analyticsSafe:Boolean(m.analytics_safe),sourceEvidence:m.source_evidence??null})),evidence:mappingEvidence}
+    mapping:{statisticalAreas:mappings.map((m:any)=>({code:String(m.stat_area_code),year:m.boundary_year==null?null:Number(m.boundary_year),weight:m.overlap_ratio==null?null:Number(m.overlap_ratio),method:String(m.mapping_method),confidence:normalizeConfidence(m.mapping_confidence),analyticsSafe:Boolean(m.analytics_safe),sourceEvidence:m.source_evidence??null})),evidence:mappingEvidence}
   };
 }
 

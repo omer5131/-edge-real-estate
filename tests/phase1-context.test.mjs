@@ -5,6 +5,7 @@ import {buildActiveMarketFromRows} from '../.server-test/server/activeMarketCont
 import {buildAreaIntelligenceFromRows} from '../.server-test/server/areaContext.js';
 import {assetIdentityFromListing} from '../.server-test/server/assetContext.js';
 import {buildPlanningContext} from '../.server-test/server/planningContext.js';
+import {classifySourceUrl,normalizeConfidence} from '../.server-test/server/contracts/investmentContext.js';
 
 const listing={
   id:'11111111-1111-1111-1111-111111111111',
@@ -77,4 +78,47 @@ test('planning context exposes provenance and evidence state',()=>{
   assert.equal(out.evidence.status,'supported');
   assert.deepEqual(new Set(out.evidence.sourceIds),new Set(['urban_renewal_gov','xplan']));
   assert.equal(out.evidence.sampleSize,2);
+});
+
+
+test('evidence confidence is normalized to a 0-1 scale',()=>{
+  assert.equal(normalizeConfidence(43.75),.4375);
+  assert.equal(normalizeConfidence(.88),.88);
+  assert.equal(normalizeConfidence(140),1);
+  const out=buildAreaIntelligenceFromRows({
+    summary:{neighborhood_id:listing.neighborhood_id,neighborhood_slug:'x',neighborhood_name:'X',city_name:'Y',transaction_count_12m:10,median_price_sqm_12m:18000,confidence_score:43.75,updated_at:'2026-10-03T00:00:00Z'},
+    cbs:null,mappings:[],renewal:{count:0},planning:{count:0},infrastructure:{count:0}
+  });
+  assert.equal(out.market[0].evidence.confidence,.4375);
+});
+
+test('three otherwise similar active listings remain provisional',()=>{
+  const rows=[1,2,3].map((i)=>({id:'p'+i,source_id:'yad2_sale',canonical_address:'דרייפוס '+(25+i),asking_price_nis:1700000+i*10000,area_sqm:100,rooms:4,floor:3,snapshot_count:2,observed_span_days:2,last_seen_at:'2026-10-03T00:00:00Z'}));
+  const out=buildActiveMarketFromRows(listing,rows);
+  assert.equal(out.summary.inventoryCount,3);
+  assert.equal(out.evidence.status,'provisional');
+});
+
+test('active market rejects materially different size before scoring',()=>{
+  const out=buildActiveMarketFromRows({...listing,area_sqm:115},[
+    {id:'small',source_id:'yad2_sale',canonical_address:'דרך צרפת',asking_price_nis:980000,area_sqm:52,rooms:2.5,floor:2,last_seen_at:'2026-10-03T00:00:00Z'},
+    {id:'fit',source_id:'yad2_sale',canonical_address:'דרייפוס 27',asking_price_nis:1780000,area_sqm:110,rooms:4,floor:2,last_seen_at:'2026-10-03T00:00:00Z'}
+  ]);
+  assert.equal(out.summary.inventoryCount,1);
+  assert.ok(out.rejectedListings.find(x=>x.listingId==='small')?.reasons.includes('area_outside_25pct_band'));
+});
+
+test('DOM is unknown until there is an observed lifecycle',()=>{
+  const out=buildActiveMarketFromRows(listing,[
+    {id:'single',source_id:'yad2_sale',canonical_address:'דרייפוס 27',asking_price_nis:1750000,area_sqm:100,rooms:4,floor:2,snapshot_count:1,observed_span_days:0,days_on_market:0,last_seen_at:'2026-10-03T00:00:00Z'}
+  ]);
+  assert.equal(out.listings[0].daysOnMarket,null);
+  assert.equal(out.listings[0].priceReductions,null);
+  assert.equal(out.summary.medianDaysOnMarket,null);
+});
+
+test('source URL provenance distinguishes item from search pages',()=>{
+  assert.equal(classifySourceUrl('https://www.yad2.co.il/realestate/item/abc'),'item');
+  assert.equal(classifySourceUrl('https://www.yad2.co.il/realestate/forsale?city=4000'),'search');
+  assert.equal(classifySourceUrl(null),'unknown');
 });

@@ -250,8 +250,8 @@ Acceptance passed: the listing-first property-context backend returns subject id
 
 Authoritative completion record: `docs/phase1-complete.md`.
 
-### Phase 2 — Deal Room v1 — MERGED / PROD BLOCKED BY VERCEL RATE LIMIT
-Overview / Market / Comps / Area + contextual Ask Edge are implemented and merged to `main`.
+### Phase 2 — Deal Room v1 — COMPLETE / LIVE IN PRODUCTION
+Overview / Market / Comps / Area + contextual Ask Edge are implemented, merged and deployed.
 
 Delivered:
 - Deal Room Overview / Market / Comps / Area
@@ -264,13 +264,24 @@ Delivered:
 - reconstruction-safe frontend injection
 - green Phase 2 server/frontend CI
 
-Merge commit:
+Phase 2 merge:
 `a9934f4f9f0635a7f74927cb537e028d8e051c02`
 
-Production has NOT advanced to Phase 2 yet because Vercel rejects new builds with `build-rate-limit`.
-Current production still serves the Phase 1 production deployment.
+Production deployment that first carried Phase 2:
+`5bff900322b6f6072ef25cacc1f7533f8dbdc78f`
 
-Do not mark Phase 2 production-complete until a new `main` deployment is READY and smoke-tested.
+### Phase 2.1 — Evidence stabilization — COMPLETE
+Authoritative completion record:
+`docs/phase2.1-complete.md`
+
+Delivered:
+- one confidence scale: 0–1
+- active-market hard eligibility and stricter evidence thresholds
+- rejected active candidates with reasons
+- lifecycle-aware DOM / seller evidence
+- truthful exact-item vs search-page source provenance
+- Deal Room evidence messaging
+- regression coverage and green production build
 
 ### Phase 3 — Investment workflow
 Deal Engine + scenarios + Notes + My Deals + stages + due diligence + timeline.
@@ -497,24 +508,37 @@ Recommended Phase 1 tracks:
 
 Frontend Deal Room work begins only after the property-context backend contract passes integration verification.
 
-## 17. Phase 1 completion and Phase 2 handoff
+## 17. Completed delivery through Phase 2.1
 
-Phase 1 status: COMPLETE.
+Phase 0: COMPLETE  
+Phase 1: COMPLETE  
+Phase 2: COMPLETE and deployed  
+Phase 2.1: COMPLETE in code and CI; production release follows the normal merge/deploy gate.
 
-Completion record: `docs/phase1-complete.md`.
+Completion records:
+- `docs/phase0-complete.md`
+- `docs/phase1-complete.md`
+- `docs/phase2-release.md`
+- `docs/phase2.1-complete.md`
 
-Phase 2 status: READY TO START.
+Current property research stack:
+1. listing-first asset identity
+2. deterministic closed-sale valuation v2
+3. active-market comparison v2.1
+4. neighborhood intelligence
+5. planning/renewal/infrastructure
+6. Deal Room Overview / Market / Comps / Area
+7. contextual Ask Edge
 
-Phase 1 delivered:
-1. Unified asset context composed in `server/assetContext.ts` and exposed through the existing consolidated `api/property.ts`.
-2. Closed-sale valuation v2 with duplicate collapse, selected/rejected candidates, explicit fallback semantics and evidence metadata.
-3. Active-market v2 kept semantically separate from valuation.
-4. Neighborhood intelligence contract with CBS provisional/safe-for-score guardrails.
-5. Planning context for renewal, statutory plans and infrastructure.
-6. Deterministic regression coverage plus green CI typecheck/build gate.
-7. Read-only production-data validation on subscribed real listings.
-
-Phase 2 should consume these domain contracts rather than recreate calculations in React.
+Evidence rules after Phase 2.1:
+- all confidence values are 0–1
+- missing evidence is never zero
+- small active inventory remains provisional
+- active candidates must pass hard size/room eligibility before similarity scoring
+- rejected active candidates keep reasons
+- one listing observation does not imply DOM=0
+- source/search pages are not labeled as exact listing pages
+- provisional CBS metrics remain display-only and are not score-safe
 
 CBS official crosswalk acquisition remains an enrichment task, not permission to weaken the evidence guardrail.
 
@@ -532,166 +556,29 @@ Codex must read these before Phase 1 changes:
 If an older document conflicts with these files, this master context plus `phase0-complete.md` are authoritative.
 
 
-## 19. Post-Phase-2 application review — 2026-10-03
+## 19. Phase 2.1 stabilized application state — 2026-10-03
 
-### Deployment state
-Current production:
-- Vercel target: production
-- state: READY
-- commit: `09fea21c00174fb5461cbd03f93f72e848fd00d6`
-- content level: Phase 1 backend / pre-Phase-2 UI
+Phase 2 is live in production and Phase 2.1 closes the evidence-quality gaps found during the first Deal Room review.
 
-Merged main:
-- Phase 2 merge: `a9934f4f9f0635a7f74927cb537e028d8e051c02`
-- subsequent deployment retry commits were rejected by Vercel with `build-rate-limit`
+### Stabilized evidence contract
+- `EvidenceMeta.confidence` is normalized to 0–1.
+- Active-market `supported` requires at least 5 eligible listings and average similarity >= 0.70.
+- Active candidate hard eligibility: area ±25%, rooms ±1, valid ask, then similarity >= 0.55.
+- Rejected active candidates remain explainable.
+- DOM is null until at least two observations span one or more days.
+- Seller price-reduction evidence remains unverified until lifecycle support exists.
+- Listing source URLs carry `item | search | unknown` provenance.
 
-Phase 2 CI is green; deployment is an infrastructure/quota gate, not a code-build failure.
+### Real-data behavior
+For the 115m² / 4-room Drayfus 25 validation asset, the previously returned 52m², 80m² and 85m² active listings are no longer presented as supported comparable inventory. This is intentional: no benchmark is better than a misleading benchmark.
 
-### Live production verification
-The production site and APIs respond successfully.
+### Remaining non-blocking enrichment
+- canonical property/building/street/parcel coverage
+- stronger coordinates and distance-based matching
+- more listing snapshots over time
+- exact item URLs for legacy Yad2 records where recoverable
+- official CBS crosswalk validation
+- broader rental coverage
 
-Verified subscribed sample:
-- listing: `7f68a88a-7b91-4d43-9a0b-ca40cece67ad`
-- address: דרייפוס 25, קריית שפרינצק, חיפה
-- ask: ₪1,780,000
-- area: 115 m²
-- rooms: 4
-- valuation model: `valuation-v2`
-- selected closed comps: 8
-- base value: approximately ₪2.01M
-- range: approximately ₪1.97M–₪2.11M
-- ask discount to base: approximately 11.3%
-- active alternatives returned: 3
-- CBS neighborhood metrics remain provisional as designed
+These do not reopen Phase 0–2 architecture.
 
-These numbers are validation examples only; never hardcode them.
-
-### Review findings that must be fixed before relying on Deal Room evidence broadly
-
-#### A. Confidence scale is inconsistent
-`EvidenceMeta.confidence` is intended to be comparable across domains, but neighborhood market evidence currently exposes values such as `43.75` while valuation/listing/mapping evidence uses a 0–1 scale.
-
-This can corrupt aggregate confidence in `assetContext.ts`.
-
-Required rule:
-- all `EvidenceMeta.confidence` values must be normalized to **0–1**
-- percentage-like source scores must be divided/normalized at the service boundary
-- add regression tests asserting `0 <= confidence <= 1`
-
-This is a blocking correctness issue.
-
-#### B. Active-market sample is too easily marked supported
-Three active alternatives currently produce:
-- `status=supported`
-- confidence about `0.45`
-
-A three-item, single-source market sample should normally remain provisional.
-
-Required rule:
-- evidence status must combine sample size + similarity quality + source diversity/freshness
-- small inventory should remain `provisional` even when technically non-empty
-- define one explicit threshold policy and test it
-
-#### C. Active-listing similarity is too broad
-For a 115 m² / 4-room subject, the current set may include materially smaller 52–85 m² units.
-
-This can distort:
-- median asking price
-- subject asking percentile
-- subject delta to median
-
-Required improvements:
-- hard eligibility band before similarity scoring, especially area and rooms
-- use ask/m² as primary cross-size comparison
-- keep total asking-price benchmark only for meaningfully similar units
-- expose rejection reasons for active listings similar to closed comps
-
-#### D. DOM / seller signals need evidence-aware semantics
-Many collected listings currently have one snapshot and therefore show `days_on_market=0`.
-
-Zero must not imply a verified newly-listed asset.
-
-Required rule:
-- one observation = DOM unknown/provisional
-- DOM becomes supported only after observed lifecycle evidence exists
-- seller motivation must never infer urgency from synthetic zero-day history
-
-#### E. Source listing URLs are not always item-specific
-Some Yad2 rows currently link to a neighborhood/search result page rather than the exact source listing.
-
-Deal Room's “Open Source Listing” must:
-- open an item-specific URL when known
-- otherwise display source/search provenance clearly
-- never imply the URL identifies the exact property when it does not
-
-#### F. Canonical identity coverage is still shallow
-Current sample:
-- propertyId: null
-- buildingId: null
-- streetId: null
-- parcelId: null
-- coordinates: null
-
-Phase 2 must remain usable listing-first, but Phase 3/4 enrichment should continue:
-listing → normalized address → street → building → parcel → point.
-
-#### G. Product navigation is still legacy
-Current app navigation still contains:
-- Radar
-- Research
-- Opportunities
-- Area
-- Data
-- Admin
-
-Target remains:
-- Discover
-- Research
-- My Deals
-- Areas
-- Compare
-
-Do not redesign navigation in isolation; perform it together with Phase 3/4 workflow so users do not lose current functionality.
-
-### Phase 2 production acceptance gate
-Phase 2 is production-complete only when all are true:
-1. Vercel deploy from current `main` is READY.
-2. Production UI opens a real listing into Deal Room.
-3. Overview / Market / Comps / Area render real API data.
-4. missing/provisional evidence is visually explicit.
-5. source listing action is truthful about exact vs search URL.
-6. contextual Ask Edge receives the active Deal Room entity/tab.
-7. desktop and mobile smoke tests pass.
-8. no new runtime errors appear after deploy.
-
-### Immediate stabilization tasks before Phase 3
-Treat these as Phase 2.1 and finish before broad workflow implementation:
-1. normalize all evidence confidence to 0–1;
-2. strengthen active-market eligibility and evidence thresholds;
-3. make DOM/seller evidence lifecycle-aware;
-4. distinguish item-specific source URLs from search provenance;
-5. add regression tests for the four rules above;
-6. deploy and smoke-test Phase 2 in production.
-
-Only after Phase 2.1 passes should Phase 3 begin changing production workflow state.
-
-## 20. Phase 3 handoff after Phase 2.1
-
-Phase 3 scope remains:
-- Deal Engine
-- saved deals / pipeline stages
-- scenarios
-- notes
-- due diligence
-- timeline
-- My Deals
-
-Implementation constraints:
-- reuse `db/028_deal_workflow_normalization.sql` after migration review
-- do not mix deterministic finance logic with LLM output
-- preserve listing-first identity
-- store assumptions separately from derived outputs
-- all state transitions must be auditable in `deal_events`
-- contextual Ask Edge may read workflow context, but standard product calculations must use domain services
-
-Phase 3 should not absorb Discover/Research redesign; that remains Phase 4.
