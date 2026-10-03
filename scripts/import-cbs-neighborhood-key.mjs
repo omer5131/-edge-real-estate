@@ -1,4 +1,5 @@
 import {inflateRawSync} from 'node:zlib';
+import fs from 'node:fs';
 import {neon} from '@neondatabase/serverless';
 
 const URL='https://www.cbs.gov.il/he/mediarelease/doclib/2022/026/%D7%A8%D7%97%D7%95%D7%91%D7%95%D7%AA%20%D7%A2%D7%99%D7%A7%D7%A8%D7%99%D7%99%D7%9D%20%D7%95%D7%A9%D7%9B%D7%95%D7%A0%D7%95%D7%AA%20%D7%9C%D7%90%D7%A1%202022.xlsx';
@@ -98,9 +99,21 @@ if(process.env.CBS_FORCE_IMPORT!=='true'&&Number(freshness?.rows??0)>0&&Date.now
  process.exit(0);
 }
 
-const resp=await fetch(URL,{headers:{'user-agent':'Mozilla/5.0'}});
-if(!resp.ok)throw new Error('CBS download failed: '+resp.status);
-const doc=parseXlsx(await resp.arrayBuffer());
+let fileBuffer;
+if(process.env.CBS_XLSX_PATH){
+ fileBuffer=fs.readFileSync(process.env.CBS_XLSX_PATH);
+}else{
+ let lastError;
+ for(let attempt=1;attempt<=4;attempt++){
+  try{
+   const resp=await fetch(URL,{headers:{'user-agent':'Mozilla/5.0','accept':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,*/*'}});
+   if(!resp.ok)throw new Error('CBS download failed: '+resp.status);
+   fileBuffer=Buffer.from(await resp.arrayBuffer());break;
+  }catch(error){lastError=error;if(attempt<4)await new Promise(r=>setTimeout(r,attempt*1500));}
+ }
+ if(!fileBuffer)throw lastError??new Error('CBS download failed');
+}
+const doc=parseXlsx(fileBuffer);
 if(!doc.rows.length)throw new Error('CBS key returned no rows');
 
 let imported=0;
