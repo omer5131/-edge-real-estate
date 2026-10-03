@@ -20,3 +20,10 @@ CREATE TABLE IF NOT EXISTS neighborhood_resolution_runs (
  ambiguous_stat_areas integer NOT NULL DEFAULT 0,
  metadata jsonb NOT NULL DEFAULT '{}'::jsonb
 );
+
+ALTER TABLE neighborhoods ADD COLUMN IF NOT EXISTS geom_source text;
+ALTER TABLE neighborhoods ADD COLUMN IF NOT EXISTS geom_confidence numeric CHECK(geom_confidence IS NULL OR geom_confidence BETWEEN 0 AND 1);
+ALTER TABLE neighborhoods ADD COLUMN IF NOT EXISTS geom_updated_at timestamptz;
+
+COMMENT ON COLUMN neighborhoods.geom_source IS
+ 'Provenance for neighborhood geometry. evidence_stat_area_union means a derived analytical boundary, not an official neighborhood boundary.';
