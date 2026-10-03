@@ -9,7 +9,8 @@ ALTER TABLE neighborhood_cbs_profiles
 CREATE INDEX IF NOT EXISTS neighborhood_cbs_profiles_quality_idx
   ON neighborhood_cbs_profiles(neighborhood_id,profile_quality,observation_year DESC);
 
-CREATE OR REPLACE VIEW semantic_neighborhood_cbs_profile AS
+DROP VIEW IF EXISTS semantic_neighborhood_cbs_profile;
+CREATE VIEW semantic_neighborhood_cbs_profile AS
 SELECT
   p.neighborhood_id,n.slug,n.name_he neighborhood_name,c.name_he city_name,p.observation_year,
   p.population,p.population_growth_from_2022_pct,p.employment_pct,p.academic_certificate_pct,
