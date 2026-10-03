@@ -33,21 +33,25 @@ jobs:
       - name: Apply neighborhood schemas
         run: npm run migrate:areas
       - name: Download official CBS neighborhood key
-        continue-on-error: true
         run: |
           rm -f /tmp/cbs-neighborhood-key.xlsx
-          curl --fail --location --retry 5 --retry-all-errors --http1.1 \
-            --connect-timeout 30 --max-time 180 \
-            -A "Mozilla/5.0" \
-            -o /tmp/cbs-neighborhood-key.xlsx \
-            "https://www.cbs.gov.il/he/publications/DocLib/2022/%D7%A7%D7%98%D7%9C%D7%95%D7%92/1.%20%D7%99%D7%99%D7%A9%D7%95%D7%91%D7%99%D7%9D%20%D7%95%D7%97%D7%9C%D7%95%D7%A7%D7%95%D7%AA%20%D7%92%D7%90%D7%95%D7%92%D7%A8%D7%A4%D7%99%D7%95%D7%AA/%D7%A8%D7%97%D7%95%D7%91%D7%95%D7%AA%20%D7%A2%D7%99%D7%A7%D7%A8%D7%99%D7%99%D7%9D%20%D7%95%D7%A9%D7%9B%D7%95%D7%A0%D7%95%D7%AA%20%D7%9C%D7%90%D7%A1%202022.xlsx"
+          primary="https://www.cbs.gov.il/he/publications/DocLib/2022/%D7%A7%D7%98%D7%9C%D7%95%D7%92/1.%20%D7%99%D7%99%D7%A9%D7%95%D7%91%D7%99%D7%9D%20%D7%95%D7%97%D7%9C%D7%95%D7%A7%D7%95%D7%AA%20%D7%92%D7%90%D7%95%D7%92%D7%A8%D7%A4%D7%99%D7%95%D7%AA/%D7%A8%D7%97%D7%95%D7%91%D7%95%D7%AA%20%D7%A2%D7%99%D7%A7%D7%A8%D7%99%D7%99%D7%9D%20%D7%95%D7%A9%D7%9B%D7%95%D7%A0%D7%95%D7%AA%20%D7%9C%D7%90%D7%A1%202022.xlsx"
+          fallback="https://www.cbs.gov.il/he/mediarelease/doclib/2022/026/%D7%A8%D7%97%D7%95%D7%91%D7%95%D7%AA%20%D7%A2%D7%99%D7%A7%D7%A8%D7%99%D7%99%D7%9D%20%D7%95%D7%A9%D7%9B%D7%95%D7%A0%D7%95%D7%AA%20%D7%9C%D7%90%D7%A1%202022.xlsx"
+          for url in "$primary" "$fallback"; do
+            if curl --fail --location --retry 5 --retry-all-errors --http1.1 \
+              --connect-timeout 30 --max-time 180 -A "Mozilla/5.0" \
+              -o /tmp/cbs-neighborhood-key.xlsx "$url"; then
+              if [ -s /tmp/cbs-neighborhood-key.xlsx ] && head -c 2 /tmp/cbs-neighborhood-key.xlsx | grep -q "PK"; then
+                break
+              fi
+            fi
+            rm -f /tmp/cbs-neighborhood-key.xlsx
+          done
+          test -s /tmp/cbs-neighborhood-key.xlsx
+          head -c 2 /tmp/cbs-neighborhood-key.xlsx | grep -q "PK"
       - name: Import official CBS neighborhood key
         run: |
-          if [ -s /tmp/cbs-neighborhood-key.xlsx ]; then
-            CBS_XLSX_PATH=/tmp/cbs-neighborhood-key.xlsx npm run import:cbs-neighborhoods
-          else
-            echo "CBS download unavailable; continuing with existing and curated crosswalk evidence."
-          fi
+          CBS_XLSX_PATH=/tmp/cbs-neighborhood-key.xlsx npm run import:cbs-neighborhoods
       - name: Build server
         run: npx tsc -p tsconfig.server.json --noEmit false --outDir .server-build
       - name: Refresh neighborhood identity and analytics
@@ -70,4 +74,7 @@ jobs:
               (SELECT count(DISTINCT neighborhood_id)::int FROM dataset_neighborhood_evidence WHERE dataset_slug='area_population_2024') population_neighborhoods
           `;
           console.log(JSON.stringify(summary,null,2));
+          if (!summary[0]?.official_key_rows) {
+            throw new Error('Official CBS neighborhood key is empty after import');
+          }
           NODE
