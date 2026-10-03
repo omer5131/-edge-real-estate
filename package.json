@@ -22,7 +22,8 @@
     "eval:neighborhood:agent": "tsc -p tsconfig.server.json --noEmit false --outDir .server-eval && node scripts/run-neighborhood-evals.mjs --agent",
     "audit:phase0": "node scripts/phase0-audit.mjs",
     "report:cbs-crosswalk": "node scripts/cbs-crosswalk-report.mjs",
-    "test:phase1": "tsc -p tsconfig.server.json --noEmit false --outDir .server-test && node --test tests/phase1-context.test.mjs"
+    "test:phase1": "tsc -p tsconfig.server.json --noEmit false --outDir .server-test && node --test tests/phase1-context.test.mjs",
+    "test:phase3": "tsc -p tsconfig.server.json --noEmit false --outDir .server-test && node --test tests/deal-engine.test.mjs tests/phase1-context.test.mjs"
   },
   "dependencies": {
     "@ai-sdk/openai": "^4.0.83",
