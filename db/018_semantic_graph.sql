@@ -229,3 +229,55 @@ ON CONFLICT(table_name) DO UPDATE SET
  entity_key=EXCLUDED.entity_key,dataset_role=EXCLUDED.dataset_role,source_grain=EXCLUDED.source_grain,
  neighborhood_link_rule=EXCLUDED.neighborhood_link_rule,inheritance_rule=EXCLUDED.inheritance_rule,
  preferred_for=EXCLUDED.preferred_for,avoid_for=EXCLUDED.avoid_for,notes=EXCLUDED.notes;
+
+
+INSERT INTO semantic_dataset_roles(table_name,entity_key,dataset_role,source_grain,neighborhood_link_rule,inheritance_rule,preferred_for,avoid_for,notes) VALUES
+ ('semantic_neighborhood_market_history','neighborhood','market_trend_semantic','neighborhood-period','direct neighborhood_id','none',
+  ARRAY['historical executed price trend','current asking trend','transaction volume','asking-vs-executed premium'],
+  ARRAY['individual property valuation without listing benchmark'],
+  'Primary time-series view for neighborhood market history. Executed and asking series are separate columns.'),
+ ('semantic_listing_market_benchmarks','listing','listing_relative_value','listing','listing.neighborhood_id','none',
+  ARRAY['listing relative value','discount to executed comps','discount to current asking market','matched comps confidence'],
+  ARRAY['claiming achieved sale price','using low-confidence rows as definitive valuation'],
+  'Primary agent view for comparing active listings against neighborhood history/current market.'),
+ ('semantic_neighborhood_cbs_profile','neighborhood','cbs_profile_semantic','neighborhood-year','safe CBS statistical-area rollup','weighted statistical-area inheritance',
+  ARRAY['population','employment','education','household tenure','CBS wage context','population growth'],
+  ARRAY['using shared CBS areas without safe crosswalk','treating 2022 demographics as current-year observations'],
+  'CBS neighborhood profile aggregated only through safe canonical neighborhood↔statistical-area mappings.')
+ON CONFLICT(table_name) DO UPDATE SET
+ entity_key=EXCLUDED.entity_key,dataset_role=EXCLUDED.dataset_role,source_grain=EXCLUDED.source_grain,
+ neighborhood_link_rule=EXCLUDED.neighborhood_link_rule,inheritance_rule=EXCLUDED.inheritance_rule,
+ preferred_for=EXCLUDED.preferred_for,avoid_for=EXCLUDED.avoid_for,notes=EXCLUDED.notes;
+
+INSERT INTO semantic_metrics(metric_key,label,entity_key,preferred_table,expression_hint,time_field,unit,default_window,aggregation,source_grain,inheritance,confidence_rule,description,caveats,synonyms) VALUES
+ ('current_vs_executed_premium','Current asking vs executed premium','neighborhood','semantic_neighborhood_market_history',
+  'period_type=rolling_12m; asking_to_executed_premium_pct','period_start','percent','12 months','ratio of medians','neighborhood','direct',
+  'requires both executed and active listing samples',
+  'Difference between current median asking price/sqm and median executed price/sqm.',
+  ARRAY['Asking prices are not achieved sale prices'],ARRAY['asking premium','market premium','פער מבוקש מול עסקאות']),
+ ('listing_executed_discount','Listing vs executed neighborhood baseline','listing','semantic_listing_market_benchmarks',
+  'executed_discount_pct','calculated_at','percent','12 months','relative difference','listing','direct',
+  'benchmark_confidence reflects historical and current sample coverage',
+  'Listing asking price/sqm relative to neighborhood executed median over the historical window.',
+  ARRAY['Negative means asking below executed baseline','Not an appraisal'],ARRAY['discount to comps','below market','פער מעסקאות']),
+ ('listing_matched_discount','Listing vs matched executed comps','listing','semantic_listing_market_benchmarks',
+  'matched_executed_discount_pct','calculated_at','percent','12 months','relative difference','listing','direct',
+  'prefer when matched_historical_sample_count >= 5',
+  'Listing asking price/sqm relative to executed transactions with similar rooms and area.',
+  ARRAY['Matching rule is rooms ±0.5 and area ±20%','Sparse samples reduce confidence'],ARRAY['matched comps','similar apartments','השוואה לדירות דומות']),
+ ('listing_current_asking_discount','Listing vs current asking market','listing','semantic_listing_market_benchmarks',
+  'current_asking_discount_pct','calculated_at','percent','current','relative difference','listing','direct',
+  'requires multiple active peer listings',
+  'Listing asking price/sqm relative to other currently active listings in the same neighborhood.',
+  ARRAY['Asking-market comparison only'],ARRAY['current market discount','asking comps']),
+ ('cbs_population_growth','CBS population growth','neighborhood','semantic_neighborhood_cbs_profile',
+  'population_growth_from_2022_pct','observation_year','percent','2022-2024','ratio','statistical_area','safe_crosswalk',
+  'mapping_confidence derives from safe CBS neighborhood crosswalk',
+  'Population change between CBS 2022 population and 2024 statistical-area population.',
+  ARRAY['Only available where safe statistical-area mapping exists'],ARRAY['population growth','גידול אוכלוסייה'])
+ON CONFLICT(metric_key) DO UPDATE SET
+ label=EXCLUDED.label,preferred_table=EXCLUDED.preferred_table,expression_hint=EXCLUDED.expression_hint,
+ time_field=EXCLUDED.time_field,unit=EXCLUDED.unit,default_window=EXCLUDED.default_window,
+ aggregation=EXCLUDED.aggregation,source_grain=EXCLUDED.source_grain,inheritance=EXCLUDED.inheritance,
+ confidence_rule=EXCLUDED.confidence_rule,description=EXCLUDED.description,caveats=EXCLUDED.caveats,
+ synonyms=EXCLUDED.synonyms;
