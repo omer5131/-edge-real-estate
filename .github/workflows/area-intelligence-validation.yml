@@ -56,6 +56,8 @@ jobs:
         run: npm run test:areas
       - name: Apply semantic/area migrations
         run: npm run migrate:areas
+      - name: Import official CBS neighborhood key
+        run: npm run import:cbs-neighborhoods
       - name: Build server modules
         run: npx tsc -p tsconfig.server.json --noEmit false --outDir .server-build
       - name: Refresh and validate neighborhood intelligence
