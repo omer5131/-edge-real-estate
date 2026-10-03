@@ -17,7 +17,9 @@
     "test:research": "tsc -p tsconfig.server.json --noEmit false --outDir .server-test && node --test tests/research.test.mjs",
     "collect:yad2": "tsc -p tsconfig.server.json --noEmit false --outDir .server-build && node scripts/yad2-collect.mjs",
     "process:yad2": "tsc -p tsconfig.server.json --noEmit false --outDir .server-build && node scripts/yad2-process.mjs",
-    "import:cbs-neighborhoods": "node scripts/import-cbs-neighborhood-key.mjs"
+    "import:cbs-neighborhoods": "node scripts/import-cbs-neighborhood-key.mjs",
+    "eval:neighborhood": "tsc -p tsconfig.server.json --noEmit false --outDir .server-eval && node scripts/run-neighborhood-evals.mjs",
+    "eval:neighborhood:agent": "tsc -p tsconfig.server.json --noEmit false --outDir .server-eval && node scripts/run-neighborhood-evals.mjs --agent"
   },
   "dependencies": {
     "@ai-sdk/openai": "^4.0.83",
