@@ -582,3 +582,138 @@ For the 115m² / 4-room Drayfus 25 validation asset, the previously returned 52m
 
 These do not reopen Phase 0–2 architecture.
 
+
+
+## 21. Phase 3 implementation status — IN PROGRESS
+
+Branch:
+`phase3-investment-workflow`
+
+### Implemented so far
+
+#### Deterministic Deal Engine
+Module:
+`server/dealEngine.ts`
+
+Supports:
+- acquisition cost
+- equity required
+- debt service
+- gross / net yield
+- cash flow
+- cash-on-cash
+- exit value / equity / projected profit
+- IRR
+- break-even monthly rent
+- max purchase price for target return
+
+No LLM calculation path is used.
+
+#### Normalized workflow service
+Module:
+`server/dealWorkflow.ts`
+
+Supports:
+- create/open deal from listing
+- pipeline stage changes
+- rejection reason payload
+- next action
+- offer
+- scenarios
+- notes
+- due diligence
+- timeline events
+
+The service is exposed through the existing consolidated `api/opportunities.ts` router so no new Vercel serverless function is added.
+
+#### My Deals
+UI component:
+`ui/MyDeals.tsx`
+
+Pipeline workspace displays:
+- current stage
+- property/listing identity
+- ask
+- primary scenario output
+- next action
+- last activity
+- DD issue count
+
+#### Deal Room workflow tabs
+Added:
+- Deal
+- Notes
+- Due Diligence
+- Timeline
+
+Scenario UI supports:
+- Conservative
+- Base
+- Upside
+- Custom
+
+Rejected stage captures a rejection reason.
+
+#### Historical property context
+Requested during Phase 3 and implemented as a first-class property-page layer.
+
+Module:
+`server/propertyHistoryContext.ts`
+
+The property page now separates:
+1. strict active similar listings;
+2. selected valuation comps;
+3. broader-but-still-subject-relevant historical executed sales from `transactions`;
+4. neighborhood closed-sale trends from `neighborhood_market_periods`.
+
+Historical sale eligibility:
+- same canonical neighborhood
+- area within ±25% when known
+- rooms within ±1 when known
+- similarity >= 0.60
+- duplicate transaction fingerprints collapsed upstream in valuation logic where applicable
+
+Trend context includes:
+- executed transaction count
+- median executed price
+- median / P25 / P75 price per m²
+- active sale inventory
+- median asking price per m²
+- asking-to-executed premium
+- transaction confidence
+- 12-month change summary
+
+Trend data is contextual and must not be substituted directly into deterministic subject valuation.
+
+### Validation completed
+
+Phase 3 CI currently passes:
+- server typecheck
+- Phase 2.1 regression suite
+- Deal Engine regression suite
+- historical-market regression coverage
+- reconstructed production frontend build
+
+The additive workflow migration `db/028_deal_workflow_normalization.sql` passed on the isolated Neon branch.
+
+Real listing persistence validation on the isolated branch:
+- listing: דרייפוס 25
+- deal created
+- stage changed Saved → Researching
+- scenario persisted
+- note persisted
+- DD item persisted as Verified
+- timeline events persisted
+
+### Production migration gate
+
+Production currently has `deals` but does NOT yet have:
+- `deal_scenarios`
+- `investment_notes`
+- `due_diligence_items`
+- `deal_events`
+
+Do not deploy Phase 3 workflow state to production until this additive migration is explicitly approved and applied.
+
+The Neon migration-preparation helper currently rejects the multi-statement DDL with a parser error even though PostgreSQL executes the migration successfully on the isolated validation branch. If that helper remains unusable, apply the reviewed additive migration through the normal controlled migration path after explicit approval.
+
