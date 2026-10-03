@@ -15,12 +15,12 @@ async function hydrateSupportingGeography(){
 
  let rows=await queryDatabase(`
   WITH src AS(
-   SELECT locality_code,statistical_area_code,COALESCE(observation_year,2022)::int year,
+   SELECT locality_code,statistical_area_code,COALESCE(observation_year,2022)::int boundary_year,
     ST_GeomFromText(geometry_wkt) raw_geom
    FROM research_statistical_areas_2022
    WHERE geometry_wkt IS NOT NULL AND geometry_wkt<>'' AND locality_code IS NOT NULL AND statistical_area_code IS NOT NULL
   ), norm AS(
-   SELECT locality_code,statistical_area_code,year,
+   SELECT locality_code,statistical_area_code,boundary_year,
     ST_Multi(ST_CollectionExtract(ST_MakeValid(
       CASE WHEN abs(ST_X(ST_Centroid(raw_geom)))>180 OR abs(ST_Y(ST_Centroid(raw_geom)))>90
            THEN ST_Transform(ST_SetSRID(raw_geom,2039),4326)
@@ -29,7 +29,7 @@ async function hydrateSupportingGeography(){
    FROM src
   )
   INSERT INTO statistical_areas(city_id,stat_area_code,year,geom,source_id,observed_at)
-  SELECT c.id,n.statistical_area_code,n.year,n.geom,'cbs',now()
+  SELECT c.id,n.statistical_area_code,n.boundary_year,n.geom,'cbs',now()
   FROM norm n JOIN cities c ON c.settlement_code=n.locality_code
   WHERE n.geom IS NOT NULL AND NOT ST_IsEmpty(n.geom)
   ON CONFLICT(city_id,stat_area_code,year) DO UPDATE SET geom=EXCLUDED.geom,observed_at=now()
