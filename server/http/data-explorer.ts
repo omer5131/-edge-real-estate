@@ -73,7 +73,7 @@ export default async function handler(req:VercelRequest,res:VercelResponse){
  res.setHeader('Cache-Control','no-store');
  if(!['GET','POST'].includes(req.method||''))return res.status(405).json({error:'Method not allowed.'});
  try{
-  const datasets=await catalog();if(req.method==='GET')return res.json({datasets});
+  const datasets=await catalog();if(req.method==='GET'){if(req.query.mode==='semantic')return res.json(await semanticGraph());return res.json({datasets});}
   const body=typeof req.body==='string'?JSON.parse(req.body):req.body;
   let canonical:string;try{canonical=validateResearchSql(body?.sql,datasets.map(d=>d.table));}catch(e:any){return res.status(400).json({error:e.message});}
   return res.json(await executeResearchSql(canonical,datasets));
