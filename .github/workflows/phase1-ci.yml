@@ -16,9 +16,11 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -27,6 +29,8 @@ jobs:
         run: npm run test:phase1
       - name: Server typecheck
         run: npm run check:server
+      - name: Production-data contract smoke
+        run: node scripts/validate-phase1-context.mjs
       - name: Frontend typecheck and build
         run: |
           node reconstruct.mjs
