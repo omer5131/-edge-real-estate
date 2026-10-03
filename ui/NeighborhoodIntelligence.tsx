@@ -170,7 +170,7 @@ export default function NeighborhoodIntelligenceShell({children}:{children:React
      {section==='listings'&&<Listings rows={Array.isArray(sectionData)?sectionData:[]}/>}
      {section==='rentals'&&<Rentals data={sectionData}/>}
      {section==='renewal'&&<Renewal rows={Array.isArray(sectionData)?sectionData:[]}/>}
-     {section==='demographics'&&<MetricPanel data={sectionData} title="Demographics & economics"/>}
+     {section==='demographics'&&<Demographics data={sectionData}/>}
      {section==='infrastructure'&&<Infrastructure data={sectionData}/>}
      {section==='supply'&&<Supply data={sectionData}/>}
      {section==='city-context'&&<MetricPanel data={Array.isArray(sectionData)?{metrics:sectionData}:sectionData} title="City context inherited to neighborhood" inherited/>}
@@ -237,7 +237,7 @@ function Market({data}:{data:any}){
    </svg>
   </div>
   <div className="ni-table-wrap"><table><thead><tr><th>Month</th><th>Tx</th><th>Executed ₪/m²</th><th>Sale listings</th><th>Asking ₪/m²</th><th>Ask premium</th></tr></thead><tbody>{history.slice().reverse().slice(0,36).map((r:any)=><tr key={r.period_start}><td>{String(r.period_start).slice(0,7)}</td><td>{r.executed_transaction_count}</td><td>{money(r.median_executed_price_sqm)}</td><td>{r.active_sale_listing_count}</td><td>{money(r.median_asking_price_sqm)}</td><td>{pct(r.asking_to_executed_premium_pct)}</td></tr>)}</tbody></table></div>
-  <div className="ni-block"><h3>CBS profile</h3>{cbs.observation_year?<div className="ni-kpis">
+  <div className="ni-block"><div className="ni-block-title-row"><h3>CBS profile</h3>{cbs.observation_year&&<span className={'ni-data-badge '+(cbs.profile_quality||'provisional')}>{cbs.profile_quality||'provisional'} · {cbs.safe_for_score?'score-safe':'context-only'}</span>}</div>{cbs.observation_year?<div className="ni-kpis">
    <div><span>Population</span><strong>{cbs.population==null?'—':Math.round(cbs.population).toLocaleString()}</strong><small>CBS {cbs.observation_year}</small></div>
    <div><span>Population growth</span><strong>{pct(cbs.population_growth_from_2022_pct)}</strong><small>2022 → 2024</small></div>
    <div><span>Employment</span><strong>{cbs.employment_pct==null?'—':num(cbs.employment_pct)+'%'}</strong><small>CBS safe-area rollup</small></div>
@@ -256,6 +256,27 @@ function Listings({rows}:{rows:any[]}){
 }
 function Renewal({rows}:{rows:any[]}){
  return <div className="ni-section"><div className="ni-table-wrap"><table><thead><tr><th>Project</th><th>Stage</th><th>Status</th><th>Existing</th><th>Planned</th><th>Certainty</th></tr></thead><tbody>{rows.map(r=><tr key={r.id}><td><b>{r.project_name||r.plan_number||'Project'}</b><small>{r.developer||''}</small></td><td>{r.stage||'—'}</td><td>{r.status||'—'}</td><td>{r.existing_units??'—'}</td><td>{r.planned_units??'—'}</td><td>{r.planning_certainty==null?'—':Math.round(Number(r.planning_certainty)*100)+'%'}</td></tr>)}</tbody></table></div></div>;
+}
+
+
+function Demographics({data}:{data:any}){
+ const profiles=data?.profiles||[];const latest=profiles.slice(-1)[0]||{};const metrics=data?.metrics||[];
+ return <div className="ni-section">
+  {data?.note&&<div className="ni-callout">{data.note}</div>}
+  {latest.observation_year?<><div className="ni-block"><div className="ni-block-title-row"><h3>CBS neighborhood profile</h3><span className={'ni-data-badge '+(latest.profile_quality||'provisional')}>{latest.profile_quality||'provisional'} · {latest.safe_for_score?'score-safe':'context-only'}</span></div>
+   <div className="ni-kpis">
+    <div><span>Population</span><strong>{latest.population==null?'—':Math.round(latest.population).toLocaleString()}</strong><small>CBS {latest.observation_year}</small></div>
+    <div><span>2022→2024 population</span><strong>{pct(latest.population_growth_from_2022_pct)}</strong><small>{latest.statistical_area_count??0} statistical areas</small></div>
+    <div><span>Employment</span><strong>{latest.employment_pct==null?'—':num(latest.employment_pct)+'%'}</strong><small>demographic reference 2022</small></div>
+    <div><span>Academic certificate</span><strong>{latest.academic_certificate_pct==null?'—':num(latest.academic_certificate_pct)+'%'}</strong><small>demographic reference 2022</small></div>
+    <div><span>Median annual employee wage</span><strong>{money(latest.median_annual_employee_wage)}</strong><small>CBS census wage metric</small></div>
+    <div><span>Owner households</span><strong>{latest.owner_households_pct==null?'—':num(latest.owner_households_pct)+'%'}</strong><small>CBS Census 2022</small></div>
+    <div><span>Renter households</span><strong>{latest.renter_households_pct==null?'—':num(latest.renter_households_pct)+'%'}</strong><small>CBS Census 2022</small></div>
+    <div><span>Mapping confidence</span><strong>{latest.mapping_confidence==null?'—':Math.round(Number(latest.mapping_confidence)*100)+'%'}</strong><small>{latest.crosswalk_method||'crosswalk'}</small></div>
+   </div>
+  </div></>:<div className="ni-empty ni-small-empty">No CBS neighborhood profile is available yet.</div>}
+  <MetricPanel data={{metrics}} title="Additional demographic & economic context"/>
+ </div>;
 }
 
 function MetricPanel({data,title,inherited=false}:{data:any;title:string;inherited?:boolean}){
