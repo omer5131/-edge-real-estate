@@ -1,4 +1,4 @@
-import type {AssetContextResponse,EvidenceMeta} from './contracts/investmentContext.js';
+import type {AssetContextResponse,AssetIdentity,EvidenceMeta} from './contracts/investmentContext.js';
 import {getValuationContext} from './valuationContext.js';
 import {getActiveMarketContext} from './activeMarketContext.js';
 import {getAreaContext} from './areaContext.js';
@@ -12,8 +12,17 @@ const worstStatus=(items:EvidenceMeta[])=>{
   return 'supported' as const;
 };
 
-export function assetIdentityFromListing(listing:any){
+export function assetIdentityFromListing(listing:any):AssetIdentity{
   const hasNeighborhood=Boolean(listing?.neighborhood_id);
+  const identityEvidence:EvidenceMeta={
+      status:hasNeighborhood?'supported':'insufficient_evidence',
+      confidence:hasNeighborhood?1:null,
+      sampleSize:1,
+      observedAt:listing?.last_seen_at??null,
+      modelVersion:'asset-identity-v1',
+      sourceIds:[String(listing?.source_id||'listings')],
+      notes:[...(listing?.building_id?[]:['Canonical building identity is not yet resolved.']),...(hasNeighborhood?[]:['Canonical neighborhood identity is missing.'])]
+    };
   return {
     listingId:String(listing?.id??''),
     propertyId:listing?.property_id??null,
@@ -27,15 +36,7 @@ export function assetIdentityFromListing(listing:any){
     parcelId:listing?.parcel_id??null,
     latitude:listing?.latitude??null,
     longitude:listing?.longitude??null,
-    identityEvidence:{
-      status:hasNeighborhood?'supported':'insufficient_evidence',
-      confidence:hasNeighborhood?1:null,
-      sampleSize:1,
-      observedAt:listing?.last_seen_at??null,
-      modelVersion:'asset-identity-v1',
-      sourceIds:[String(listing?.source_id||'listings')],
-      notes:[...(listing?.building_id?[]:['Canonical building identity is not yet resolved.']),...(hasNeighborhood?[]:['Canonical neighborhood identity is missing.'])]
-    }
+    identityEvidence
   };
 }
 
@@ -47,7 +48,7 @@ export async function getAssetContext(listing:any):Promise<AssetContextResponse>
     getPlanningContext(listing?.neighborhood_id)
   ]);
   const asset=assetIdentityFromListing(listing);
-  const evidenceItems=[asset.identityEvidence,valuation.evidence,activeMarket.evidence,planning.evidence];
+  const evidenceItems:EvidenceMeta[]=[asset.identityEvidence,valuation.evidence,activeMarket.evidence,planning.evidence];
   if(neighborhood)evidenceItems.push(neighborhood.mapping.evidence);
   const confidenceVals=evidenceItems.map(x=>x.confidence).filter((x):x is number=>typeof x==='number'&&Number.isFinite(x));
   const evidence:EvidenceMeta={
