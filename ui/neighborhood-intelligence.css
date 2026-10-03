@@ -15,3 +15,16 @@
 .ni-callout{background:#edf3ef;border:1px solid #d5e2d9;border-radius:12px;padding:12px;font-size:12px;line-height:1.5}.ni-empty{min-height:280px;border:1px dashed #cbd4cd;border-radius:18px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:var(--ni-muted);gap:6px;padding:30px}.ni-error{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#451d1d;color:#fff;padding:10px 14px;border-radius:10px;z-index:300;font-size:12px}.ni-error button{border:0;background:transparent;color:#fff;margin-left:12px}
 @media(max-width:1000px){.ni-layout{grid-template-columns:1fr}.ni-map-panel{border-right:0;border-bottom:1px solid var(--ni-line)}.ni-kpis{grid-template-columns:repeat(2,1fr)}.ni-map{height:420px}}
 @media(max-width:650px){.ni-header{padding:0 14px}.ni-header h1{font-size:19px}.ni-header-actions select{max-width:135px}.ni-layout{display:block}.ni-map-panel,.ni-detail{padding:14px}.ni-map{height:330px}.ni-neighborhood-list{grid-template-columns:1fr 1fr}.ni-score-grid{grid-template-columns:1fr 1fr}.ni-score-grid>div:last-child{grid-column:1/-1}.ni-kpis{grid-template-columns:1fr 1fr}.ni-metric-list{grid-template-columns:1fr}.ni-market-hero{grid-template-columns:1fr 1fr}.ni-spark{grid-column:1/-1}}
+
+.ni-title-actions{display:flex;align-items:center;gap:8px}
+.ni-ask{border:1px solid #153f2e;background:#153f2e;color:#fff;border-radius:9px;padding:8px 11px;font-size:11px;font-weight:800;cursor:pointer}
+.ni-ask:disabled{opacity:.55;cursor:wait}
+.ni-tabs{overflow-x:auto;white-space:nowrap;scrollbar-width:thin}
+.ni-agent-answer{background:#f0f6f2;border:1px solid #cee0d4;border-radius:13px;padding:13px 14px;margin-bottom:14px;font-size:12px;line-height:1.55}
+.ni-agent-answer b{display:block;margin-bottom:5px}
+.ni-agent-answer p{white-space:pre-wrap;margin:0}
+.ni-agent-answer button{margin-top:8px;border:0;background:transparent;color:#153f2e;font-weight:800;cursor:pointer;padding:0}
+.ni-summary-cols{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.ni-summary-cols p{font-size:12px;line-height:1.45;margin:7px 0;color:#3e4c44}
+.ni-small-empty{min-height:120px}
+@media(max-width:650px){.ni-summary-cols{grid-template-columns:1fr}.ni-title-actions{align-items:flex-end;flex-direction:column}.ni-tabs{margin-left:-14px;margin-right:-14px;padding-left:14px}}
