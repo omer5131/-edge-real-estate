@@ -224,7 +224,7 @@ async function refreshDealHeat(model:any){
    const adjusted=bayesianAdjust(Number(row.raw),Number(row.n),row.prior==null?null:Number(row.prior),Number(model.parameters.bayesian_k??5));
    await queryDatabase(`
     INSERT INTO neighborhood_metric_snapshots(neighborhood_id,as_of_date,metric_key,numeric_value,sample_count,confidence,evidence_count,source_datasets,source_evidence)
-    VALUES($1,$2::date,'deal_score_adjusted',$3,$4,LEAST(1,$4::numeric/10),$4,ARRAY['sale_listings'],$5::jsonb)
+    VALUES($1,$2::date,'deal_score_adjusted',$3::numeric,$4::int,LEAST(1::numeric,$4::numeric/10),$4::int,ARRAY['sale_listings'],$5::jsonb)
     ON CONFLICT(neighborhood_id,as_of_date,metric_key) DO UPDATE SET
       numeric_value=EXCLUDED.numeric_value,sample_count=EXCLUDED.sample_count,confidence=EXCLUDED.confidence,
       evidence_count=EXCLUDED.evidence_count,source_datasets=EXCLUDED.source_datasets,source_evidence=EXCLUDED.source_evidence,calculated_at=now()
