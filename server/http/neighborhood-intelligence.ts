@@ -62,6 +62,8 @@ async function listings(neighborhoodId:string){
    s.asking_price_nis::float8,s.area_sqm::float8,s.rooms::float8,s.floor::float8,
    CASE WHEN s.area_sqm>0 THEN (s.asking_price_nis/s.area_sqm)::float8 END asking_price_sqm,
    sc.score::float8,sc.model_version,sc.calculated_at,
+   b.first_seen_at,b.days_on_market,b.first_asking_price_nis::float8,
+   b.price_change_since_first_pct::float8,b.snapshot_count,b.executed_percentile::float8,b.relative_value_signal,
    b.historical_sample_count,b.matched_historical_sample_count,
    b.historical_median_price_sqm::float8,b.matched_historical_median_price_sqm::float8,
    b.current_listing_sample_count,b.current_listing_median_price_sqm::float8,
@@ -87,7 +89,8 @@ async function marketTrends(neighborhoodId:string){
     p25_executed_price_sqm::float8,p75_executed_price_sqm::float8,
     active_sale_listing_count,median_asking_price_nis::float8,median_asking_price_sqm::float8,
     active_rent_listing_count,median_asking_rent_nis::float8,median_rent_sqm::float8,
-    asking_to_executed_premium_pct::float8,transaction_confidence::float8,listing_confidence::float8
+    asking_to_executed_premium_pct::float8,transaction_count_3m,months_of_sale_inventory::float8,
+    sale_listing_to_transaction_ratio::float8,transaction_confidence::float8,listing_confidence::float8
    FROM neighborhood_market_periods
    WHERE neighborhood_id=$1 AND period_type='month'
    ORDER BY period_start
