@@ -112,7 +112,7 @@ export async function refreshNeighborhoodIdentity(){
   await queryDatabase(`
     INSERT INTO neighborhood_source_mappings(neighborhood_id,source_id,source_entity_type,source_entity_id,source_name,mapping_method,mapping_confidence,overlap_pct,evidence)
     SELECT m.neighborhood_id,'cbs','statistical_area',s.id::text,s.stat_area_code,m.mapping_method,m.mapping_confidence,m.overlap_ratio,
-      jsonb_build_object('stat_area_code',s.stat_area_code,'boundary_year',s."year")
+      jsonb_build_object('stat_area_code',s.stat_area_code,'boundary_year',s."year",'mapping_method',m.mapping_method,'source_evidence',m.source_evidence)
     FROM neighborhood_stat_area_map m JOIN statistical_areas s ON s.id=m.stat_area_id
     ON CONFLICT(source_id,source_entity_type,source_entity_id,neighborhood_id) DO UPDATE SET
       mapping_method=EXCLUDED.mapping_method,mapping_confidence=EXCLUDED.mapping_confidence,
@@ -205,6 +205,19 @@ export async function refreshNeighborhoodIdentity(){
     RETURNING neighborhood_id
   `);
   result.curatedCrosswalk=curated.length;
+
+  await queryDatabase(`
+    INSERT INTO neighborhood_source_mappings(neighborhood_id,source_id,source_entity_type,source_entity_id,source_name,mapping_method,mapping_confidence,overlap_pct,evidence)
+    SELECT m.neighborhood_id,
+      CASE WHEN m.mapping_method='official_crosswalk' THEN 'cbs' ELSE 'curated_crosswalk' END,
+      'statistical_area',s.id::text,s.stat_area_code,m.mapping_method,m.mapping_confidence,m.overlap_ratio,
+      jsonb_build_object('stat_area_code',s.stat_area_code,'boundary_year',s."year",'source_evidence',m.source_evidence)
+    FROM neighborhood_stat_area_map m JOIN statistical_areas s ON s.id=m.stat_area_id
+    WHERE m.mapping_method IN ('official_crosswalk','configured_crosswalk')
+    ON CONFLICT(source_id,source_entity_type,source_entity_id,neighborhood_id) DO UPDATE SET
+      mapping_method=EXCLUDED.mapping_method,mapping_confidence=EXCLUDED.mapping_confidence,
+      overlap_pct=EXCLUDED.overlap_pct,evidence=EXCLUDED.evidence,mapped_at=now()
+  `);
   const candidates=await queryDatabase(`
     WITH mapped AS(
       SELECT m.neighborhood_id,s.geom,m.mapping_confidence,m.overlap_ratio,m.mapping_method,
