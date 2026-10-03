@@ -1,0 +1,59 @@
+name: CBS Neighborhood Crosswalk
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "db/021_cbs_neighborhood_crosswalk.sql"
+      - "scripts/parse-cbs-neighborhood-key.py"
+      - "scripts/import-cbs-neighborhood-key.mjs"
+      - "server/neighborhoodIdentity.ts"
+      - "server/neighborhoodIntelligence.ts"
+      - ".github/workflows/cbs-neighborhood-crosswalk.yml"
+  schedule:
+    - cron: "17 4 1 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Apply neighborhood schemas
+        run: npm run migrate:areas
+      - name: Import official CBS neighborhood key
+        run: npm run import:cbs-neighborhoods
+      - name: Build server
+        run: npx tsc -p tsconfig.server.json --noEmit false --outDir .server-build
+      - name: Refresh neighborhood identity and analytics
+        run: |
+          node --input-type=module <<'NODE'
+          const {refreshNeighborhoodIntelligence}=await import('./.server-build/server/neighborhoodIntelligence.js');
+          console.log(JSON.stringify(await refreshNeighborhoodIntelligence(),null,2));
+          NODE
+      - name: Validate mapping coverage
+        run: |
+          node --input-type=module <<'NODE'
+          import {neon} from '@neondatabase/serverless';
+          const sql=neon(process.env.DATABASE_URL);
+          const summary=await sql`
+            SELECT
+              (SELECT count(*)::int FROM cbs_neighborhood_stat_area_key) official_key_rows,
+              (SELECT count(*)::int FROM neighborhood_stat_area_map WHERE mapping_method='official_crosswalk') official_mappings,
+              (SELECT count(*)::int FROM neighborhood_geometries WHERE is_active) active_polygons,
+              (SELECT count(DISTINCT neighborhood_id)::int FROM dataset_neighborhood_evidence WHERE dataset_slug='census_2022') census_neighborhoods,
+              (SELECT count(DISTINCT neighborhood_id)::int FROM dataset_neighborhood_evidence WHERE dataset_slug='area_population_2024') population_neighborhoods
+          `;
+          console.log(JSON.stringify(summary,null,2));
+          NODE
