@@ -46,6 +46,16 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add artifacts/typecheck.log
           if git diff --cached --quiet; then echo "Typecheck log unchanged"; else git commit -m "Record frontend typecheck diagnostics"; git push; fi
+      - name: Capture server typecheck
+        run: |
+          mkdir -p artifacts
+          npx tsc -p tsconfig.server.json --pretty false > artifacts/server-typecheck.log 2>&1 || true
+      - name: Commit server typecheck diagnostics
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add artifacts/server-typecheck.log
+          if git diff --cached --quiet; then echo "Server typecheck log unchanged"; else git commit -m "Record server typecheck diagnostics"; git push; fi
       - name: Test scoring primitives
         run: npm run test:areas
       - name: Apply additive area schema
