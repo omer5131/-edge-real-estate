@@ -22,6 +22,10 @@ The processor uses the record's collection-time context, so delayed processing d
 
 ## Initial backfill and daily discovery
 
+The field contract includes stable ID/URL, market, price, city/neighborhood/address, rooms, advertised/built/garden area, floor/building floors, property type/condition, entry date, coordinates, description, images and seller type. Structured property details, address IDs, original/update/bump dates and source status are retained in JSON. Boolean amenities preserve both true and false; missing values stay null. This supports later mapping of parking, elevator, safe room, shelter and other source flags without another provider request. It does not guarantee that every Yad2 listing supplies every field. Urban-renewal status, actual transactions and derived deal scores require separate datasets/downstream processing.
+
+Bright Data's public Yad2 product page describes an AI Scraper Studio generated scraper, not a published fixed Yad2 output schema. This implementation currently uses our own native parser via Web Unlocker. A provider-hosted replacement must pass the same field/date/identity contract and free-tier checks before activation.
+
 Default enabled scopes: Haifa (4000), Netanya (7400), Petah Tikva (7900), sale and rental. Nationwide scopes are disabled. Additional towns require a new city-filtered scope URL and matching Hebrew `city_names`. Use a new scope ID when changing coverage, and disable the old scope.
 
 Initial collection traverses public pagination once for ads originally published in the 30 days before the scope first started. Its lower boundary stays fixed across budget-limited continuations. A per-run page/request cap does not mark this backfill complete; it resumes its saved cursor.

@@ -53,6 +53,21 @@ test('identity stays stable after price changes; missing numbers remain null',()
  assert.throws(()=>yad2Url('https://www.yad2.co.il/realestate/rent','sale'));
  assert.throws(()=>normalizeListing({...row,price:'negotiable'}));
 });
+test('property metadata preserves false amenities, source dates and areas without seller contacts',()=>{
+ const item={token:'abc123',price:5000,address:{city:{id:'4000',text:'חיפה'},street:{id:'0616',text:'Test'},house:{number:10,floor:0}},
+  additionalDetails:{roomsCount:3,squareMeter:100,squareMeterBuild:80,squareMeterGarden:25},
+  inProperty:{includeElevator:false,includeSecurityRoom:true,includeParking:false},
+  dates:{createdAt:'2026-09-15T10:00:00',updatedAt:'2026-10-02T10:00:00',rebouncedAt:'2026-10-02T12:00:00'},
+  customer:{name:'Not collected',phone:'Not collected'},statusId:1};
+ const html='<script id="__NEXT_DATA__">'+JSON.stringify({props:{pageProps:{dehydratedState:{queries:[{queryKey:['item','abc123'],state:{data:item}}]}}}})+'</script>';
+ const raw=parseYad2Html(html,row.url,false),{data}=normalizeListing(raw);
+ assert.equal(data.built_area_sqm,80);assert.equal(data.garden_area_sqm,25);
+ assert.equal(data.amenities.includeElevator,false);assert.equal(data.amenities.includeSecurityRoom,true);
+ assert.equal(data.published_at,'2026-09-15');assert.equal(data.source_dates.updatedAt,'2026-10-02T10:00:00');
+ assert.equal(data.address_components.city.id,'4000');assert.equal(data.property_details.squareMeterBuild,80);
+ assert.equal(data.source_status,1);assert.equal(raw.customer,undefined);assert.equal(data.customer,undefined);
+ assert.equal(normalizeListing({url:row.url}).data.amenities,null);
+});
 test('blocked, malformed and ambiguous empty pages cannot complete a crawl',()=>{
  for(const page of [{},{page_valid:false,listings:[]},{page_valid:true,listings:[]}])assert.throws(()=>validatePage(page));
  assert.equal(validatePage({page_valid:true,listings:[],empty_confirmed:true}).listings.length,0);

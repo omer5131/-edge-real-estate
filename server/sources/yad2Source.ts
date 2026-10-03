@@ -6,7 +6,7 @@ export function yad2Url(value:string, market?:string) {
  u.hash=''; return u.toString();
 }
 export const listingFields:any={};
-for(const field of ['url','price','city','neighborhood','address','rooms','area_sqm','floor','published_at','description','property_type','seller_type','images','features','latitude','longitude','entry_date','building_floors','condition']) {
+for(const field of ['url','price','city','neighborhood','address','rooms','area_sqm','floor','published_at','description','property_type','seller_type','images','features','latitude','longitude','entry_date','building_floors','condition','built_area_sqm','garden_area_sqm','property_details','amenities','source_dates','address_components','source_status']) {
  listingFields[field]=`${field} explicitly shown for this listing. Price is numeric ILS (monthly for rentals), rooms and area_sqm numeric; images and features arrays. Missing values null; preserve Hebrew. Never infer missing facts or dates.`;
 }
 listingFields.published_at='Original publication date explicitly shown, ISO YYYY-MM-DD. Null if unavailable. Never substitute update/bump dates or observation dates.';
@@ -29,7 +29,12 @@ export function parseYad2Html(html:string,url:string,isFeed:boolean) {
    description:m.description??null,property_type:d.property?.text??null,seller_type:item.adType??null,
    images:m.images??null,features:item.inProperty?Object.entries(item.inProperty).filter(([,v])=>v===true).map(([k])=>k):null,
    latitude:a.coords?.lat??null,longitude:a.coords?.lon??null,entry_date:d.entranceDate??null,
-   building_floors:a.house?.floors??null,condition:d.propertyCondition?.text??null};
+   building_floors:a.house?.floors??null,condition:d.propertyCondition?.text??null,
+   built_area_sqm:d.squareMeterBuild??null,garden_area_sqm:d.squareMeterGarden??null,
+   // Retain public property metadata, excluding customer/contact data.
+   property_details:item.additionalDetails??null,address_components:item.address??null,
+   amenities:item.inProperty?Object.fromEntries(Object.entries(item.inProperty).filter(([,v])=>typeof v==='boolean')):null,
+   source_dates:item.dates??null,source_status:item.statusId??null};
  };
  if(!isFeed) {
   const id=normalizeListing({url}).id;
@@ -57,7 +62,8 @@ export function normalizeListing(row:any) {
  const data:any={};
  for(const field of Object.keys(listingFields)) data[field]=row[field]??null;
  const canonical=new URL(url);canonical.search='';data.url=canonical.toString();
- for(const f of ['price','rooms','area_sqm','latitude','longitude','building_floors'])data[f]=number(data[f],f==='latitude'||f==='longitude');
+ for(const f of ['price','rooms','area_sqm','latitude','longitude','building_floors','built_area_sqm','garden_area_sqm'])data[f]=number(data[f],f==='latitude'||f==='longitude');
+ for(const f of ['property_details','amenities','source_dates','address_components'])if(data[f]!==null&&(typeof data[f]!=='object'||Array.isArray(data[f])))throw new Error('Invalid structured property field');
  for(const f of ['images','features']) {if(data[f]!==null&&!Array.isArray(data[f]))throw new Error('Invalid array field');if(data[f])data[f]=[...new Set(data[f].map(String))].sort();}
  return {id,data};
 }
