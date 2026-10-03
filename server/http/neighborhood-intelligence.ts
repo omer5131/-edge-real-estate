@@ -2,6 +2,7 @@ import type {VercelRequest,VercelResponse} from '@vercel/node';
 import {queryDatabase} from '../db.js';
 import {refreshNeighborhoodIntelligence} from '../neighborhoodIntelligence.js';
 import {neighborhoodIdentity,refreshNeighborhoodIdentity} from '../neighborhoodIdentity.js';
+import {latestNeighborhoodEvaluation,runNeighborhoodEvaluations} from '../evaluation/neighborhoodEvals.js';
 
 function authorized(req:VercelRequest){
  if(process.env.VERCEL_ENV==='preview')return true;
@@ -245,6 +246,13 @@ export default async function handler(req:VercelRequest,res:VercelResponse){
   if(mode==='neighborhood-refresh'){
    if(!authorized(req))return res.status(401).json({error:'unauthorized'});
    return res.status(200).json({ok:true,...await refreshNeighborhoodIntelligence()});
+  }
+  if(mode==='neighborhood-eval'){
+   if(req.method==='GET')return res.status(200).json(await latestNeighborhoodEvaluation());
+   if(req.method!=='POST')return res.status(405).json({error:'method_not_allowed'});
+   if(!authorized(req))return res.status(401).json({error:'unauthorized'});
+   const includeAgent=Boolean(req.body?.includeAgent);
+   return res.status(200).json(await runNeighborhoodEvaluations({includeAgent,gitSha:process.env.VERCEL_GIT_COMMIT_SHA}));
   }
   if(req.method!=='GET')return res.status(405).json({error:'method_not_allowed'});
   if(mode==='neighborhood-map')return mapData(res);
