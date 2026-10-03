@@ -125,3 +125,8 @@ Vercel Git preview creation became rate-limited during Phase 1 verification. The
 **PASS.**
 
 The backend contract required for Deal Room v1 is ready. Phase 2 may begin from the unified asset-context response without weakening any Phase 0 evidence or identity guardrails.
+
+
+## Production deployment retry
+
+After Phase 1 merged to `main`, the initial automatic Vercel production build was skipped by the provider's temporary build-rate limit. This documentation-only commit intentionally retriggers the normal Git-integrated production deployment without changing Phase 1 runtime semantics.
