@@ -1,6 +1,6 @@
-# Phase 1 Service Contracts — Draft v1
+# Phase 1 Service Contracts — Implemented v1
 
-These contracts are established during Phase 0 so parallel Phase 1 agents can implement independently without redefining domain semantics.
+These contracts were established during Phase 0 and implemented during Phase 1. See `docs/phase1-complete.md` for the acceptance record.
 
 Runtime/type definitions live in `server/contracts/investmentContext.ts`.
 
