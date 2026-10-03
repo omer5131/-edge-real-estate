@@ -84,6 +84,22 @@ async function hydrateSupportingGeography(){
  out.parcelStatArea=rows.length;
 
  rows=await queryDatabase(`
+  WITH resolved AS(
+    SELECT target.id parcel_id,(array_agg(DISTINCT src.stat_area_id))[1] stat_area_id
+    FROM parcels target
+    JOIN parcels src ON src.gush=target.gush AND src.helka=target.helka AND src.stat_area_id IS NOT NULL
+    WHERE target.stat_area_id IS NULL
+    GROUP BY target.id
+    HAVING count(DISTINCT src.stat_area_id)=1
+  )
+  UPDATE parcels p SET stat_area_id=r.stat_area_id
+  FROM resolved r
+  WHERE p.id=r.parcel_id
+  RETURNING p.id
+ `);
+ out.parcelStatArea+=rows.length;
+
+ rows=await queryDatabase(`
   WITH observed AS(
    SELECT DISTINCT b.neighborhood_id,s.id stat_area_id,1.0::numeric confidence
    FROM buildings b JOIN statistical_areas s ON s.city_id=b.city_id
