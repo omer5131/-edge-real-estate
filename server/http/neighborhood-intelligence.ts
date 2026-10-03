@@ -87,7 +87,8 @@ async function mapData(res:VercelResponse){
   SELECT n.id::text neighborhood_id,n.slug,n.name_he,c.name_he city,
    m.deal_heat::float8,m.investment_score::float8,m.confidence_score::float8,m.confidence_level,
    m.coverage_pct::float8,m.deal_count,m.transaction_count_12m,m.median_price_sqm_12m::float8,
-   m.price_change_1y::float8,
+   m.price_change_1y::float8,m.renewal_expansion_ratio::float8,m.estimated_gross_yield::float8,
+   m.average_wage::float8,m.net_internal_migration::float8,m.construction_starts::float8,
    CASE WHEN n.geom IS NULL THEN NULL ELSE ST_AsGeoJSON(n.geom)::jsonb END geometry
   FROM neighborhoods n JOIN cities c ON c.id=n.city_id
   LEFT JOIN neighborhood_map_cache m ON m.neighborhood_id=n.id
