@@ -20,7 +20,8 @@
     "import:cbs-neighborhoods": "node scripts/import-cbs-neighborhood-key.mjs",
     "eval:neighborhood": "tsc -p tsconfig.server.json --noEmit false --outDir .server-eval && node scripts/run-neighborhood-evals.mjs",
     "eval:neighborhood:agent": "tsc -p tsconfig.server.json --noEmit false --outDir .server-eval && node scripts/run-neighborhood-evals.mjs --agent",
-    "audit:phase0": "node scripts/phase0-audit.mjs"
+    "audit:phase0": "node scripts/phase0-audit.mjs",
+    "report:cbs-crosswalk": "node scripts/cbs-crosswalk-report.mjs"
   },
   "dependencies": {
     "@ai-sdk/openai": "^4.0.83",
