@@ -13,7 +13,7 @@ async function activeModel(){
 async function hydrateSupportingGeography(){
  const out={statisticalAreas:0,parcels:0,parcelStatArea:0,evidenceCrosswalk:0,neighborhoodGeometries:0};
 
- let rows=await queryDatabase(\`
+ let rows=await queryDatabase(`
   WITH src AS(
    SELECT locality_code,statistical_area_code,COALESCE(observation_year,2022)::int year,
     ST_GeomFromText(geometry_wkt) raw_geom
@@ -34,10 +34,10 @@ async function hydrateSupportingGeography(){
   WHERE n.geom IS NOT NULL AND NOT ST_IsEmpty(n.geom)
   ON CONFLICT(city_id,stat_area_code,year) DO UPDATE SET geom=EXCLUDED.geom,observed_at=now()
   RETURNING id
- \`);
+ `);
  out.statisticalAreas=rows.length;
 
- rows=await queryDatabase(\`
+ rows=await queryDatabase(`
   WITH src AS(
    SELECT block::int gush,parcel::int helka,COALESCE(NULLIF("GUSH_SUFFI",''),'') suffix,
     NULLIF("LOCALITY_I",'') locality_code,ST_GeomFromText(geometry_wkt) raw_geom
@@ -58,10 +58,10 @@ async function hydrateSupportingGeography(){
   ON CONFLICT(gush,helka,suffix) DO UPDATE SET
    city_id=COALESCE(parcels.city_id,EXCLUDED.city_id),centroid=EXCLUDED.centroid,geom=EXCLUDED.geom,observed_at=now()
   RETURNING id
- \`);
+ `);
  out.parcels=rows.length;
 
- rows=await queryDatabase(\`
+ rows=await queryDatabase(`
   UPDATE parcels p SET stat_area_id=s.id
   FROM statistical_areas s
   WHERE p.geom IS NOT NULL AND s.geom IS NOT NULL
@@ -69,10 +69,10 @@ async function hydrateSupportingGeography(){
     AND (p.stat_area_id IS NULL OR p.stat_area_id<>s.id)
     AND ST_Intersects(s.geom,ST_PointOnSurface(p.geom))
   RETURNING p.id
- \`);
+ `);
  out.parcelStatArea=rows.length;
 
- rows=await queryDatabase(\`
+ rows=await queryDatabase(`
   WITH observed AS(
    SELECT DISTINCT b.neighborhood_id,s.id stat_area_id,1.0::numeric confidence
    FROM buildings b JOIN statistical_areas s ON s.city_id=b.city_id
@@ -94,10 +94,10 @@ async function hydrateSupportingGeography(){
   ON CONFLICT(neighborhood_id,stat_area_id) DO UPDATE SET
    mapping_method='verified',mapping_confidence=GREATEST(neighborhood_stat_area_map.mapping_confidence,EXCLUDED.mapping_confidence),mapped_at=now()
   RETURNING neighborhood_id
- \`);
+ `);
  out.evidenceCrosswalk=rows.length;
 
- rows=await queryDatabase(\`
+ rows=await queryDatabase(`
   UPDATE neighborhoods n SET geom=x.geom
   FROM(
    SELECT m.neighborhood_id,ST_Multi(ST_Union(s.geom)) geom
@@ -106,7 +106,7 @@ async function hydrateSupportingGeography(){
   ) x
   WHERE n.id=x.neighborhood_id AND (n.geom IS NULL OR NOT ST_Equals(n.geom,x.geom))
   RETURNING n.id
- \`);
+ `);
  out.neighborhoodGeometries=rows.length;
  return out;
 }
