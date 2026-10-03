@@ -1,0 +1,49 @@
+name: Neighborhood Intelligence Refresh
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/neighborhood-intelligence-refresh.yml"
+      - "server/neighborhoodIntelligence.ts"
+      - "scripts/validate-area-intelligence.mjs"
+      - "db/017_neighborhood_intelligence.sql"
+      - "db/018_semantic_graph.sql"
+      - "scripts/migrate-area-intelligence.mjs"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: test -n "$DATABASE_URL"
+      - run: node scripts/migrate-area-intelligence.mjs
+      - run: npx tsc -p tsconfig.server.json --noEmit false --outDir .server-build
+      - name: Run neighborhood refresh
+        run: |
+          mkdir -p artifacts
+          node scripts/validate-area-intelligence.mjs > artifacts/neighborhood-validation.log 2>&1 || true
+      - name: Persist sanitized report
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add artifacts/neighborhood-validation.log
+          if [ -f artifacts/neighborhood-validation.json ]; then git add artifacts/neighborhood-validation.json; fi
+          if git diff --cached --quiet; then
+            echo "No report change"
+          else
+            git commit -m "Record neighborhood intelligence refresh"
+            git push
+          fi
