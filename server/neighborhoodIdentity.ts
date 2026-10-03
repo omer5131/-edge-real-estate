@@ -1,7 +1,7 @@
 import {queryDatabase} from './db.js';
 
 export async function refreshNeighborhoodIdentity(){
-  const result={sourceMappings:0,parcelMappings:0,parcelEnrichment:0,statAreaMappings:0,geometriesPromoted:0,aliases:0};
+  const result={sourceMappings:0,parcelMappings:0,parcelEnrichment:0,statAreaMappings:0,geometriesPromoted:0,aliases:0,hierarchyEdges:0};
 
   let rows=await queryDatabase(`
     INSERT INTO neighborhood_aliases(neighborhood_id,source_id,alias,normalized_alias,language,alias_type,confidence,is_primary)
@@ -155,6 +155,35 @@ export async function refreshNeighborhoodIdentity(){
       WHERE id=$1
     `,[c.neighborhood_id,c.geom,version,c.confidence]);
   }
+
+  const hierarchy=await queryDatabase(`
+    WITH ins_city AS(
+      INSERT INTO geo_relationships(parent_type,parent_id,child_type,child_id,relationship_type,confidence,source_id,metadata)
+      SELECT 'city',c.id,'neighborhood',n.id,'contains',1,'edge',
+        jsonb_build_object('city_name',c.name_he,'neighborhood_slug',n.slug)
+      FROM neighborhoods n JOIN cities c ON c.id=n.city_id
+      ON CONFLICT(parent_type,parent_id,child_type,child_id,relationship_type) DO UPDATE SET confidence=1
+      RETURNING 1
+    ), ins_stat AS(
+      INSERT INTO geo_relationships(parent_type,parent_id,child_type,child_id,relationship_type,confidence,source_id,metadata)
+      SELECT 'neighborhood',m.neighborhood_id,'statistical_area',m.stat_area_id,'contains',m.mapping_confidence,'cbs',
+        jsonb_build_object('mapping_method',m.mapping_method,'overlap_ratio',m.overlap_ratio,'mapping_version',m.mapping_version)
+      FROM neighborhood_stat_area_map m
+      ON CONFLICT(parent_type,parent_id,child_type,child_id,relationship_type) DO UPDATE SET
+        confidence=EXCLUDED.confidence,source_id=EXCLUDED.source_id,metadata=EXCLUDED.metadata
+      RETURNING 1
+    ), ins_parcel AS(
+      INSERT INTO geo_relationships(parent_type,parent_id,child_type,child_id,relationship_type,confidence,source_id,metadata)
+      SELECT 'neighborhood',m.neighborhood_id,'parcel',m.parcel_id,'contains',m.mapping_confidence,'edge',
+        jsonb_build_object('mapping_method',m.mapping_method,'mapping_version',m.mapping_version)
+      FROM neighborhood_parcel_map m
+      ON CONFLICT(parent_type,parent_id,child_type,child_id,relationship_type) DO UPDATE SET
+        confidence=EXCLUDED.confidence,metadata=EXCLUDED.metadata
+      RETURNING 1
+    )
+    SELECT (SELECT count(*) FROM ins_city)+(SELECT count(*) FROM ins_stat)+(SELECT count(*) FROM ins_parcel) count
+  `);
+  result.hierarchyEdges=Number(hierarchy[0]?.count??0);
 
   return result;
 }
