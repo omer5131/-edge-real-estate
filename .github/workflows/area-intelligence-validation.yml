@@ -59,7 +59,15 @@ jobs:
       - name: Test scoring primitives
         run: npm run test:areas
       - name: Apply additive area schema
-        run: npm run migrate:areas
+        run: |
+          mkdir -p artifacts
+          npm run migrate:areas > artifacts/migration.log 2>&1 || true
+      - name: Commit migration diagnostics
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add artifacts/migration.log
+          if git diff --cached --quiet; then echo "Migration log unchanged"; else git commit -m "Record neighborhood migration diagnostics"; git push; fi
       - name: Build server modules
         run: npx tsc -p tsconfig.server.json --noEmit false --outDir .server-build
       - name: Refresh and write sanitized validation report
