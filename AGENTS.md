@@ -33,8 +33,11 @@ Relationships may be spatial/weighted rather than strictly hierarchical. Store m
 - Every domain change requires tests and provenance/confidence handling.
 
 ## Current Phase
-**Phase 0 — Architecture reconciliation.**
-Do not perform a broad UI redesign yet.
+**Phase 2 — Deal Room v1.**
+
+Phase 0 architecture reconciliation and Phase 1 market-intelligence services are complete. The authoritative Phase 1 completion record is `docs/phase1-complete.md`.
+
+Deal Room frontend work may now consume the unified asset-context backend. Do not recreate valuation, active-market, neighborhood or planning calculations in React.
 
 Before feature work, inspect actual production schema/data and lock:
 - entity identity contracts
