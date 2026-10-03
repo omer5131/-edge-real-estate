@@ -1,0 +1,26 @@
+name: Phase 2 CI
+
+on:
+  push:
+    branches:
+      - phase2-deal-room-v1
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Server typecheck
+        run: npm run check:server
+      - name: Frontend build
+        run: npm run build
