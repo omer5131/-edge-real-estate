@@ -55,7 +55,7 @@ CREATE TABLE IF NOT EXISTS semantic_dataset_roles (
 
 INSERT INTO semantic_entities(entity_key,label,grain,primary_table,primary_key,description,hierarchy_level) VALUES
  ('city','City','municipality','cities','id','Municipality/locality. Used for city-wide context and neighborhood parentage.',1),
- ('neighborhood','Neighborhood','neighborhood','neighborhoods','id','Primary product analysis entity. Map, dashboard, metrics and investment score are keyed by neighborhood_id.',2),
+ ('neighborhood','Neighborhood','neighborhood','semantic_neighborhoods','neighborhood_id','Primary product analysis entity and canonical neighborhood source of truth. Resolve identity through semantic_neighborhoods; map, dashboard, metrics and investment score are keyed by neighborhood_id.',2),
  ('statistical_area','Statistical area','CBS statistical area','statistical_areas','id','Supporting geography for census/population data. Never the primary dashboard entity.',3),
  ('parcel','Parcel','cadastral parcel','parcels','id','Land parcel used to resolve transactions/buildings geographically.',4),
  ('building','Building','building','buildings','id','Resolved building/address entity.',5),
@@ -198,3 +198,34 @@ LEFT JOIN neighborhood_map_cache mc ON mc.neighborhood_id=n.id;
 
 COMMENT ON VIEW semantic_neighborhood_metrics IS 'Primary long-form semantic view for agent questions about neighborhood metrics. Use metric_key and neighborhood_id/slug; inspect source_datasets and confidence.';
 COMMENT ON VIEW semantic_neighborhood_summary IS 'Fast one-row-per-neighborhood semantic summary for comparison/map questions. For evidence/history use semantic_neighborhood_metrics and canonical fact tables.';
+
+
+INSERT INTO semantic_dataset_roles(table_name,entity_key,dataset_role,source_grain,neighborhood_link_rule,inheritance_rule,preferred_for,avoid_for,notes) VALUES
+ ('semantic_neighborhoods','neighborhood','canonical_identity','neighborhood','neighborhood_id is canonical','none',
+  ARRAY['neighborhood identity','name resolution','city membership','geometry availability','mapping coverage'],
+  ARRAY['raw metric history','transaction valuation'],
+  'PRIMARY source of truth for neighborhood identity. Source-specific names or polygons must resolve here before analytics.'),
+ ('neighborhood_source_mappings','neighborhood','identity_lineage','mixed source entity','explicit neighborhood_id','none',
+  ARRAY['source comparison','mapping provenance','mapping confidence'],
+  ARRAY['business metric calculation'],
+  'Tracks how each external/source entity resolves to one canonical neighborhood.'),
+ ('neighborhood_geometries','neighborhood','boundary_history','neighborhood boundary version','explicit neighborhood_id','none',
+  ARRAY['polygon provenance','boundary versioning','map QA'],
+  ARRAY['metric calculation without active-version filter'],
+  'Versioned neighborhood geometries; exactly one active geometry per neighborhood.'),
+ ('neighborhood_aliases','neighborhood','identity_alias','alias','explicit neighborhood_id','none',
+  ARRAY['name resolution','source label comparison'],
+  ARRAY['joining facts by free-text alias'],
+  'Aliases support resolution only. After resolution always join on neighborhood_id.'),
+ ('neighborhood_parcel_map','neighborhood','parcel_crosswalk','parcel','explicit neighborhood_id','none',
+  ARRAY['parcel-to-neighborhood mapping','transaction geography QA'],
+  ARRAY['metric values'],
+  'Parcel crosswalk with method and confidence.'),
+ ('geo_relationships','neighborhood','geography_graph','relationship','typed entity IDs','relationship-specific',
+  ARRAY['area hierarchy','contains/part_of/overlap traversal'],
+  ARRAY['metric values'],
+  'Generic geography graph for hierarchy and overlapping geographic entities.')
+ON CONFLICT(table_name) DO UPDATE SET
+ entity_key=EXCLUDED.entity_key,dataset_role=EXCLUDED.dataset_role,source_grain=EXCLUDED.source_grain,
+ neighborhood_link_rule=EXCLUDED.neighborhood_link_rule,inheritance_rule=EXCLUDED.inheritance_rule,
+ preferred_for=EXCLUDED.preferred_for,avoid_for=EXCLUDED.avoid_for,notes=EXCLUDED.notes;
