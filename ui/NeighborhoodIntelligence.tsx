@@ -69,7 +69,9 @@ export default function NeighborhoodIntelligenceShell({children}:{children:React
  const [selected,setSelected]=useState<string|null>(null);
  const [summary,setSummary]=useState<Summary|null>(null);
  const [section,setSection]=useState('overview');
- const [sectionData,setSectionData]=useState<any[]>([]);
+ const [sectionData,setSectionData]=useState<any>([]);
+ const [agentAnswer,setAgentAnswer]=useState('');
+ const [asking,setAsking]=useState(false);
  const [error,setError]=useState<string|null>(null);
 
  useEffect(()=>{
@@ -86,7 +88,7 @@ export default function NeighborhoodIntelligenceShell({children}:{children:React
 
  useEffect(()=>{
   if(!selected||!open)return;
-  setSummary(null);setSection('overview');setSectionData([]);
+  setSummary(null);setSection('overview');setSectionData([]);setAgentAnswer('');
   fetch('/api/neighborhood?neighborhoodId='+encodeURIComponent(selected)+'&section=summary')
    .then(r=>r.json()).then(x=>setSummary(x.data||null)).catch(e=>setError(String(e)));
  },[selected,open]);
@@ -95,7 +97,7 @@ export default function NeighborhoodIntelligenceShell({children}:{children:React
   if(!selected||section==='overview')return;
   const apiSection=section==='market'?'transactions':section;
   fetch('/api/neighborhood?neighborhoodId='+encodeURIComponent(selected)+'&section='+apiSection)
-   .then(r=>r.json()).then(x=>setSectionData(Array.isArray(x.data)?x.data:[])).catch(e=>setError(String(e)));
+   .then(r=>r.json()).then(x=>setSectionData(x.data??[])).catch(e=>setError(String(e)));
  },[selected,section]);
 
  const available=rows.filter(r=>r.geometry);
@@ -108,6 +110,16 @@ export default function NeighborhoodIntelligenceShell({children}:{children:React
  const current=rows.find(r=>r.neighborhood_id===selected)||null;
  const currentMetric=layers.find(l=>l.key===layer)!;
 
+ const askEdge=async()=>{
+  if(!current)return;
+  setAsking(true);setAgentAnswer('');
+  try{
+   const question=`Analyze neighborhood ${current.name_he}, ${current.city} (neighborhood_id=${current.neighborhood_id}) using the neighborhood semantic layer. Explain the current investment score, deal heat, strongest evidence, missing evidence, and the most important watch-outs. Distinguish direct neighborhood evidence from municipality-inherited context.`;
+   const r=await fetch('/api/ask?mode=edge-agent',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question,history:[]})});
+   const x=await r.json();if(!r.ok)throw new Error(x.error||'Agent request failed');
+   setAgentAnswer(x.answer||x.text||JSON.stringify(x));
+  }catch(e){setError(String(e));}finally{setAsking(false);}
+ };
  const openArea=()=>{location.hash='#/areas';setOpen(true)};
  const close=()=>{if(location.hash.startsWith('#/areas'))history.pushState(null,'',location.pathname+location.search);setOpen(false)};
 
@@ -140,13 +152,14 @@ export default function NeighborhoodIntelligenceShell({children}:{children:React
    <section className="ni-detail">
     {!current?<div className="ni-empty">Choose a neighborhood to analyze.</div>:<>
      <div className="ni-title-row"><div><div className="ni-eyebrow">{current.city}</div><h2>{current.name_he}</h2></div>
-      <div className={'ni-confidence '+(current.confidence_level||'insufficient')}>{current.confidence_level||'insufficient'} confidence</div></div>
+      <div className="ni-title-actions"><button className="ni-ask" onClick={askEdge} disabled={asking}>{asking?'Analyzing…':'Ask Edge'}</button><div className={'ni-confidence '+(current.confidence_level||'insufficient')}>{current.confidence_level||'insufficient'} confidence</div></div></div>
      <div className="ni-score-grid">
       <div><span>Area Score</span><strong>{current.investment_score==null?'—':Math.round(current.investment_score)}</strong><small>Long-term investment context</small></div>
       <div><span>Deal Heat</span><strong>{current.deal_heat==null?'—':Math.round(current.deal_heat)}</strong><small>{current.deal_count||0} scored active deals</small></div>
       <div><span>Coverage</span><strong>{current.coverage_pct==null?'—':Math.round(current.coverage_pct)+'%'}</strong><small>Score component coverage</small></div>
      </div>
-     <nav className="ni-tabs">{['overview','market','listings','renewal','evidence'].map(t=><button key={t} className={section===t?'active':''} onClick={()=>setSection(t)}>{t[0].toUpperCase()+t.slice(1)}</button>)}</nav>
+     <nav className="ni-tabs">{['overview','market','listings','rentals','renewal','demographics','infrastructure','supply','city-context','evidence'].map(t=><button key={t} className={section===t?'active':''} onClick={()=>setSection(t)}>{t.replace('-',' ').replace(/\b\w/g,c=>c.toUpperCase())}</button>)}</nav>
+     {agentAnswer&&<div className="ni-agent-answer"><b>Edge analysis</b><p>{agentAnswer}</p><button onClick={()=>setAgentAnswer('')}>Close</button></div>}
      {section==='overview'&&<Overview current={current} summary={summary}/>}
      {section==='market'&&<Market rows={sectionData}/>}
      {section==='listings'&&<Listings rows={sectionData}/>}
@@ -171,7 +184,15 @@ function Overview({current,summary}:{current:NeighborhoodMapRow;summary:Summary|
   ['Construction starts',current.construction_starts==null?'—':num(current.construction_starts,0),'municipality inheritance'],
   ['12M transactions',String(current.transaction_count_12m||0),'comparable transactions']
  ];
+ const positives:string[]=[];const watchouts:string[]=[];
+ if(current.price_change_1y!=null&&current.price_change_1y>3)positives.push('Executed prices show positive 1Y momentum.');
+ if(current.renewal_expansion_ratio!=null&&current.renewal_expansion_ratio>1)positives.push('Mapped renewal pipeline expands residential supply materially.');
+ if(current.deal_heat!=null&&current.deal_heat>=60)positives.push('Current scored listings show above-neutral deal heat.');
+ if((current.coverage_pct??0)<60)watchouts.push('Score coverage is below the minimum required for a full investment score.');
+ if((current.transaction_count_12m??0)<8)watchouts.push('Recent transaction sample is small; price metrics have limited confidence.');
+ if(current.estimated_gross_yield==null)watchouts.push('Rental yield evidence is not yet sufficient.');
  return <div className="ni-section">
+  <div className="ni-block ni-summary"><h3>Executive summary</h3><div className="ni-summary-cols"><div><b>Signals</b>{positives.length?positives.map(x=><p key={x}>+ {x}</p>):<p>No strong positive signal is asserted without sufficient evidence.</p>}</div><div><b>Watch-outs</b>{watchouts.length?watchouts.map(x=><p key={x}>– {x}</p>):<p>No major data-quality watch-out detected.</p>}</div></div></div>
   <div className="ni-kpis">{cards.map(([label,value,source])=><div key={label}><span>{label}</span><strong>{value}</strong><small>{source}</small></div>)}</div>
   <div className="ni-block">
    <h3>Why this score</h3>
@@ -195,6 +216,37 @@ function Listings({rows}:{rows:any[]}){
 function Renewal({rows}:{rows:any[]}){
  return <div className="ni-section"><div className="ni-table-wrap"><table><thead><tr><th>Project</th><th>Stage</th><th>Status</th><th>Existing</th><th>Planned</th><th>Certainty</th></tr></thead><tbody>{rows.map(r=><tr key={r.id}><td><b>{r.project_name||r.plan_number||'Project'}</b><small>{r.developer||''}</small></td><td>{r.stage||'—'}</td><td>{r.status||'—'}</td><td>{r.existing_units??'—'}</td><td>{r.planned_units??'—'}</td><td>{r.planning_certainty==null?'—':Math.round(Number(r.planning_certainty)*100)+'%'}</td></tr>)}</tbody></table></div></div>;
 }
+
+function MetricPanel({data,title,inherited=false}:{data:any;title:string;inherited?:boolean}){
+ const metrics=Array.isArray(data)?data:(data?.metrics||[]);
+ return <div className="ni-section">
+  {inherited&&<div className="ni-callout"><b>Context only:</b> these values originate at municipality grain and are inherited to the neighborhood with reduced confidence.</div>}
+  {data?.note&&<div className="ni-callout">{data.note}</div>}
+  <div className="ni-block"><h3>{title}</h3>{metrics.length?<div className="ni-metric-list">{metrics.map((m:any)=><div key={m.metric_key}>
+   <span><b>{m.label||m.metric_key.replaceAll('_',' ')}</b><small>{m.preferred_dataset||m.source_datasets?.join(', ')||'derived'} · {m.as_of_date||''}</small></span>
+   <span>{m.numeric_value==null?(m.text_value||'—'):num(m.numeric_value,2)}<em>{Math.round(Number(m.confidence||0)*100)}% conf.</em></span>
+  </div>)}</div>:<div className="ni-empty ni-small-empty">No verified neighborhood-level metrics are available yet.</div>}</div>
+ </div>;
+}
+function Rentals({data}:{data:any}){
+ const rows=data?.inventory||[];const metrics=data?.metrics||[];
+ return <div className="ni-section"><MetricPanel data={{metrics}} title="Rental economics"/>
+  <div className="ni-table-wrap"><table><thead><tr><th>Address</th><th>Rent</th><th>Rent/m²</th><th>Rooms</th><th>m²</th><th>Status</th></tr></thead><tbody>{rows.map((r:any)=><tr key={r.id}><td>{r.canonical_address||'Unresolved'}</td><td>{money(r.asking_rent_nis)}</td><td>{money(r.rent_per_sqm)}</td><td>{num(r.rooms,1)}</td><td>{num(r.area_sqm,0)}</td><td>{r.status}</td></tr>)}</tbody></table></div>
+ </div>;
+}
+function Infrastructure({data}:{data:any}){
+ return <div className="ni-section">{!data?.available&&<div className="ni-callout"><b>Not enough verified neighborhood geography yet.</b> Infrastructure is not inherited from city-level proximity. This section will populate only after a verified neighborhood crosswalk/geometry exists.</div>}<MetricPanel data={data} title="Infrastructure access"/></div>;
+}
+function Supply({data}:{data:any}){
+ const r=data?.renewal?.[0]||{};
+ return <div className="ni-section"><div className="ni-kpis">
+  <div><span>Renewal projects</span><strong>{r.projects??0}</strong><small>direct neighborhood mapping</small></div>
+  <div><span>Existing units</span><strong>{r.existing_units??0}</strong><small>renewal pipeline</small></div>
+  <div><span>Planned units</span><strong>{r.planned_units??0}</strong><small>not delivered units</small></div>
+  <div><span>Additional units</span><strong>{r.additional_units??0}</strong><small>planned increment</small></div>
+ </div><MetricPanel data={data} title="Supply context"/></div>;
+}
+
 function Evidence({rows,summary}:{rows:any[];summary:Summary|null}){
  return <div className="ni-section"><div className="ni-callout"><b>Semantic rule:</b> every row below is linked to this neighborhood with an explicit source grain and mapping method. Municipality inheritance is context, not a neighborhood-level measurement.</div>
  <div className="ni-table-wrap"><table><thead><tr><th>Dataset</th><th>Source grain</th><th>Observation</th><th>Mapping</th><th>Confidence</th></tr></thead><tbody>{rows.slice(0,250).map((r,i)=><tr key={r.dataset_slug+r.source_record_id+i}><td><b>{r.dataset_slug}</b></td><td>{r.source_grain}</td><td>{r.observation_date||r.observation_year||'—'}</td><td>{r.mapping_method}</td><td>{Math.round(Number(r.mapping_confidence||0)*100)}%</td></tr>)}</tbody></table></div>
