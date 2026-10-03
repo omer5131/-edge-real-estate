@@ -15,9 +15,10 @@ async function hydrateSupportingGeography(){
 
  let rows=await queryDatabase(`
   INSERT INTO cities(name_he,name_en,settlement_code)
-  SELECT DISTINCT locality_name,NULL,locality_code
+  SELECT DISTINCT ON(locality_name) locality_name,NULL,locality_code
   FROM research_statistical_areas_2022
   WHERE locality_name IS NOT NULL AND locality_name<>'' AND locality_code IS NOT NULL AND locality_code<>''
+  ORDER BY locality_name,locality_code
   ON CONFLICT(name_he) DO UPDATE SET settlement_code=COALESCE(cities.settlement_code,EXCLUDED.settlement_code)
   RETURNING id
  `);
