@@ -13,8 +13,17 @@ const clean=(v:any)=>String(v??'').replace(/\s+/g,' ').trim()||null;
 const n=(v:any)=>{const x=Number(String(v??'').replace(/[^0-9.-]/g,''));return Number.isFinite(x)?x:null};
 const hash=(s:string)=>createHash('sha256').update(s).digest('hex').slice(0,40);
 function normUrl(raw:string){const u=new URL(raw);for(const k of [...u.searchParams.keys()])if(/^utm_|^(fbclid|gclid)$/i.test(k))u.searchParams.delete(k);u.hash='';return u.toString()}
-function meta(html:string,key:string){const re=new RegExp('<meta[^>]+(?:property|name)=[\"\\\']'+key+'[\"\\\'][^>]+content=[\"\\\']([^\"\\\']*)','i');return clean(re.exec(html)?.[1])}
-function ld(html:string){const out:any[]=[];for(const m of html.matchAll(/<script[^>]+type=[\"']application\\/ld\\+json[\"'][^>]*>([\\s\\S]*?)<\\/script>/gi)){try{const x=JSON.parse(m[1]);out.push(...(Array.isArray(x)?x:[x]))}catch{}}return out}
+function meta(html:string,key:string){
+ const re=/<meta[^>]+(?:property|name)=["']([^"']+)["'][^>]+content=["']([^"']*)["']/gi;
+ for(const m of html.matchAll(re))if(String(m[1]).toLowerCase()===key.toLowerCase())return clean(m[2]);
+ return null;
+}
+function ld(html:string){
+ const out:any[]=[];
+ const re=/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+ for(const m of html.matchAll(re)){try{const x=JSON.parse(m[1]);out.push(...(Array.isArray(x)?x:[x]))}catch{}}
+ return out;
+}
 function walk(x:any,out:any[]=[]):any[]{if(!x||typeof x!=='object')return out;out.push(x);for(const v of Object.values(x))if(v&&typeof v==='object')walk(v,out);return out}
 async function collectUrl(url:string){
  const ctl=new AbortController(),timer=setTimeout(()=>ctl.abort(),15000);
@@ -25,12 +34,12 @@ async function collectUrl(url:string){
   const offer=nodes.find(x=>x['@type']==='Offer'||x.price||x.priceSpecification)||{};
   const item=nodes.find(x=>['Apartment','House','Residence','Product','Accommodation'].includes(x['@type']))||nodes.find(x=>x.address)||{};
   const a=typeof item.address==='string'?{streetAddress:item.address}:item.address||{};
-  const body=clean(html.replace(/<script[\\s\\S]*?<\\/script>/gi,' ').replace(/<style[\\s\\S]*?<\\/style>/gi,' ').replace(/<[^>]+>/g,' '))||'';
-  const price=offer.price??offer.priceSpecification?.price??meta(html,'product:price:amount')??/(?:₪|ש[\"״']?ח)\\s*([0-9][0-9,.]{2,})/.exec(body)?.[1];
+  const body=clean(html.replace(/<script[\s\S]*?<\/script>/gi,' ').replace(/<style[\s\S]*?<\/style>/gi,' ').replace(/<[^>]+>/g,' '))||'';
+  const price=offer.price??offer.priceSpecification?.price??meta(html,'product:price:amount')??/(?:₪|ש["״']?ח)\s*([0-9][0-9,.]{2,})/.exec(body)?.[1];
   return {title:clean(item.name||meta(html,'og:title')),description:clean(item.description||meta(html,'og:description')),
    address:clean(a.streetAddress),city:clean(a.addressLocality||a.addressRegion),askingPrice:n(price),
-   rooms:n(item.numberOfRooms??/([0-9]+(?:\\.[05])?)\\s*חדרים/.exec(body)?.[1]),
-   areaSqm:n(item.floorSize?.value??/([0-9]{2,4})\\s*(?:מ[\"״']?ר|מטר רבוע)/.exec(body)?.[1]),canonicalUrl:normUrl(url)};
+   rooms:n(item.numberOfRooms??/([0-9]+(?:\.[05])?)\s*חדרים/.exec(body)?.[1]),
+   areaSqm:n(item.floorSize?.value??/([0-9]{2,4})\s*(?:מ["״']?ר|מטר רבוע)/.exec(body)?.[1]),canonicalUrl:normUrl(url)};
  }finally{clearTimeout(timer)}
 }
 function keyFor(i:ExternalListingInput,url:string|null){return i.sourceListingId?'source:'+hash(i.sourceListingId):url?'url:'+hash(url):'manual:'+hash([i.listingType,clean(i.city),clean(i.address),i.rooms??'',i.floor??'',i.areaSqm??'',i.gush??'',i.helka??''].join('|'))}
