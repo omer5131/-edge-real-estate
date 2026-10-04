@@ -6,7 +6,7 @@ type NeighborhoodMapRow={
  deal_heat:number|null;investment_score:number|null;confidence_score:number|null;confidence_level:string|null;
  coverage_pct:number|null;deal_count:number;transaction_count_12m:number;median_price_sqm_12m:number|null;
  price_change_1y:number|null;renewal_expansion_ratio:number|null;estimated_gross_yield:number|null;
- average_wage:number|null;net_internal_migration:number|null;construction_starts:number|null;geometry:any|null;
+ average_wage:number|null;net_internal_migration:number|null;construction_starts:number|null;parcel_count?:number;parcel_geometry_count?:number;geometry:any|null;
 };
 type CityMapRow={city_id:string;settlement_code:string;name_he:string;name_en:string|null;geometry:any|null;transaction_count_12m:number;median_deal_amount_12m:number|null;median_price_sqm_12m:number|null;price_change_1y:number|null;latest_transaction_date:string|null;has_transaction_data:boolean};
 type Summary={neighborhood:any;metrics:any[];datasets:any[]};
@@ -125,6 +125,10 @@ export default function NeighborhoodIntelligenceShell({children}:{children:React
   const padX=Math.max((maxX-minX)*.025,.01),padY=Math.max((maxY-minY)*.025,.01);
   return {minX:minX-padX,maxX:maxX+padX,minY:minY-padY,maxY:maxY+padY};
  },[mapRows]);
+ const osmSrc=useMemo(()=>{
+  const params=new URLSearchParams({bbox:`${bounds.minX},${bounds.minY},${bounds.maxX},${bounds.maxY}`,layer:'mapnik'});
+  return 'https://www.openstreetmap.org/export/embed.html?'+params.toString();
+ },[bounds.minX,bounds.minY,bounds.maxX,bounds.maxY]);
  const values=cities.map(r=>Number(r[layer])).filter((v,i)=>cities[i]?.has_transaction_data&&Number.isFinite(v));
  const min=values.length?Math.min(...values):0,max=values.length?Math.max(...values):100;
  const current=selectedRow;
@@ -176,18 +180,21 @@ export default function NeighborhoodIntelligenceShell({children}:{children:React
    <section className="ni-map-panel">
     <div className="ni-map-topline"><span>{currentMetric.label}</span><span className="ni-muted">Israel · {cities.filter(x=>x.has_transaction_data).length} settlements with transaction data · {cities.length} mapped settlements</span></div>
     {loading?<div className="ni-empty">Loading neighborhood intelligence…</div>:
-     mapRows.length?<svg className="ni-map ni-israel-map" viewBox="0 0 900 1280" role="img" aria-label="Israel transaction intelligence map">
-      <rect x="0" y="0" width="900" height="1280" className="ni-map-bg"/>
-      {mapRows.map(r=><path key={r.city_id} d={geoPath(r.geometry,bounds,900,1280)}
-       fill={r.has_transaction_data?colorFor(Number(r[layer]),min,max):'var(--ni-no-data)'} className={selectedCity===r.city_id?'selected':''}
-       onClick={()=>chooseCity(r)}><title>{r.name_he} · {currentMetric.label}: {r.has_transaction_data?(r[layer]??'No metric'):'No transaction data'}</title></path>)}
-     </svg>:<div className="ni-empty"><strong>Neighborhood polygons are still being resolved.</strong><span>The dashboard remains usable from the neighborhood list; heat polygons appear automatically once geometry is available.</span></div>}
+     mapRows.length?<div className="ni-map-stage ni-israel-map">
+      <iframe className="ni-osm-base" title="OpenStreetMap base map" src={osmSrc} loading="lazy"/>
+      <svg className="ni-map ni-map-overlay" viewBox="0 0 900 1280" role="img" aria-label="Israel transaction intelligence map">
+       {mapRows.map(r=><path key={r.city_id} d={geoPath(r.geometry,bounds,900,1280)}
+        fill={r.has_transaction_data?colorFor(Number(r[layer]),min,max):'var(--ni-no-data)'} className={selectedCity===r.city_id?'selected':''}
+        onClick={()=>chooseCity(r)}><title>{r.name_he} · {currentMetric.label}: {r.has_transaction_data?(r[layer]??'No metric'):'No transaction data'}</title></path>)}
+      </svg>
+      <div className="ni-map-provider">OpenStreetMap</div>
+     </div>:<div className="ni-empty"><strong>Neighborhood polygons are still being resolved.</strong><span>The dashboard remains usable from the neighborhood list; heat polygons appear automatically once geometry is available.</span></div>}
     <div className="ni-legend"><span>Low</span><div className="ni-gradient"/><span>High</span><span className="ni-no-data-box"/> <span>No metric data</span></div>
     <div className="ni-map-note">All available CBS settlement geography is shown. Gray means geography exists but the current transaction archive has no data for that settlement. Colored areas use executed transaction data only.</div>
     <div className="ni-neighborhood-list">
      {cityNeighborhoods.map(r=><button key={r.neighborhood_id} className={selected===r.neighborhood_id?'active':''} onClick={()=>setSelected(r.neighborhood_id)}>
       <span><b>{r.name_he}</b><small>{r.city}</small></span>
-      <span className="ni-list-score">Neighborhood</span>
+      <span className="ni-list-score">{r.parcel_geometry_count??r.parcel_count??0} parcels</span>
      </button>)}
     </div>
    </section>
