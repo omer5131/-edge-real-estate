@@ -6,7 +6,7 @@ export type ExternalListingInput={
  intakeMode:'url'|'manual';listingType:'sale'|'rent';url?:string|null;sourceListingId?:string|null;
  city?:string|null;neighborhood?:string|null;address?:string|null;askingPrice?:number|null;askingRent?:number|null;
  areaSqm?:number|null;rooms?:number|null;floor?:number|string|null;propertyType?:string|null;brokerName?:string|null;
- description?:string|null;publishedAt?:string|null;contactPhone?:string|null;lat?:number|null;lon?:number|null;
+ description?:string|null;publishedAt?:string|null;entryDate?:string|null;contactName?:string|null;contactPhone?:string|null;condition?:string|null;parking?:boolean|null;elevator?:boolean|null;balcony?:boolean|null;mamad?:boolean|null;furnished?:boolean|null;lat?:number|null;lon?:number|null;
  gush?:number|null;helka?:number|null;notes?:string|null;
 };
 const clean=(v:any)=>String(v??'').replace(/\s+/g,' ').trim()||null;
