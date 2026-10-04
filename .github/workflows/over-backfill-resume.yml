@@ -40,7 +40,7 @@ jobs:
 
           while (Date.now() < deadline - 90_000) {
             const [state] = await queryDatabase(
-              'SELECT dataset_id,title,enabled,status,row_count,cursor,last_error,filters FROM over_datasets WHERE dataset_id=$1::uuid',
+              'SELECT dataset_id,title,enabled,status,row_count,cursor,last_error,filters,last_success_at FROM over_datasets WHERE dataset_id=$1::uuid',
               [id]
             );
             console.log('HAIFA GEOMETRY STATE', JSON.stringify(state));
