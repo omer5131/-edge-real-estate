@@ -8,16 +8,14 @@ type NeighborhoodMapRow={
  price_change_1y:number|null;renewal_expansion_ratio:number|null;estimated_gross_yield:number|null;
  average_wage:number|null;net_internal_migration:number|null;construction_starts:number|null;geometry:any|null;
 };
+type CityMapRow={city_id:string;settlement_code:string;name_he:string;name_en:string|null;geometry:any|null;transaction_count_12m:number;median_deal_amount_12m:number|null;median_price_sqm_12m:number|null;price_change_1y:number|null;latest_transaction_date:string|null;has_transaction_data:boolean};
 type Summary={neighborhood:any;metrics:any[];datasets:any[]};
-type LayerKey='deal_heat'|'investment_score'|'median_price_sqm_12m'|'price_change_1y'|'renewal_expansion_ratio'|'estimated_gross_yield'|'average_wage';
+type LayerKey='median_price_sqm_12m'|'transaction_count_12m'|'price_change_1y'|'median_deal_amount_12m';
 const layers:{key:LayerKey;label:string;unit:string}[]=[
- {key:'deal_heat',label:'Deal Heat',unit:'/100'},
- {key:'investment_score',label:'Area Score',unit:'/100'},
  {key:'median_price_sqm_12m',label:'Executed ₪/m²',unit:'₪'},
+ {key:'transaction_count_12m',label:'Transactions 12M',unit:'count'},
  {key:'price_change_1y',label:'1Y Price Change',unit:'%'},
- {key:'renewal_expansion_ratio',label:'Renewal Expansion',unit:'x'},
- {key:'estimated_gross_yield',label:'Gross Yield',unit:'%'},
- {key:'average_wage',label:'City Wage Context',unit:'₪'}
+ {key:'median_deal_amount_12m',label:'Median Deal Price',unit:'₪'}
 ];
 
 const money=(v:any)=>v==null?'—':'₪'+Math.round(Number(v)).toLocaleString('he-IL');
@@ -64,9 +62,11 @@ function Sparkline({rows}:{rows:any[]}){
 export default function NeighborhoodIntelligenceShell({children}:{children:React.ReactNode}){
  const [open,setOpen]=useState(()=>location.hash.startsWith('#/areas'));
  const [rows,setRows]=useState<NeighborhoodMapRow[]>([]);
+ const [cities,setCities]=useState<CityMapRow[]>([]);
  const [loading,setLoading]=useState(false);
- const [layer,setLayer]=useState<LayerKey>('deal_heat');
+ const [layer,setLayer]=useState<LayerKey>('median_price_sqm_12m');
  const [selected,setSelected]=useState<string|null>(null);
+ const [selectedCity,setSelectedCity]=useState<string|null>(null);
  const [summary,setSummary]=useState<Summary|null>(null);
  const [section,setSection]=useState('overview');
  const [sectionData,setSectionData]=useState<any>([]);
@@ -79,12 +79,21 @@ export default function NeighborhoodIntelligenceShell({children}:{children:React
   addEventListener('hashchange',onHash);return()=>removeEventListener('hashchange',onHash);
  },[]);
  useEffect(()=>{
-  if(!open||rows.length)return;
+  if(!open||cities.length)return;
   setLoading(true);
-  fetch('/api/neighborhood-map').then(r=>{if(!r.ok)throw new Error('Map API '+r.status);return r.json();})
-   .then(x=>{setRows(x.neighborhoods||[]);const first=(x.neighborhoods||[]).find((n:any)=>n.deal_heat!=null||n.investment_score!=null)||(x.neighborhoods||[])[0];if(first)setSelected(first.neighborhood_id);})
+  fetch('/api/neighborhood-map?scope=israel').then(r=>{if(!r.ok)throw new Error('Map API '+r.status);return r.json();})
+   .then(x=>{
+    const nextCities=x.cities||[],nextRows=x.neighborhoods||[];
+    setCities(nextCities);setRows(nextRows);
+    const firstCity=nextCities.find((x:any)=>x.has_transaction_data)||nextCities[0];
+    if(firstCity){
+      setSelectedCity(firstCity.city_id);
+      const firstNeighborhood=nextRows.find((n:any)=>n.city===firstCity.name_he);
+      setSelected(firstNeighborhood?.neighborhood_id||null);
+    }
+   })
    .catch(e=>setError(String(e))).finally(()=>setLoading(false));
- },[open,rows.length]);
+ },[open,cities.length]);
 
  useEffect(()=>{
   if(!selected||!open)return;
@@ -105,21 +114,27 @@ export default function NeighborhoodIntelligenceShell({children}:{children:React
    .then(r=>r.json()).then(x=>setSectionData(x.data??[])).catch(e=>setError(String(e)));
  },[selected,section]);
 
- const available=rows.filter(r=>r.geometry);
+ const mapRows=cities.filter(r=>r.geometry);
  const selectedRow=rows.find(r=>r.neighborhood_id===selected)||null;
- const cityRows=selectedRow?available.filter(r=>r.city===selectedRow.city):available;
- const mapRows=cityRows.length?cityRows:available;
+ const selectedCityRow=cities.find(r=>r.city_id===selectedCity)||null;
+ const cityNeighborhoods=selectedCityRow?rows.filter(r=>r.city===selectedCityRow.name_he):rows;
  const bounds=useMemo(()=>{
   const pts=mapRows.flatMap(r=>flattenCoords(r.geometry));
-  if(!pts.length)return {minX:34,maxX:36,minY:29,maxY:34};
+  if(!pts.length)return {minX:34.15,maxX:35.9,minY:29.4,maxY:33.4};
   const minX=Math.min(...pts.map(p=>p[0])),maxX=Math.max(...pts.map(p=>p[0])),minY=Math.min(...pts.map(p=>p[1])),maxY=Math.max(...pts.map(p=>p[1]));
-  const padX=Math.max((maxX-minX)*.12,.0025),padY=Math.max((maxY-minY)*.12,.0025);
+  const padX=Math.max((maxX-minX)*.025,.01),padY=Math.max((maxY-minY)*.025,.01);
   return {minX:minX-padX,maxX:maxX+padX,minY:minY-padY,maxY:maxY+padY};
  },[mapRows]);
- const values=rows.map(r=>Number(r[layer])).filter(Number.isFinite);
+ const values=cities.map(r=>Number(r[layer])).filter((v,i)=>cities[i]?.has_transaction_data&&Number.isFinite(v));
  const min=values.length?Math.min(...values):0,max=values.length?Math.max(...values):100;
  const current=selectedRow;
  const currentMetric=layers.find(l=>l.key===layer)!;
+ const chooseCity=(r:CityMapRow)=>{
+  setSelectedCity(r.city_id);
+  const first=rows.find(n=>n.city===r.name_he);
+  setSelected(first?.neighborhood_id||null);
+  setSummary(null);setSection('overview');setSectionData([]);
+ };
 
  const openListing=(r:any)=>{
   const detail={id:r.id,address:r.canonical_address||'נכס',neighborhood_id:current?.neighborhood_id||'',neighborhood:current?.name_he||'',city:current?.city||'',asking_price:Number(r.asking_price_nis||0),sqm:r.area_sqm==null?null:Number(r.area_sqm),rooms:r.rooms==null?null:Number(r.rooms),floor:r.floor==null?null:String(r.floor)};
@@ -151,7 +166,7 @@ export default function NeighborhoodIntelligenceShell({children}:{children:React
  if(!open)return <><div className="ni-launch-wrap"><button className="ni-launch" onClick={openArea}>Area Intelligence</button></div>{children}</>;
  return <div className="ni-root">
   <header className="ni-header">
-   <div><div className="ni-eyebrow">EDGE · NEIGHBORHOOD INTELLIGENCE</div><h1>Investment Area Map</h1></div>
+   <div><div className="ni-eyebrow">EDGE · ISRAEL AREA INTELLIGENCE</div><h1>Israel Investment Map</h1></div>
    <div className="ni-header-actions">
     <select value={layer} onChange={e=>setLayer(e.target.value as LayerKey)}>{layers.map(x=><option key={x.key} value={x.key}>{x.label}</option>)}</select>
     <button onClick={close}>Back to Edge</button>
@@ -159,25 +174,25 @@ export default function NeighborhoodIntelligenceShell({children}:{children:React
   </header>
   <div className="ni-layout">
    <section className="ni-map-panel">
-    <div className="ni-map-topline"><span>{currentMetric.label}</span><span className="ni-muted">{current?.city||'All cities'} · {mapRows.length} mapped polygons · {rows.length} neighborhoods total</span></div>
+    <div className="ni-map-topline"><span>{currentMetric.label}</span><span className="ni-muted">Israel · {cities.filter(x=>x.has_transaction_data).length} settlements with transaction data · {cities.length} mapped settlements</span></div>
     {loading?<div className="ni-empty">Loading neighborhood intelligence…</div>:
-     mapRows.length?<svg className="ni-map" viewBox="0 0 900 620" role="img" aria-label="Neighborhood heatmap">
-      <rect x="0" y="0" width="900" height="620" className="ni-map-bg"/>
-      {mapRows.map(r=><path key={r.neighborhood_id} d={geoPath(r.geometry,bounds,900,620)}
-       fill={colorFor(r[layer],min,max)} className={selected===r.neighborhood_id?'selected':''}
-       onClick={()=>setSelected(r.neighborhood_id)}><title>{r.name_he}, {r.city} · {currentMetric.label}: {r[layer]??'No data'}</title></path>)}
+     mapRows.length?<svg className="ni-map ni-israel-map" viewBox="0 0 900 1280" role="img" aria-label="Israel transaction intelligence map">
+      <rect x="0" y="0" width="900" height="1280" className="ni-map-bg"/>
+      {mapRows.map(r=><path key={r.city_id} d={geoPath(r.geometry,bounds,900,1280)}
+       fill={r.has_transaction_data?colorFor(Number(r[layer]),min,max):'var(--ni-no-data)'} className={selectedCity===r.city_id?'selected':''}
+       onClick={()=>chooseCity(r)}><title>{r.name_he} · {currentMetric.label}: {r.has_transaction_data?(r[layer]??'No metric'):'No transaction data'}</title></path>)}
      </svg>:<div className="ni-empty"><strong>Neighborhood polygons are still being resolved.</strong><span>The dashboard remains usable from the neighborhood list; heat polygons appear automatically once geometry is available.</span></div>}
     <div className="ni-legend"><span>Low</span><div className="ni-gradient"/><span>High</span><span className="ni-no-data-box"/> <span>No metric data</span></div>
-    <div className="ni-map-note">Map is focused on the selected city. Neighborhoods with geometry but no value for <b>{currentMetric.label}</b> remain visible in gray.</div>
+    <div className="ni-map-note">All available CBS settlement geography is shown. Gray means geography exists but the current transaction archive has no data for that settlement. Colored areas use executed transaction data only.</div>
     <div className="ni-neighborhood-list">
-     {rows.map(r=><button key={r.neighborhood_id} className={selected===r.neighborhood_id?'active':''} onClick={()=>setSelected(r.neighborhood_id)}>
+     {cityNeighborhoods.map(r=><button key={r.neighborhood_id} className={selected===r.neighborhood_id?'active':''} onClick={()=>setSelected(r.neighborhood_id)}>
       <span><b>{r.name_he}</b><small>{r.city}</small></span>
-      <span className="ni-list-score">{r[layer]==null?'—':layer.includes('score')||layer==='deal_heat'?Math.round(Number(r[layer])):num(r[layer])}</span>
+      <span className="ni-list-score">Neighborhood</span>
      </button>)}
     </div>
    </section>
    <section className="ni-detail">
-    {!current?<div className="ni-empty">Choose a neighborhood to analyze.</div>:<>
+    {!current?<div className="ni-empty"><strong>{selectedCityRow?.name_he||'Choose an area'}</strong><span>{selectedCityRow?.has_transaction_data?('12M transactions: '+selectedCityRow.transaction_count_12m+' · Median ₪/m²: '+money(selectedCityRow.median_price_sqm_12m)):'No transaction data in the current archive.'}</span><span>{cityNeighborhoods.length?'Choose a canonical neighborhood below the map for deeper intelligence.':'Edge has not promoted neighborhood intelligence for this settlement yet.'}</span></div>:<>
      <div className="ni-title-row"><div><div className="ni-eyebrow">{current.city}</div><h2>{current.name_he}</h2></div>
       <div className="ni-title-actions"><button className="ni-listings-cta" onClick={()=>setSection('listings')}>View properties</button><button className="ni-ask" onClick={askEdge} disabled={asking}>{asking?'Analyzing…':'Ask Edge'}</button><div className={'ni-confidence '+(current.confidence_level||'insufficient')}>{current.confidence_level||'insufficient'} confidence</div></div></div>
      <div className="ni-score-grid">
