@@ -1,5 +1,6 @@
 import {useEffect,useMemo,useState} from 'react';
 import {AlertTriangle,ArrowLeft,Bookmark,ExternalLink,Eye,MessageSquare,RefreshCw,ShieldCheck} from 'lucide-react';
+import DealWorkflow from './DealWorkflow';
 
 type Opportunity={id:string;address:string;neighborhood_id:string;neighborhood:string;city:string;asking_price:number;sqm:number|null;rooms:number|null;floor:string|null};
 type AskContext={entity_type?:string;listing_id?:string;property_id?:string|null;building_id?:string|null;neighborhood_id?:string|null;active_tab?:string;label?:string};
@@ -15,10 +16,10 @@ function Empty({title,body}:{title:string;body:string}){return <div className="d
 
 export default function DealRoom({item,onBack,onAsk}:{item:Opportunity;onBack:()=>void;onAsk:(c:AskContext)=>void}){
  const [data,setData]=useState<any>(null),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false);
- const [tab,setTab]=useState<'overview'|'market'|'comps'|'area'>('overview');
+ const [tab,setTab]=useState<'overview'|'market'|'comps'|'area'|'deal'|'notes'|'dd'|'timeline'>('overview');
  const load=async()=>{setLoading(true);try{const r=await fetch('/api/property?id='+encodeURIComponent(item.id),{cache:'no-store'});setData(await r.json())}finally{setLoading(false)}};
  useEffect(()=>{void load()},[item.id]);
- const c=data?.context,l=c?.listing||{},a=c?.asset||{},v=c?.valuation,m=c?.activeMarket,n=c?.neighborhood,p=c?.planning,legacy=data?.listing||{};
+ const c=data?.context,l=c?.listing||{},a=c?.asset||{},v=c?.valuation,m=c?.activeMarket,h=c?.historicalMarket,n=c?.neighborhood,p=c?.planning,legacy=data?.listing||{};
  const ask=l.askingPriceNis??legacy.asking_price_ils??item.asking_price;
  const base=v?.valuation?.baseNis,low=v?.valuation?.lowNis,high=v?.valuation?.highNis,discount=v?.valuation?.discountToBasePct;
  const agentContext=useMemo(()=>({entity_type:'listing',listing_id:item.id,property_id:a.propertyId??null,building_id:a.buildingId??null,neighborhood_id:a.neighborhoodId??null,active_tab:tab,label:(a.canonicalAddress||legacy.address||item.address)+' · '+tab}),[item.id,a.propertyId,a.buildingId,a.neighborhoodId,a.canonicalAddress,legacy.address,item.address,tab]);
@@ -41,7 +42,7 @@ export default function DealRoom({item,onBack,onAsk}:{item:Opportunity;onBack:()
   </div>
   {data.tier!=='full'&&<div className="upgrade-banner"><Bookmark size={18}/><div><strong>Basic profile</strong><span>שמור את הנכס כדי לפתוח valuation, active market, area ו-planning מלאים.</span></div></div>}
   <div className="deal-kpis"><Metric label="מחיר מבוקש" value={money(ask)} sub={l.askingPricePerSqm?money(l.askingPricePerSqm)+' / מ״ר':undefined}/><Metric label="Edge fair value" value={money(base)} sub={(low||high)?money(low)+' – '+money(high):'אין טווח מבוסס'}/><Metric label="פער לשווי בסיס" value={pct(discount)} sub={v?.evidence?.modelVersion}/><Metric label="מלאי דומה" value={m?.summary?.inventoryCount??'—'} sub={m?.summary?.medianAskingPriceNis?'חציון '+money(m.summary.medianAskingPriceNis):'אין מדגם'}/></div>
-  <div className="deal-tabs">{([['overview','Overview'],['market','Market'],['comps','Comps'],['area','Area']] as const).map(([id,label])=><button key={id} className={tab===id?'active':''} onClick={()=>setTab(id)}>{label}</button>)}</div>
+  <div className="deal-tabs">{([['overview','Overview'],['market','Market'],['comps','Comps'],['area','Area'],['deal','Deal'],['notes','Notes'],['dd','Due Diligence'],['timeline','Timeline']] as const).map(([id,label])=><button key={id} className={tab===id?'active':''} onClick={()=>setTab(id)}>{label}</button>)}</div>
 
   {tab==='overview'&&<div className="deal-grid">
    <section className="panel deal-span-2"><div className="deal-panel-head"><h3>Investment snapshot</h3><Evidence e={c?.evidence}/></div><div className="deal-summary-grid"><Metric label="Ask" value={money(ask)}/><Metric label="Closed comps base" value={money(base)}/><Metric label="Active market median" value={money(m?.summary?.medianAskingPriceNis)}/><Metric label="Neighborhood" value={n?.name||legacy.neighborhood||'—'}/></div></section>
@@ -54,13 +55,25 @@ export default function DealRoom({item,onBack,onAsk}:{item:Opportunity;onBack:()
    <section className="panel deal-span-2"><div className="deal-panel-head"><h3>Active alternatives</h3><Evidence e={m?.evidence}/></div>{!m?.listings?.length?<Empty title="אין מלאי פעיל דומה" body="Edge לא משלים מלאי חסר בהערכות."/>:<div className="table-wrap"><table><thead><tr><th>נכס</th><th>מבוקש</th><th>₪/מ״ר</th><th>שטח</th><th>חדרים</th><th>DOM</th><th>Similarity</th></tr></thead><tbody>{m.listings.map((x:any)=><tr key={x.listingId}><td>{x.address||'—'}</td><td>{money(x.currentAskingPriceNis)}</td><td>{money(x.askingPricePerSqm)}</td><td>{x.areaSqm??'—'}</td><td>{x.rooms??'—'}</td><td>{x.daysOnMarket??'—'}</td><td>{Math.round((x.similarityScore||0)*100)}%</td></tr>)}</tbody></table></div>}</section>
    <section className="panel"><h3>Market position</h3><div className="deal-summary-grid one"><Metric label="Inventory" value={m?.summary?.inventoryCount??'—'}/><Metric label="Median ask" value={money(m?.summary?.medianAskingPriceNis)}/><Metric label="Median ask/m²" value={money(m?.summary?.medianAskingPricePerSqm)}/><Metric label="Subject percentile" value={m?.summary?.subjectAskingPercentile==null?'—':Number(m.summary.subjectAskingPercentile).toFixed(0)+'%'}/></div></section>
    <section className="panel"><h3>Evidence rule</h3><p className="deal-muted">מחירי מודעות הם benchmark תחרותי בלבד ואינם משמשים כשווי עסקה סגורה. DOM מוצג רק אחרי שתי תצפיות לפחות לאורך יום ומעלה.</p>{m?.rejectedListings?.length>0&&<p className="deal-muted">{m.rejectedListings.length} מודעות נוספות נפסלו בגלל פערי שטח/חדרים או similarity נמוך.</p>}</section>
+   <section className="panel deal-span-2"><div className="deal-panel-head"><h3>Closed-sale neighborhood trend</h3><Evidence e={h?.evidence}/></div>
+    <div className="deal-summary-grid"><Metric label="Latest median ₪/m²" value={money(h?.summary?.latestMedianExecutedPriceSqm)}/><Metric label="12m change" value={pct(h?.summary?.changeVs12MonthsAgoPct)}/><Metric label="Transactions in latest month" value={h?.summary?.latestTransactionCount??'—'}/><Metric label="Asking premium vs executed" value={pct(h?.summary?.latestAskingPremiumPct)}/></div>
+    {h?.trend?.length>0&&<div className="table-wrap"><table><thead><tr><th>Month</th><th>Closed deals</th><th>Median ₪/m²</th><th>P25–P75 ₪/m²</th><th>Active listings</th><th>Ask premium</th></tr></thead><tbody>{h.trend.slice(-12).reverse().map((x:any)=><tr key={x.periodStart}><td>{date(x.periodStart)}</td><td>{x.executedTransactionCount}</td><td>{money(x.medianExecutedPriceSqm)}</td><td>{money(x.p25ExecutedPriceSqm)} – {money(x.p75ExecutedPriceSqm)}</td><td>{x.activeSaleListingCount}</td><td>{pct(x.askingToExecutedPremiumPct)}</td></tr>)}</tbody></table></div>}
+   </section>
   </div>}
 
   {tab==='comps'&&<div className="deal-grid">
    <section className="panel deal-span-2"><div className="deal-panel-head"><h3>Closed comparable sales</h3><Evidence e={v?.evidence}/></div>{!v?.comparables?.length?<Empty title="אין comps מתאימים" body="השווי נשאר חסר או זמני עד שיהיו עסקאות סגורות מתאימות."/>:<div className="table-wrap"><table><thead><tr><th>כתובת</th><th>תאריך</th><th>מחיר</th><th>שטח</th><th>חדרים</th><th>₪/מ״ר</th><th>Similarity</th><th>Relation</th></tr></thead><tbody>{v.comparables.filter((x:any)=>x.selected).map((x:any)=><tr key={x.transactionId}><td>{x.address||'—'}</td><td>{date(x.dealDate)}</td><td>{money(x.salePriceNis)}</td><td>{x.areaSqm??'—'}</td><td>{x.rooms??'—'}</td><td>{money(x.pricePerSqm)}</td><td>{Math.round((x.similarityScore||0)*100)}%</td><td>{x.relation}</td></tr>)}</tbody></table></div>}</section>
    <section className="panel"><h3>Valuation range</h3><div className="deal-summary-grid one"><Metric label="Low" value={money(low)}/><Metric label="Base" value={money(base)}/><Metric label="High" value={money(high)}/><Metric label="Base ₪/m²" value={money(v?.valuation?.pricePerSqm)}/></div></section>
    <section className="panel"><h3>Model caveats</h3><ul className="deal-risk-list">{(v?.evidence?.notes||['אין הערות מודל נוספות']).map((x:string,i:number)=><li key={i}>{x}</li>)}</ul></section>
+   <section className="panel deal-span-2"><div className="deal-panel-head"><h3>Historical similar sales</h3><Evidence e={h?.evidence}/></div>
+    {!h?.similarSales?.length?<Empty title="אין עסקאות עבר דומות מספיק" body="Edge לא יציג עסקאות שכונתיות רחבות כאילו הן comps לנכס."/>:<div className="table-wrap"><table><thead><tr><th>כתובת</th><th>תאריך</th><th>מחיר</th><th>₪/מ״ר</th><th>שטח</th><th>חדרים</th><th>קומה</th><th>Relation</th><th>Similarity</th></tr></thead><tbody>{h.similarSales.map((x:any)=><tr key={x.transactionId}><td>{x.address||'—'}</td><td>{date(x.dealDate)}</td><td>{money(x.salePriceNis)}</td><td>{money(x.pricePerSqm)}</td><td>{x.areaSqm??'—'}</td><td>{x.rooms??'—'}</td><td>{x.floor??'—'}</td><td>{x.relation}</td><td>{Math.round((x.similarityScore||0)*100)}%</td></tr>)}</tbody></table></div>}
+   </section>
   </div>}
+
+  {tab==='deal'&&<DealWorkflow listingId={item.id} section="deal" askingPrice={ask}/>} 
+  {tab==='notes'&&<DealWorkflow listingId={item.id} section="notes" askingPrice={ask}/>} 
+  {tab==='dd'&&<DealWorkflow listingId={item.id} section="dd" askingPrice={ask}/>} 
+  {tab==='timeline'&&<DealWorkflow listingId={item.id} section="timeline" askingPrice={ask}/>} 
 
   {tab==='area'&&<div className="deal-grid">
    <section className="panel deal-span-2"><div className="deal-panel-head"><h3>{n?.name||legacy.neighborhood||item.neighborhood}</h3><Evidence e={n?.mapping?.evidence}/></div>{!n?<Empty title="אין Neighborhood Intelligence" body="הנכס עדיין לא ממופה לשכונה קנונית."/>:<div className="area-section-grid">{[['Market',n.market],['Population',n.population],['Socioeconomic',n.socioeconomic],['Education',n.education],['Housing',n.housing]].map(([label,metrics]:any)=><div className="area-metric-group" key={label}><h4>{label}</h4>{(metrics||[]).slice(0,6).map((x:any)=><div className="area-metric-line" key={x.key}><span>{x.label}</span><strong>{x.value==null?'—':typeof x.value==='number'?Number(x.value).toLocaleString('he-IL'):x.value}</strong><small>{x.period||x.unit||''}</small></div>)}</div>)}</div>}</section>

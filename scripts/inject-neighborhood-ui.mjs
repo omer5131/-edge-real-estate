@@ -2,6 +2,8 @@ import fs from 'node:fs';
 fs.mkdirSync('src/components',{recursive:true});
 fs.copyFileSync('ui/NeighborhoodIntelligence.tsx','src/components/NeighborhoodIntelligence.tsx');
 fs.copyFileSync('ui/neighborhood-intelligence.css','src/components/neighborhood-intelligence.css');
+fs.copyFileSync('ui/DealWorkflow.tsx','src/components/DealWorkflow.tsx');
+fs.copyFileSync('ui/MyDeals.tsx','src/components/MyDeals.tsx');
 const main='src/main.tsx';
 let s=fs.readFileSync(main,'utf8');
 if(!s.includes('NeighborhoodIntelligenceShell')){
@@ -41,3 +43,41 @@ if(!p1Css.includes('/* Phase 2 Deal Room */')) p1Css+='\n'+dealCss+'\n';
 fs.writeFileSync(p1,p1Css);
 
 console.log('Phase 2 Deal Room UI injected.');
+
+
+let phase3=fs.readFileSync(edge,'utf8');
+if(!phase3.includes("import MyDeals from './components/MyDeals';")){
+  phase3=phase3.replace("import DealRoom from './components/DealRoom';","import DealRoom from './components/DealRoom';\nimport MyDeals from './components/MyDeals';");
+}
+phase3=phase3.replace("useState<'radar'|'research'|'opps'|'area'|'data'|'admin'|'property'>('radar')","useState<'radar'|'research'|'opps'|'deals'|'area'|'data'|'admin'|'property'>('radar')");
+phase3=phase3.replace("['radar','רדאר',MapPinned],['research','מחקר',Search],['opps','הזדמנויות',Target],['area','אזור',Layers3]","['radar','רדאר',MapPinned],['research','מחקר',Search],['opps','הזדמנויות',Target],['deals','My Deals',Bookmark],['area','אזור',Layers3]");
+if(!phase3.includes("{tab==='deals'&&<MyDeals")){
+ phase3=phase3.replace("{tab==='opps'&&<Opportunities items={data.opportunities||[]} onOpen={x=>{setProperty(x);setTab('property')}}/>}","{tab==='opps'&&<Opportunities items={data.opportunities||[]} onOpen={x=>{setProperty(x);setTab('property')}}/>}\n        {tab==='deals'&&<MyDeals onOpen={x=>{setProperty(x as any);setTab('property')}}/>}");
+}
+fs.writeFileSync(edge,phase3);
+console.log('Phase 3 My Deals UI injected.');
+
+
+/* Phase 3 area-to-deal bridge */
+let bridge=fs.readFileSync(edge,'utf8');
+if(!bridge.includes("edge:open-listing")){
+ bridge=bridge.replace(
+   "  useEffect(()=>{load();},[]);",
+   `  useEffect(()=>{load();},[]);
+  useEffect(()=>{
+    const openListing=(event:Event)=>{
+      const detail=(event as CustomEvent).detail;
+      if(detail?.id){setProperty(detail as any);setTab('property');}
+    };
+    const openDeals=()=>setTab('deals');
+    window.addEventListener('edge:open-listing',openListing as EventListener);
+    window.addEventListener('edge:open-deals',openDeals);
+    return()=>{
+      window.removeEventListener('edge:open-listing',openListing as EventListener);
+      window.removeEventListener('edge:open-deals',openDeals);
+    };
+  },[]);`
+ );
+}
+fs.writeFileSync(edge,bridge);
+console.log('Phase 3 Area Intelligence → Deal bridge injected.');

@@ -4,6 +4,7 @@ import {getValuationContext} from './valuationContext.js';
 import {getActiveMarketContext} from './activeMarketContext.js';
 import {getAreaContext} from './areaContext.js';
 import {getPlanningContext} from './planningContext.js';
+import {getHistoricalMarketContext} from './propertyHistoryContext.js';
 
 const worstStatus=(items:EvidenceMeta[])=>{
   const statuses=items.map(x=>x.status);
@@ -42,14 +43,15 @@ export function assetIdentityFromListing(listing:any):AssetIdentity{
 }
 
 export async function getAssetContext(listing:any):Promise<AssetContextResponse>{
-  const [valuation,activeMarket,neighborhood,planning]=await Promise.all([
+  const [valuation,activeMarket,historicalMarket,neighborhood,planning]=await Promise.all([
     getValuationContext(listing),
     getActiveMarketContext(listing),
+    getHistoricalMarketContext(listing),
     listing?.neighborhood_id?getAreaContext(listing.neighborhood_id):Promise.resolve(null),
     getPlanningContext(listing?.neighborhood_id)
   ]);
   const asset=assetIdentityFromListing(listing);
-  const evidenceItems:EvidenceMeta[]=[asset.identityEvidence,valuation.evidence,activeMarket.evidence,planning.evidence];
+  const evidenceItems:EvidenceMeta[]=[asset.identityEvidence,valuation.evidence,activeMarket.evidence,historicalMarket.evidence,planning.evidence];
   if(neighborhood)evidenceItems.push(neighborhood.mapping.evidence);
   const confidenceVals=evidenceItems.map(x=>normalizeConfidence(x.confidence)).filter((x):x is number=>typeof x==='number'&&Number.isFinite(x));
   const evidence:EvidenceMeta={
@@ -81,6 +83,7 @@ export async function getAssetContext(listing:any):Promise<AssetContextResponse>
     },
     valuation,
     activeMarket,
+    historicalMarket,
     neighborhood,
     planning,
     evidence

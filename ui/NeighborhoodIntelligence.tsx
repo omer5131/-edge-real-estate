@@ -106,14 +106,34 @@ export default function NeighborhoodIntelligenceShell({children}:{children:React
  },[selected,section]);
 
  const available=rows.filter(r=>r.geometry);
+ const selectedRow=rows.find(r=>r.neighborhood_id===selected)||null;
+ const cityRows=selectedRow?available.filter(r=>r.city===selectedRow.city):available;
+ const mapRows=cityRows.length?cityRows:available;
  const bounds=useMemo(()=>{
-  const pts=available.flatMap(r=>flattenCoords(r.geometry));
-  return pts.length?{minX:Math.min(...pts.map(p=>p[0])),maxX:Math.max(...pts.map(p=>p[0])),minY:Math.min(...pts.map(p=>p[1])),maxY:Math.max(...pts.map(p=>p[1]))}:{minX:34,maxX:36,minY:29,maxY:34};
- },[available]);
+  const pts=mapRows.flatMap(r=>flattenCoords(r.geometry));
+  if(!pts.length)return {minX:34,maxX:36,minY:29,maxY:34};
+  const minX=Math.min(...pts.map(p=>p[0])),maxX=Math.max(...pts.map(p=>p[0])),minY=Math.min(...pts.map(p=>p[1])),maxY=Math.max(...pts.map(p=>p[1]));
+  const padX=Math.max((maxX-minX)*.12,.0025),padY=Math.max((maxY-minY)*.12,.0025);
+  return {minX:minX-padX,maxX:maxX+padX,minY:minY-padY,maxY:maxY+padY};
+ },[mapRows]);
  const values=rows.map(r=>Number(r[layer])).filter(Number.isFinite);
  const min=values.length?Math.min(...values):0,max=values.length?Math.max(...values):100;
- const current=rows.find(r=>r.neighborhood_id===selected)||null;
+ const current=selectedRow;
  const currentMetric=layers.find(l=>l.key===layer)!;
+
+ const openListing=(r:any)=>{
+  const detail={id:r.id,address:r.canonical_address||'נכס',neighborhood_id:current?.neighborhood_id||'',neighborhood:current?.name_he||'',city:current?.city||'',asking_price:Number(r.asking_price_nis||0),sqm:r.area_sqm==null?null:Number(r.area_sqm),rooms:r.rooms==null?null:Number(r.rooms),floor:r.floor==null?null:String(r.floor)};
+  window.dispatchEvent(new CustomEvent('edge:open-listing',{detail}));
+  close();
+ };
+ const startDeal=async(r:any)=>{
+  try{
+   const response=await fetch('/api/opportunities',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({mode:'workflow',action:'create_deal',listing_id:r.id})});
+   const json=await response.json();if(!response.ok)throw new Error(json.error||'create_deal_failed');
+   close();
+   window.dispatchEvent(new CustomEvent('edge:open-deals',{detail:{listingId:r.id}}));
+  }catch(e){setError(String(e));}
+ };
 
  const askEdge=async()=>{
   if(!current)return;
@@ -139,14 +159,16 @@ export default function NeighborhoodIntelligenceShell({children}:{children:React
   </header>
   <div className="ni-layout">
    <section className="ni-map-panel">
-    <div className="ni-map-topline"><span>{currentMetric.label}</span><span className="ni-muted">{rows.length} neighborhoods · neighborhood_id grain</span></div>
+    <div className="ni-map-topline"><span>{currentMetric.label}</span><span className="ni-muted">{current?.city||'All cities'} · {mapRows.length} mapped polygons · {rows.length} neighborhoods total</span></div>
     {loading?<div className="ni-empty">Loading neighborhood intelligence…</div>:
-     available.length?<svg className="ni-map" viewBox="0 0 900 620" role="img" aria-label="Neighborhood heatmap">
-      {available.map(r=><path key={r.neighborhood_id} d={geoPath(r.geometry,bounds,900,620)}
+     mapRows.length?<svg className="ni-map" viewBox="0 0 900 620" role="img" aria-label="Neighborhood heatmap">
+      <rect x="0" y="0" width="900" height="620" className="ni-map-bg"/>
+      {mapRows.map(r=><path key={r.neighborhood_id} d={geoPath(r.geometry,bounds,900,620)}
        fill={colorFor(r[layer],min,max)} className={selected===r.neighborhood_id?'selected':''}
        onClick={()=>setSelected(r.neighborhood_id)}><title>{r.name_he}, {r.city} · {currentMetric.label}: {r[layer]??'No data'}</title></path>)}
      </svg>:<div className="ni-empty"><strong>Neighborhood polygons are still being resolved.</strong><span>The dashboard remains usable from the neighborhood list; heat polygons appear automatically once geometry is available.</span></div>}
-    <div className="ni-legend"><span>Low</span><div className="ni-gradient"/><span>High</span><i/> <span className="ni-no-data-box"/> <span>No data</span></div>
+    <div className="ni-legend"><span>Low</span><div className="ni-gradient"/><span>High</span><span className="ni-no-data-box"/> <span>No metric data</span></div>
+    <div className="ni-map-note">Map is focused on the selected city. Neighborhoods with geometry but no value for <b>{currentMetric.label}</b> remain visible in gray.</div>
     <div className="ni-neighborhood-list">
      {rows.map(r=><button key={r.neighborhood_id} className={selected===r.neighborhood_id?'active':''} onClick={()=>setSelected(r.neighborhood_id)}>
       <span><b>{r.name_he}</b><small>{r.city}</small></span>
@@ -157,7 +179,7 @@ export default function NeighborhoodIntelligenceShell({children}:{children:React
    <section className="ni-detail">
     {!current?<div className="ni-empty">Choose a neighborhood to analyze.</div>:<>
      <div className="ni-title-row"><div><div className="ni-eyebrow">{current.city}</div><h2>{current.name_he}</h2></div>
-      <div className="ni-title-actions"><button className="ni-ask" onClick={askEdge} disabled={asking}>{asking?'Analyzing…':'Ask Edge'}</button><div className={'ni-confidence '+(current.confidence_level||'insufficient')}>{current.confidence_level||'insufficient'} confidence</div></div></div>
+      <div className="ni-title-actions"><button className="ni-listings-cta" onClick={()=>setSection('listings')}>View properties</button><button className="ni-ask" onClick={askEdge} disabled={asking}>{asking?'Analyzing…':'Ask Edge'}</button><div className={'ni-confidence '+(current.confidence_level||'insufficient')}>{current.confidence_level||'insufficient'} confidence</div></div></div>
      <div className="ni-score-grid">
       <div><span>Area Score</span><strong>{current.investment_score==null?'—':Math.round(current.investment_score)}</strong><small>Long-term investment context</small></div>
       <div><span>Deal Heat</span><strong>{current.deal_heat==null?'—':Math.round(current.deal_heat)}</strong><small>{current.deal_count||0} scored active deals</small></div>
@@ -167,7 +189,7 @@ export default function NeighborhoodIntelligenceShell({children}:{children:React
      {agentAnswer&&<div className="ni-agent-answer"><b>Edge analysis</b><p>{agentAnswer}</p><button onClick={()=>setAgentAnswer('')}>Close</button></div>}
      {section==='overview'&&<Overview current={current} summary={summary}/>}
      {section==='market'&&<Market data={sectionData}/>}
-     {section==='listings'&&<Listings rows={Array.isArray(sectionData)?sectionData:[]}/>}
+     {section==='listings'&&<Listings rows={Array.isArray(sectionData)?sectionData:[]} onOpen={openListing} onStartDeal={startDeal}/>} 
      {section==='rentals'&&<Rentals data={sectionData}/>}
      {section==='renewal'&&<Renewal rows={Array.isArray(sectionData)?sectionData:[]}/>}
      {section==='demographics'&&<Demographics data={sectionData}/>}
@@ -247,14 +269,23 @@ function Market({data}:{data:any}){
   </div>:<div className="ni-empty ni-small-empty">CBS neighborhood profile will appear when a safe statistical-area crosswalk is available.</div>}</div>
  </div>;
 }
-function Listings({rows}:{rows:any[]}){
+function Listings({rows,onOpen,onStartDeal}:{rows:any[];onOpen:(r:any)=>void;onStartDeal:(r:any)=>void}){
+ const active=rows.filter(r=>r.status==='active');
  return <div className="ni-section">
+  <div className="ni-listing-flow"><div><b>From area to deal</b><span>Review the neighborhood → open a real listing → validate comps and market context → create a Deal and manage it in My Deals.</span></div><strong>{active.length} active properties</strong></div>
   <div className="ni-callout"><b>Relative-value model:</b> each listing is compared separately to executed 12-month neighborhood history, matched room/size comps when sample permits, and the current asking market. Negative percentages mean the listing asks below that benchmark.</div>
-  <div className="ni-table-wrap"><table><thead><tr><th>Signal</th><th>Score</th><th>Address</th><th>Asking</th><th>₪/m²</th><th>Vs executed</th><th>Vs matched</th><th>Vs current ask</th><th>DOM</th><th>Price cut</th><th>Confidence</th></tr></thead><tbody>{rows.map(r=><tr key={r.id}>
+  {!rows.length?<div className="ni-empty ni-small-empty">No listings are currently mapped to this neighborhood.</div>:
+  <div className="ni-listing-cards">{rows.map(r=><article key={r.id} className={'ni-listing-card '+(r.status==='active'?'':'inactive')}>
+   <div className="ni-listing-card-head"><div><b>{r.canonical_address||'Unresolved address'}</b><span>{r.status||'unknown'} · {r.rooms??'—'} rooms · {r.area_sqm??'—'} m²</span></div><span className={'ni-value-signal '+(r.relative_value_signal||'insufficient')}>{r.relative_value_signal||'insufficient'}</span></div>
+   <div className="ni-listing-metrics"><span><small>Asking</small><b>{money(r.asking_price_nis)}</b></span><span><small>₪/m²</small><b>{money(r.asking_price_sqm)}</b></span><span><small>Vs executed</small><b>{pct(r.executed_discount_pct)}</b></span><span><small>DOM</small><b>{r.days_on_market??'—'}</b></span></div>
+   <div className="ni-listing-actions"><button onClick={()=>onOpen(r)}>Open property</button><button className="primary" disabled={r.status!=='active'} onClick={()=>onStartDeal(r)}>Start Deal</button></div>
+  </article>)}</div>}
+  <div className="ni-table-wrap ni-desktop-listings"><table><thead><tr><th>Signal</th><th>Score</th><th>Address</th><th>Asking</th><th>₪/m²</th><th>Vs executed</th><th>Vs matched</th><th>Vs current ask</th><th>DOM</th><th>Price cut</th><th>Confidence</th><th>Action</th></tr></thead><tbody>{rows.map(r=><tr key={r.id}>
    <td><b>{r.relative_value_signal||'—'}</b></td><td><b>{r.score==null?'—':Math.round(r.score)}</b></td><td>{r.canonical_address||'Unresolved'}</td><td>{money(r.asking_price_nis)}</td><td>{money(r.asking_price_sqm)}</td>
    <td>{pct(r.executed_discount_pct)}</td><td>{pct(r.matched_executed_discount_pct)}</td><td>{pct(r.current_asking_discount_pct)}</td>
    <td>{r.days_on_market??'—'}</td><td>{pct(r.price_change_since_first_pct)}</td>
    <td>{r.benchmark_confidence==null?'—':Math.round(Number(r.benchmark_confidence)*100)+'%'}</td>
+   <td><div className="ni-inline-actions"><button onClick={()=>onOpen(r)}>Open</button><button onClick={()=>onStartDeal(r)} disabled={r.status!=='active'}>Deal</button></div></td>
   </tr>)}</tbody></table></div></div>;
 }
 function Renewal({rows}:{rows:any[]}){
