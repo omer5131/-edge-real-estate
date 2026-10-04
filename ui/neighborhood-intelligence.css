@@ -68,3 +68,12 @@
  .ni-listing-flow{align-items:flex-start;flex-direction:column}
  .ni-listing-metrics{grid-template-columns:1fr 1fr}
 }
+
+.ni-israel-map{height:min(72vh,760px)}
+.ni-israel-map path{stroke:#f7f8f5;stroke-width:.9}
+.ni-israel-map path.selected{stroke:#102f24;stroke-width:2.4}
+@media(max-width:650px){
+ .ni-israel-map{height:520px}
+ .ni-map-topline{flex-direction:column}
+ .ni-map-note{font-size:11px}
+}
