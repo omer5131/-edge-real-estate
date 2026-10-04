@@ -1,0 +1,44 @@
+name: Edge collection every 6 hours
+
+on:
+  schedule:
+    - cron: '15 */6 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: edge-collection-six-hourly
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npx tsc -p tsconfig.server.json --noEmit false --outDir .server-build
+      - name: Collect parcel data
+        run: |
+          node --input-type=module <<'NODE'
+          const { runEdgeIngestion } = await import('./.server-build/agent/runIngestion.js');
+          const report = await runEdgeIngestion();
+          console.log(JSON.stringify(report, null, 2));
+          if (!report.ok || report.failedJobs > 0) process.exit(1);
+          NODE
+      - name: Sync OVER/CBS datasets
+        run: |
+          node --input-type=module <<'NODE'
+          const { runOverDatasets } = await import('./.server-build/sources/overDatasets.js');
+          const report = await runOverDatasets({ budgetMs: 230000, maxPages: 60 });
+          console.log(JSON.stringify(report, null, 2));
+          if (!report.ok) process.exit(1);
+          NODE
