@@ -11,15 +11,15 @@ export default function ExternalDataIntake(){
  const [mode,setMode]=useState<Mode>('url'),[kind,setKind]=useState<Kind>('sale'),[form,setForm]=useState<any>(blank);
  const [busy,setBusy]=useState(false),[message,setMessage]=useState<any>(null),[rows,setRows]=useState<any[]>([]);
  const set=(k:string,v:any)=>setForm((x:any)=>({...x,[k]:v}));
- const load=async()=>{try{const r=await fetch('/api/external-data?limit=12',{cache:'no-store'});const j=await r.json();setRows(j.intakes||[])}catch{}};
+ const load=async()=>{try{const r=await fetch('/api/opportunities?mode=external_data&limit=12',{cache:'no-store'});const j=await r.json();setRows(j.intakes||[])}catch{}};
  useEffect(()=>{load()},[]);
  const submit=async()=>{
   setBusy(true);setMessage(null);
   try{
-   const payload:any={intakeMode:mode,listingType:kind};
+   const payload:any={mode:'external_data',intakeMode:mode,listingType:kind};
    Object.entries(form).forEach(([k,v])=>{if(v!==''&&v!=null)payload[k]=numeric.has(k)?Number(v):v});
    if(kind==='rent'&&form.askingRent==='')delete payload.askingRent;
-   const r=await fetch('/api/external-data',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)});
+   const r=await fetch('/api/opportunities',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)});
    const j=await r.json();
    if(!r.ok&&r.status!==202)throw new Error(j.error||'Failed to add listing');
    if(j.needsInput){
