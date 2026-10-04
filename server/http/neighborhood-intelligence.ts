@@ -349,7 +349,7 @@ export default async function handler(req:VercelRequest,res:VercelResponse){
    return res.status(200).json(await runNeighborhoodEvaluations({includeAgent,gitSha:process.env.VERCEL_GIT_COMMIT_SHA}));
   }
   if(req.method!=='GET')return res.status(405).json({error:'method_not_allowed'});
-  if(mode==='neighborhood-map')return mapData(res);
+  if(mode==='neighborhood-map')return mapData(req,res);
   if(mode==='neighborhood-identity'){
    const id=String(req.query.neighborhoodId||'');
    if(!/^[0-9a-f-]{36}$/i.test(id))return res.status(400).json({error:'invalid_neighborhood_id'});
