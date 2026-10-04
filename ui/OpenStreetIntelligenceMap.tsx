@@ -1,6 +1,21 @@
-import {useEffect,useRef} from 'react';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
+import {useEffect,useRef,useState} from 'react';
+
+declare global{interface Window{L?:any}}
+
+function ensureLeaflet(){
+ if(window.L)return Promise.resolve(window.L);
+ if(!document.getElementById('leaflet-css')){
+  const link=document.createElement('link');link.id='leaflet-css';link.rel='stylesheet';
+  link.href='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';document.head.appendChild(link);
+ }
+ return new Promise<any>((resolve,reject)=>{
+  const existing=document.getElementById('leaflet-js') as HTMLScriptElement|null;
+  if(existing){existing.addEventListener('load',()=>resolve(window.L),{once:true});existing.addEventListener('error',reject,{once:true});return;}
+  const script=document.createElement('script');script.id='leaflet-js';
+  script.src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';script.async=true;
+  script.onload=()=>resolve(window.L);script.onerror=reject;document.head.appendChild(script);
+ });
+}
 
 type CityRow={
  city_id:string;name_he:string;geometry:any|null;has_transaction_data:boolean;
@@ -31,28 +46,30 @@ export default function OpenStreetIntelligenceMap({
  onParcel:(parcel:ParcelRow)=>void;
 }){
  const elRef=useRef<HTMLDivElement|null>(null);
- const mapRef=useRef<L.Map|null>(null);
- const layerRef=useRef<L.FeatureGroup|null>(null);
+ const mapRef=useRef<any>(null);
+ const layerRef=useRef<any>(null);
+ const [ready,setReady]=useState(false);
 
  useEffect(()=>{
-  if(!elRef.current||mapRef.current)return;
-  const map=L.map(elRef.current,{zoomControl:true,attributionControl:true,minZoom:6,maxZoom:20});
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
-   maxZoom:20,
-   attribution:'&copy; OpenStreetMap contributors'
-  }).addTo(map);
-  const group=L.featureGroup().addTo(map);
-  mapRef.current=map;layerRef.current=group;
-  map.setView([31.55,34.95],7);
-  const resize=()=>map.invalidateSize();
-  requestAnimationFrame(resize);
-  addEventListener('resize',resize);
-  return()=>{removeEventListener('resize',resize);map.remove();mapRef.current=null;layerRef.current=null;};
+  let disposed=false;let resize:undefined|(()=>void);
+  ensureLeaflet().then((L:any)=>{
+   if(disposed||!elRef.current||mapRef.current)return;
+   const map=L.map(elRef.current,{zoomControl:true,attributionControl:true,minZoom:6,maxZoom:20});
+   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+    maxZoom:20,
+    attribution:'&copy; OpenStreetMap contributors'
+   }).addTo(map);
+   const group=L.featureGroup().addTo(map);
+   mapRef.current=map;layerRef.current=group;
+   map.setView([31.55,34.95],7);setReady(true);
+   resize=()=>map.invalidateSize();requestAnimationFrame(resize);addEventListener('resize',resize);
+  }).catch(()=>setReady(false));
+  return()=>{disposed=true;if(resize)removeEventListener('resize',resize);if(mapRef.current){mapRef.current.remove();mapRef.current=null;layerRef.current=null;}};
  },[]);
 
  useEffect(()=>{
-  const map=mapRef.current,group=layerRef.current;
-  if(!map||!group)return;
+  const L=window.L,map=mapRef.current,group=layerRef.current;
+  if(!ready||!L||!map||!group)return;
   group.clearLayers();
 
   if(mode==='neighborhood'&&neighborhood?.geometry){
@@ -97,7 +114,7 @@ export default function OpenStreetIntelligenceMap({
   }
   const bounds=group.getBounds();
   if(bounds.isValid())map.fitBounds(bounds.pad(.025),{animate:false});
- },[mode,cities,neighborhood,parcels,layer,min,max,selectedCity,onCity,onParcel]);
+ },[ready,mode,cities,neighborhood,parcels,layer,min,max,selectedCity,onCity,onParcel]);
 
  return <div className="ni-leaflet-map" ref={elRef} aria-label={mode==='neighborhood'?'Neighborhood parcel map':'Israel investment map'}/>;
 }
