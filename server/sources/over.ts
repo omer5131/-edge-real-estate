@@ -198,18 +198,32 @@ export async function ingestTargetParcelDeals(runId:string){
 
   for(const t of targets){
     try{
+      // First successful run backfills the parcel history. Later runs use the last
+      // successful sync with a 2-day overlap so late source updates are not missed.
+      const incremental=!!t.last_deals_sync_at;
+      const cutoff=incremental
+        ? new Date(new Date(String(t.last_deals_sync_at)).getTime()-2*86400000).toISOString().slice(0,10)
+        : '2022-01-01';
       for(let offset=0;offset<1000;offset+=PAGE_SIZE){
         const u=new URL(`/api/nadlan/parcel/${t.gush}/${t.helka}/deals`,OVER);
         u.searchParams.set('limit',String(PAGE_SIZE));
         u.searchParams.set('offset',String(offset));
+        u.searchParams.set('date_from',cutoff);
         const payload=await json(u.toString(),2);
         const rows=recordsFrom(payload);
         if(!rows.length) break;
         fetched+=rows.length;
+        let recentRows=0;
         for(const row of rows){
+          const dealDate=isoDate(pick(row,['deal_date','date','sale_date','DEALDATETIME','תאריך עסקה','תאריך']));
+          if(incremental&&dealDate&&dealDate<cutoff) continue;
+          recentRows++;
           const state=await upsertTransaction(row,runId,String(t.city_id),String(t.parcel_id),String(t.neighborhood_id));
           if(state==='inserted')inserted++;else if(state==='updated')updated++;
         }
+        // OVER currently returns newest parcel deals first. If an incremental page is
+        // entirely older than the overlap, historical paging can stop safely.
+        if(incremental&&recentRows===0) break;
         if(rows.length<PAGE_SIZE) break;
       }
       await sql`UPDATE target_parcels SET last_deals_sync_at=now() WHERE id=${Number(t.target_id)}`;
