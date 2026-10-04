@@ -220,9 +220,9 @@ async function evidence(neighborhoodId:string,dataset?:string){
  `,[neighborhoodId,dataset||null]);
 }
 
-async function mapData(res:VercelResponse){
- const rows=await queryDatabase(`
-  SELECT n.id::text neighborhood_id,n.slug,n.name_he,c.name_he city,
+async function mapData(req:VercelRequest,res:VercelResponse){
+ const neighborhoods=await queryDatabase(`
+  SELECT n.id::text neighborhood_id,n.slug,n.name_he,c.name_he city,c.settlement_code,
    m.deal_heat::float8,m.investment_score::float8,m.confidence_score::float8,m.confidence_level,
    m.coverage_pct::float8,m.deal_count,m.transaction_count_12m,m.median_price_sqm_12m::float8,
    m.price_change_1y::float8,m.renewal_expansion_ratio::float8,m.estimated_gross_yield::float8,
@@ -232,8 +232,102 @@ async function mapData(res:VercelResponse){
   LEFT JOIN neighborhood_map_cache m ON m.neighborhood_id=n.id
   ORDER BY c.name_he,n.name_he
  `);
- res.setHeader('Cache-Control','public, s-maxage=300, stale-while-revalidate=1800');
- return res.status(200).json({generatedAt:new Date().toISOString(),neighborhoods:rows});
+ const scope=String(req.query.scope||'neighborhood');
+ if(scope!=='israel'){
+  res.setHeader('Cache-Control','public, s-maxage=300, stale-while-revalidate=1800');
+  return res.status(200).json({generatedAt:new Date().toISOString(),scope:'neighborhood',neighborhoods});
+ }
+ const cities=await queryDatabase(`
+  WITH parsed AS (
+   SELECT settlement_code,
+    CASE WHEN deal_date ~ '^\\d{2}/\\d{2}/\\d{4}
+
+export default async function handler(req:VercelRequest,res:VercelResponse){
+ try{
+  const mode=String(req.query.mode||req.body?.mode||'neighborhood-dashboard');
+  if(mode==='neighborhood-identity-refresh'){
+   if(!authorized(req))return res.status(401).json({error:'unauthorized'});
+   return res.status(200).json({ok:true,...await refreshNeighborhoodIdentity()});
+  }
+  if(mode==='neighborhood-refresh'){
+   if(!authorized(req))return res.status(401).json({error:'unauthorized'});
+   return res.status(200).json({ok:true,...await refreshNeighborhoodIntelligence()});
+  }
+  if(mode==='neighborhood-eval'){
+   if(req.method==='GET')return res.status(200).json(await latestNeighborhoodEvaluation());
+   if(req.method!=='POST')return res.status(405).json({error:'method_not_allowed'});
+   if(!authorized(req))return res.status(401).json({error:'unauthorized'});
+   const includeAgent=Boolean(req.body?.includeAgent);
+   return res.status(200).json(await runNeighborhoodEvaluations({includeAgent,gitSha:process.env.VERCEL_GIT_COMMIT_SHA}));
+  }
+  if(req.method!=='GET')return res.status(405).json({error:'method_not_allowed'});
+  if(mode==='neighborhood-map')return mapData(req,res);
+  if(mode==='neighborhood-identity'){
+   const id=String(req.query.neighborhoodId||'');
+   if(!/^[0-9a-f-]{36}$/i.test(id))return res.status(400).json({error:'invalid_neighborhood_id'});
+   return res.status(200).json({mode:'live',neighborhoodId:id,data:await neighborhoodIdentity(id)});
+  }
+  const id=String(req.query.neighborhoodId||'');
+  if(!/^[0-9a-f-]{36}$/i.test(id))return res.status(400).json({error:'invalid_neighborhood_id'});
+  const section=String(req.query.section||'summary');
+  const data=section==='summary'?await summary(id):
+   section==='transactions'?await transactions(id):
+   section==='listings'?await listings(id):
+   section==='renewal'?await renewal(id):
+   section==='market-trends'?await marketTrends(id):
+   section==='demographics'?await demographics(id):
+   section==='rentals'?await rentals(id):
+   section==='infrastructure'?await infrastructure(id):
+   section==='supply'?await supply(id):
+   section==='city-context'?await cityContext(id):
+   section==='evidence'?await evidence(id,typeof req.query.dataset==='string'?req.query.dataset:undefined):
+   null;
+  if(data===null)return res.status(400).json({error:'invalid_section',allowed:['summary','transactions','market-trends','listings','renewal','demographics','rentals','infrastructure','supply','city-context','evidence']});
+  res.setHeader('Cache-Control',section==='listings'?'s-maxage=60, stale-while-revalidate=300':'s-maxage=300, stale-while-revalidate=1800');
+  return res.status(200).json({mode:'live',neighborhoodId:id,section,data});
+ }catch(error){return res.status(503).json({mode:'unavailable',error:String(error)});}
+}
+ THEN to_date(deal_date,'DD/MM/YYYY') END deal_date,
+    NULLIF(regexp_replace(deal_amount,'[^0-9.]','','g'),'')::numeric amount_nis,
+    NULLIF(regexp_replace(asset_area,'[^0-9.]','','g'),'')::numeric area_sqm
+   FROM over_fd06f5ae8a4f4120b2758a514ad23499
+  ), valid AS (
+   SELECT settlement_code,deal_date,amount_nis,area_sqm,
+    CASE WHEN area_sqm BETWEEN 15 AND 1000 AND amount_nis>0 THEN amount_nis/area_sqm END pp_sqm
+   FROM parsed WHERE deal_date IS NOT NULL AND amount_nis>0
+  ), latest AS (SELECT max(deal_date) d FROM valid),
+  tx AS (
+   SELECT v.settlement_code,
+    count(*) FILTER(WHERE v.deal_date>l.d-interval '12 months')::int transaction_count_12m,
+    percentile_cont(.5) within group(order by v.amount_nis) FILTER(WHERE v.deal_date>l.d-interval '12 months')::float8 median_deal_amount_12m,
+    percentile_cont(.5) within group(order by v.pp_sqm) FILTER(WHERE v.deal_date>l.d-interval '12 months' AND v.pp_sqm IS NOT NULL)::float8 median_price_sqm_12m,
+    percentile_cont(.5) within group(order by v.pp_sqm) FILTER(WHERE v.deal_date>l.d-interval '24 months' AND v.deal_date<=l.d-interval '12 months' AND v.pp_sqm IS NOT NULL)::float8 prior_median_price_sqm,
+    l.d latest_transaction_date
+   FROM valid v CROSS JOIN latest l GROUP BY v.settlement_code,l.d
+  ), shapes AS (
+   SELECT c.id::text city_id,c.settlement_code,c.name_he,c.name_en,
+    ST_AsGeoJSON(ST_SimplifyPreserveTopology(ST_UnaryUnion(ST_Collect(sa.geom)),0.001))::jsonb geometry
+   FROM cities c JOIN statistical_areas sa ON sa.city_id=c.id
+   WHERE sa.geom IS NOT NULL
+   GROUP BY c.id,c.settlement_code,c.name_he,c.name_en
+  )
+  SELECT s.city_id,s.settlement_code,s.name_he,s.name_en,s.geometry,
+   COALESCE(tx.transaction_count_12m,0)::int transaction_count_12m,
+   tx.median_deal_amount_12m,tx.median_price_sqm_12m,
+   CASE WHEN tx.median_price_sqm_12m IS NOT NULL AND tx.prior_median_price_sqm>0
+    THEN ((tx.median_price_sqm_12m-tx.prior_median_price_sqm)/tx.prior_median_price_sqm*100)::float8 END price_change_1y,
+   tx.latest_transaction_date,
+   (tx.settlement_code IS NOT NULL) has_transaction_data
+  FROM shapes s LEFT JOIN tx ON tx.settlement_code=s.settlement_code
+  ORDER BY s.name_he
+ `);
+ res.setHeader('Cache-Control','public, s-maxage=3600, stale-while-revalidate=86400');
+ return res.status(200).json({
+  generatedAt:new Date().toISOString(),
+  scope:'israel',
+  source:{dataset:'over_fd06f5ae8a4f4120b2758a514ad23499',grain:'settlement',coverageNote:'Transaction archive currently contains 10 settlements; all other CBS city shapes remain gray.'},
+  cities,neighborhoods
+ });
 }
 
 export default async function handler(req:VercelRequest,res:VercelResponse){
