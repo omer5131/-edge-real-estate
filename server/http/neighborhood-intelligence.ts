@@ -50,6 +50,21 @@ async function transactions(neighborhoodId:string){
  `,[neighborhoodId]);
 }
 
+async function parcels(neighborhoodId:string){
+ return queryDatabase(`
+  SELECT p.id::text,p.gush,p.helka,p.suffix,
+   ST_X(p.centroid)::float8 lon,ST_Y(p.centroid)::float8 lat,
+   CASE WHEN p.geom IS NULL THEN NULL ELSE ST_AsGeoJSON(ST_SimplifyPreserveTopology(p.geom,0.000002))::jsonb END geometry,
+   count(t.id)::int transaction_count,max(t.deal_date) latest_transaction_date
+  FROM parcels p
+  LEFT JOIN transactions t ON t.parcel_id=p.id
+  WHERE p.neighborhood_id=$1
+  GROUP BY p.id,p.gush,p.helka,p.suffix,p.centroid,p.geom
+  ORDER BY transaction_count DESC,p.gush,p.helka
+  LIMIT 1000
+ `,[neighborhoodId]);
+}
+
 async function listings(neighborhoodId:string){
  return queryDatabase(`
   WITH snap AS(
@@ -227,6 +242,8 @@ async function mapData(req:VercelRequest,res:VercelResponse){
    m.coverage_pct::float8,m.deal_count,m.transaction_count_12m,m.median_price_sqm_12m::float8,
    m.price_change_1y::float8,m.renewal_expansion_ratio::float8,m.estimated_gross_yield::float8,
    m.average_wage::float8,m.net_internal_migration::float8,m.construction_starts::float8,
+   (SELECT count(*)::int FROM parcels p WHERE p.neighborhood_id=n.id) parcel_count,
+   (SELECT count(*)::int FROM parcels p WHERE p.neighborhood_id=n.id AND p.geom IS NOT NULL) parcel_geometry_count,
    CASE WHEN n.geom IS NULL THEN NULL ELSE ST_AsGeoJSON(n.geom)::jsonb END geometry
   FROM neighborhoods n JOIN cities c ON c.id=n.city_id
   LEFT JOIN neighborhood_map_cache m ON m.neighborhood_id=n.id
@@ -312,6 +329,7 @@ export default async function handler(req:VercelRequest,res:VercelResponse){
   const section=String(req.query.section||'summary');
   const data=section==='summary'?await summary(id):
    section==='transactions'?await transactions(id):
+   section==='parcels'?await parcels(id):
    section==='listings'?await listings(id):
    section==='renewal'?await renewal(id):
    section==='market-trends'?await marketTrends(id):
@@ -322,7 +340,7 @@ export default async function handler(req:VercelRequest,res:VercelResponse){
    section==='city-context'?await cityContext(id):
    section==='evidence'?await evidence(id,typeof req.query.dataset==='string'?req.query.dataset:undefined):
    null;
-  if(data===null)return res.status(400).json({error:'invalid_section',allowed:['summary','transactions','market-trends','listings','renewal','demographics','rentals','infrastructure','supply','city-context','evidence']});
+  if(data===null)return res.status(400).json({error:'invalid_section',allowed:['summary','transactions','parcels','market-trends','listings','renewal','demographics','rentals','infrastructure','supply','city-context','evidence']});
   res.setHeader('Cache-Control',section==='listings'?'s-maxage=60, stale-while-revalidate=300':'s-maxage=300, stale-while-revalidate=1800');
   return res.status(200).json({mode:'live',neighborhoodId:id,section,data});
  }catch(error){return res.status(503).json({mode:'unavailable',error:String(error)});}
