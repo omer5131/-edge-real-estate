@@ -1,16 +1,6 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "crons": [
-    {
-      "path": "/api/ingest",
-      "schedule": "15 */6 * * *"
-    },
-    {
-      "path": "/api/over-datasets",
-      "schedule": "45 */6 * * *"
-    }
-  ],
   "rewrites": [
     {
       "source": "/api/yad2-research",
