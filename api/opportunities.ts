@@ -1,6 +1,7 @@
 import type { VercelRequest,VercelResponse } from '@vercel/node';
 import { sql } from '../server/db.js';
 import {createDealForListing,deleteNote,getDealBundle,listDeals,saveNote,saveScenario,setDealStage,setOffer,updateDueDiligence,updateNextAction} from '../server/dealWorkflow.js';
+import {ingestExternalListing,recentExternalIntakes} from '../server/externalListingIngestion.js';
 
 const n=(v:any)=>{const x=Number(v);return Number.isFinite(x)?x:null};
 const bool=(v:any)=>String(v||'').toLowerCase()==='true';
@@ -8,6 +9,17 @@ const bool=(v:any)=>String(v||'').toLowerCase()==='true';
 export default async function handler(req:VercelRequest,res:VercelResponse){
  if(req.method==='POST'){
   const b=req.body||{};
+  if(b.mode==='external_data'){
+   try{
+    const payload={...b}; delete payload.mode;
+    const result=await ingestExternalListing(payload as any);
+    return res.status(result.ok?200:202).json(result);
+   }catch(error:any){
+    const message=String(error?.message||error);
+    const bad=/required|invalid_request|invalid_listing_type|invalid_intake_mode/i.test(message);
+    return res.status(bad?400:500).json({ok:false,error:message});
+   }
+  }
   if(b.mode==='workflow'){
    try{
     let result:any;
@@ -39,6 +51,12 @@ export default async function handler(req:VercelRequest,res:VercelResponse){
  if(req.method!=='GET')return res.status(405).json({error:'method_not_allowed'});
 
  const mode=String(req.query.mode||'');
+ if(mode==='external_data'){
+  try{
+   const limit=Math.max(1,Math.min(100,Number(req.query.limit||30)));
+   return res.status(200).json({ok:true,intakes:await recentExternalIntakes(limit)});
+  }catch(e){return res.status(503).json({error:e instanceof Error?e.message:String(e)});}
+ }
  if(mode==='deals'){
   try{return res.status(200).json({deals:await listDeals()});}
   catch(e){return res.status(503).json({error:e instanceof Error?e.message:String(e)});}
