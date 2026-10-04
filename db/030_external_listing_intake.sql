@@ -1,7 +1,7 @@
 -- Manual/external listing intake.
-INSERT INTO data_sources(id,name,category,base_url,license,enabled)
-VALUES('external_manual','External / Manual Listing Intake','listing',NULL,'user supplied',true)
-ON CONFLICT(id) DO UPDATE SET name=EXCLUDED.name,enabled=true;
+INSERT INTO data_sources(id,name,kind,base_url,authority,is_enabled,config)
+VALUES('external_manual','External / Manual Listing Intake','listing',NULL,'user',true,'{"manual":true,"supports":["sale","rent","url"]}'::jsonb)
+ON CONFLICT(id) DO UPDATE SET name=EXCLUDED.name,is_enabled=true,config=EXCLUDED.config,updated_at=now();
 
 CREATE TABLE IF NOT EXISTS external_listing_intake (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
