@@ -17,7 +17,7 @@ permissions:
 jobs:
   resume:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 360
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
     steps:
@@ -38,7 +38,7 @@ jobs:
             'fd06f5ae-8a4f-4120-b275-8a514ad23499',
             'ff3176b1-aafc-49c2-976d-ba25571e3564'
           ];
-          const deadline = Date.now() + 110 * 60 * 1000;
+          const deadline = Date.now() + 350 * 60 * 1000;
           const sleep = ms => new Promise(r => setTimeout(r, ms));
 
           for (const id of ids) {
