@@ -37,3 +37,34 @@
 .ni-chart-legend{display:flex;gap:18px;font-size:10px;color:var(--ni-muted);margin-bottom:8px}.ni-chart-legend span:first-child:before,.ni-chart-legend span:last-child:before{content:'';display:inline-block;width:12px;height:2px;margin-right:5px;vertical-align:middle;background:#286a4a}.ni-chart-legend span:last-child:before{background:#808780}
 
 .ni-value-signal{display:inline-flex;align-items:center;border-radius:999px;padding:4px 7px;font-size:10px;font-weight:800;text-transform:capitalize;background:#eef1ee;color:#536158}.ni-value-signal.discount{background:#dff2e6;color:#1c633c}.ni-value-signal.premium{background:#f5e4df;color:#8b3a30}.ni-value-signal.insufficient{background:#eceeed;color:#7b857f}
+
+.ni-map-bg{fill:#eef2ee}
+.ni-map-note{font-size:10px;line-height:1.45;color:var(--ni-muted);margin-top:-4px}
+.ni-listings-cta{border:1px solid #153f2e;background:#fff;color:#153f2e;border-radius:9px;padding:8px 11px;font-size:11px;font-weight:800;cursor:pointer}
+.ni-listing-flow{display:flex;align-items:center;justify-content:space-between;gap:12px;background:#fff;border:1px solid var(--ni-line);border-radius:14px;padding:13px 14px}
+.ni-listing-flow>div{display:flex;flex-direction:column;gap:3px}.ni-listing-flow span{font-size:11px;color:var(--ni-muted);line-height:1.45}.ni-listing-flow>strong{white-space:nowrap;font-size:12px}
+.ni-listing-cards{display:none;gap:10px}.ni-listing-card{background:#fff;border:1px solid var(--ni-line);border-radius:14px;padding:12px}.ni-listing-card.inactive{opacity:.65}
+.ni-listing-card-head{display:flex;justify-content:space-between;gap:10px}.ni-listing-card-head>div{display:flex;flex-direction:column;gap:3px}.ni-listing-card-head b{font-size:13px}.ni-listing-card-head span{font-size:10px;color:var(--ni-muted)}
+.ni-listing-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin:12px 0}.ni-listing-metrics>span{background:#f7f9f7;border-radius:9px;padding:8px;display:flex;flex-direction:column;gap:3px}.ni-listing-metrics small{font-size:9px;color:var(--ni-muted)}.ni-listing-metrics b{font-size:12px}
+.ni-listing-actions,.ni-inline-actions{display:flex;gap:7px}.ni-listing-actions button,.ni-inline-actions button{border:1px solid #d8ded9;background:#fff;color:#173d30;border-radius:8px;padding:8px 10px;font-size:10px;font-weight:800;cursor:pointer}.ni-listing-actions button.primary,.ni-inline-actions button:last-child{background:#173d30;color:#fff;border-color:#173d30}.ni-listing-actions button:disabled,.ni-inline-actions button:disabled{opacity:.45;cursor:not-allowed}
+@media(max-width:650px){
+ .ni-root{overflow:auto}
+ .ni-header{height:auto;min-height:72px;padding:10px 12px;align-items:flex-start;gap:10px;position:sticky;top:0;z-index:10}
+ .ni-header>div:first-child{min-width:0;flex:1}.ni-header h1{font-size:18px;line-height:1.15;white-space:normal}
+ .ni-header-actions{flex-direction:column;gap:6px;min-width:126px}.ni-header-actions select,.ni-header-actions button{width:100%;padding:8px 9px;font-size:11px}
+ .ni-map-panel{padding:10px 12px 14px;gap:9px}.ni-map-topline{font-size:11px;gap:8px;align-items:flex-start}.ni-map-topline .ni-muted{text-align:left}
+ .ni-map{height:280px;border-radius:14px}
+ .ni-legend{flex-wrap:wrap}.ni-gradient{flex-basis:125px}
+ .ni-neighborhood-list{grid-template-columns:1fr;max-height:190px}.ni-neighborhood-list button{padding:9px 10px}
+ .ni-detail{padding:14px 12px 80px}
+ .ni-title-row{align-items:flex-start;gap:8px}.ni-title-row h2{font-size:23px}
+ .ni-title-actions{align-items:stretch;min-width:120px}.ni-title-actions button{width:100%}
+ .ni-score-grid{margin:12px 0}.ni-score-grid strong{font-size:26px}
+ .ni-tabs{margin:0 -12px 14px;padding:0 12px;gap:1px}.ni-tabs button{padding:9px 10px;font-size:11px}
+ .ni-kpis{grid-template-columns:1fr 1fr;gap:7px}.ni-kpis>div{padding:11px}.ni-kpis strong{font-size:17px}
+ .ni-table-wrap{max-height:none}
+ .ni-listing-cards{display:flex;flex-direction:column}
+ .ni-desktop-listings{display:none}
+ .ni-listing-flow{align-items:flex-start;flex-direction:column}
+ .ni-listing-metrics{grid-template-columns:1fr 1fr}
+}
