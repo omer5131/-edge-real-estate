@@ -13,7 +13,7 @@ export const PARCEL_GEOMETRY_LOCALITIES=['חיפה'];
  */
 export async function syncScopedParcelGeometry(){
   const source='over_ff3176b1aafc49c2976dba25571e3564';
-  const [materialized, mapped, audited, inherited] = await transaction([
+  const [materialized, mapped, cleaned, audited, inherited] = await transaction([
     {
       text: `
         WITH src AS (
@@ -80,6 +80,19 @@ export async function syncScopedParcelGeometry(){
     },
     {
       text: `
+        DELETE FROM neighborhood_parcel_map npm
+        USING parcels p,cities c
+        WHERE npm.parcel_id=p.id
+          AND p.city_id=c.id
+          AND c.name_he=ANY($1::text[])
+          AND npm.mapping_method='parcel_point_in_neighborhood'
+          AND p.neighborhood_id IS DISTINCT FROM npm.neighborhood_id
+        RETURNING npm.parcel_id
+      `,
+      params:[PARCEL_GEOMETRY_LOCALITIES]
+    },
+    {
+      text: `
         INSERT INTO neighborhood_parcel_map(neighborhood_id,parcel_id,mapping_method,mapping_confidence,overlap_pct,mapping_version,evidence,mapped_at)
         SELECT p.neighborhood_id,p.id,'parcel_point_in_neighborhood',
           COALESCE(n.geometry_confidence,n.geom_confidence,.8),NULL,'edge-neighborhood-v1',
@@ -125,6 +138,7 @@ export async function syncScopedParcelGeometry(){
   return {
     affected:Number(materialized?.[0]?.affected||0),
     mapped:Number(mapped?.[0]?.mapped||0),
+    staleMappingsRemoved:Number(cleaned?.length||0),
     parcelMappings:Number(audited?.length||0),
     transactionsInherited:Number(inherited?.[0]?.inherited||0),
     coverage
