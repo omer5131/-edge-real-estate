@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { queryDatabase as query, databaseTransaction as transaction } from '../db.js';
 import {researchSchemaStatements,researchCatalog} from './researchSemantics.js';
+import {syncScopedParcelGeometry,PARCEL_SHAPE_DATASET_ID,PARCEL_GEOMETRY_LOCALITIES} from './parcelGeometry.js';
 import {ingestResearchAdapter} from './researchAdapters.js';
 import { overSchemaStatements } from './overSchema.js';
 import { archiveQuery, archiveRows, datasetTable, filterClause, identifier, literal, overJson, payloadHash, recordYearClause, watermark, type ArchiveSchema, type ArchiveRow, type Watermark } from './overApi.js';
@@ -11,9 +12,6 @@ type Dataset = { dataset_id: string; table_name: string; source_table: string | 
 // Parcel geometry is intentionally scoped. National geometry is expensive and is not
 // required for the current product rollout. Add another locality here when a new
 // parcel-geometry collection is explicitly requested.
-const PARCEL_SHAPE_DATASET_ID='ff3176b1-aafc-49c2-976d-ba25571e3564';
-export const PARCEL_GEOMETRY_LOCALITIES=['חיפה'];
-
 function effectiveFilters(dataset:Dataset){
   if(dataset.dataset_id!==PARCEL_SHAPE_DATASET_ID)return dataset.filters;
   return {...dataset.filters,LOCALITY_N:PARCEL_GEOMETRY_LOCALITIES};
@@ -193,7 +191,13 @@ export async function runOverDatasets(options: { datasetId?: string; budgetMs?: 
       results.push(await ingestDataset(dataset as Dataset,slice,Math.max(1,Math.min(100,options.maxPages??60))));
     }};
     await Promise.all(Array.from({length:Math.min(3,datasets.length)},worker));
-    return { ok: results.every(r=>!r.error), pending: results.some(r=>!r.complete) || results.length<datasets.length, datasets: results };
+    let parcelGeometry:any=null;
+    const touchedParcelGeometry=datasets.some((d:any)=>d.dataset_id===PARCEL_SHAPE_DATASET_ID);
+    if(touchedParcelGeometry){
+      try{parcelGeometry=await syncScopedParcelGeometry();}
+      catch(error:any){parcelGeometry={error:error?.message??String(error)};}
+    }
+    return { ok: results.every(r=>!r.error) && !parcelGeometry?.error, pending: results.some(r=>!r.complete) || results.length<datasets.length, datasets: results, parcelGeometry, parcelGeometryLocalities:PARCEL_GEOMETRY_LOCALITIES };
   } finally {
     await query('DELETE FROM over_sync_lock WHERE name=$1 AND owner=$2::uuid', ['daily',owner]);
   }
