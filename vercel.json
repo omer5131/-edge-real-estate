@@ -8,7 +8,7 @@
     },
     {
       "path": "/api/over-datasets",
-      "schedule": "45 2 * * *"
+      "schedule": "45 */6 * * *"
     }
   ],
   "rewrites": [
