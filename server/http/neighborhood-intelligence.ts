@@ -221,7 +221,7 @@ async function evidence(neighborhoodId:string,dataset?:string){
 }
 
 async function mapData(req:VercelRequest,res:VercelResponse){
- const neighborhoods=await queryDatabase(`
+ const neighborhoods=await queryDatabase(\`
   SELECT n.id::text neighborhood_id,n.slug,n.name_he,c.name_he city,c.settlement_code,
    m.deal_heat::float8,m.investment_score::float8,m.confidence_score::float8,m.confidence_level,
    m.coverage_pct::float8,m.deal_count,m.transaction_count_12m,m.median_price_sqm_12m::float8,
@@ -231,63 +231,16 @@ async function mapData(req:VercelRequest,res:VercelResponse){
   FROM neighborhoods n JOIN cities c ON c.id=n.city_id
   LEFT JOIN neighborhood_map_cache m ON m.neighborhood_id=n.id
   ORDER BY c.name_he,n.name_he
- `);
+ \`);
  const scope=String(req.query.scope||'neighborhood');
  if(scope!=='israel'){
   res.setHeader('Cache-Control','public, s-maxage=300, stale-while-revalidate=1800');
   return res.status(200).json({generatedAt:new Date().toISOString(),scope:'neighborhood',neighborhoods});
  }
- const cities=await queryDatabase(`
+ const cities=await queryDatabase(\`
   WITH parsed AS (
    SELECT settlement_code,
-    CASE WHEN deal_date ~ '^\\d{2}/\\d{2}/\\d{4}
-
-export default async function handler(req:VercelRequest,res:VercelResponse){
- try{
-  const mode=String(req.query.mode||req.body?.mode||'neighborhood-dashboard');
-  if(mode==='neighborhood-identity-refresh'){
-   if(!authorized(req))return res.status(401).json({error:'unauthorized'});
-   return res.status(200).json({ok:true,...await refreshNeighborhoodIdentity()});
-  }
-  if(mode==='neighborhood-refresh'){
-   if(!authorized(req))return res.status(401).json({error:'unauthorized'});
-   return res.status(200).json({ok:true,...await refreshNeighborhoodIntelligence()});
-  }
-  if(mode==='neighborhood-eval'){
-   if(req.method==='GET')return res.status(200).json(await latestNeighborhoodEvaluation());
-   if(req.method!=='POST')return res.status(405).json({error:'method_not_allowed'});
-   if(!authorized(req))return res.status(401).json({error:'unauthorized'});
-   const includeAgent=Boolean(req.body?.includeAgent);
-   return res.status(200).json(await runNeighborhoodEvaluations({includeAgent,gitSha:process.env.VERCEL_GIT_COMMIT_SHA}));
-  }
-  if(req.method!=='GET')return res.status(405).json({error:'method_not_allowed'});
-  if(mode==='neighborhood-map')return mapData(req,res);
-  if(mode==='neighborhood-identity'){
-   const id=String(req.query.neighborhoodId||'');
-   if(!/^[0-9a-f-]{36}$/i.test(id))return res.status(400).json({error:'invalid_neighborhood_id'});
-   return res.status(200).json({mode:'live',neighborhoodId:id,data:await neighborhoodIdentity(id)});
-  }
-  const id=String(req.query.neighborhoodId||'');
-  if(!/^[0-9a-f-]{36}$/i.test(id))return res.status(400).json({error:'invalid_neighborhood_id'});
-  const section=String(req.query.section||'summary');
-  const data=section==='summary'?await summary(id):
-   section==='transactions'?await transactions(id):
-   section==='listings'?await listings(id):
-   section==='renewal'?await renewal(id):
-   section==='market-trends'?await marketTrends(id):
-   section==='demographics'?await demographics(id):
-   section==='rentals'?await rentals(id):
-   section==='infrastructure'?await infrastructure(id):
-   section==='supply'?await supply(id):
-   section==='city-context'?await cityContext(id):
-   section==='evidence'?await evidence(id,typeof req.query.dataset==='string'?req.query.dataset:undefined):
-   null;
-  if(data===null)return res.status(400).json({error:'invalid_section',allowed:['summary','transactions','market-trends','listings','renewal','demographics','rentals','infrastructure','supply','city-context','evidence']});
-  res.setHeader('Cache-Control',section==='listings'?'s-maxage=60, stale-while-revalidate=300':'s-maxage=300, stale-while-revalidate=1800');
-  return res.status(200).json({mode:'live',neighborhoodId:id,section,data});
- }catch(error){return res.status(503).json({mode:'unavailable',error:String(error)});}
-}
- THEN to_date(deal_date,'DD/MM/YYYY') END deal_date,
+    CASE WHEN deal_date ~ '^[0-9]{2}/[0-9]{2}/[0-9]{4}$' THEN to_date(deal_date,'DD/MM/YYYY') END deal_date,
     NULLIF(regexp_replace(deal_amount,'[^0-9.]','','g'),'')::numeric amount_nis,
     NULLIF(regexp_replace(asset_area,'[^0-9.]','','g'),'')::numeric area_sqm
    FROM over_fd06f5ae8a4f4120b2758a514ad23499
@@ -320,7 +273,7 @@ export default async function handler(req:VercelRequest,res:VercelResponse){
    (tx.settlement_code IS NOT NULL) has_transaction_data
   FROM shapes s LEFT JOIN tx ON tx.settlement_code=s.settlement_code
   ORDER BY s.name_he
- `);
+ \`);
  res.setHeader('Cache-Control','public, s-maxage=3600, stale-while-revalidate=86400');
  return res.status(200).json({
   generatedAt:new Date().toISOString(),
@@ -329,7 +282,6 @@ export default async function handler(req:VercelRequest,res:VercelResponse){
   cities,neighborhoods
  });
 }
-
 export default async function handler(req:VercelRequest,res:VercelResponse){
  try{
   const mode=String(req.query.mode||req.body?.mode||'neighborhood-dashboard');
