@@ -1,5 +1,6 @@
 import React,{useEffect,useMemo,useState} from 'react';
 import './neighborhood-intelligence.css';
+import OpenStreetIntelligenceMap from './OpenStreetIntelligenceMap';
 
 type NeighborhoodMapRow={
  neighborhood_id:string;slug:string;name_he:string;city:string;
@@ -9,6 +10,7 @@ type NeighborhoodMapRow={
  average_wage:number|null;net_internal_migration:number|null;construction_starts:number|null;parcel_count?:number;parcel_geometry_count?:number;geometry:any|null;
 };
 type CityMapRow={city_id:string;settlement_code:string;name_he:string;name_en:string|null;geometry:any|null;transaction_count_12m:number;median_deal_amount_12m:number|null;median_price_sqm_12m:number|null;price_change_1y:number|null;latest_transaction_date:string|null;has_transaction_data:boolean};
+type ParcelMapRow={id:string;gush:number;helka:number;suffix:string;lon:number|null;lat:number|null;geometry:any|null;transaction_count:number;latest_transaction_date:string|null};
 type Summary={neighborhood:any;metrics:any[];datasets:any[]};
 type LayerKey='median_price_sqm_12m'|'transaction_count_12m'|'price_change_1y'|'median_deal_amount_12m';
 const layers:{key:LayerKey;label:string;unit:string}[]=[
@@ -73,6 +75,9 @@ export default function NeighborhoodIntelligenceShell({children}:{children:React
  const [agentAnswer,setAgentAnswer]=useState('');
  const [asking,setAsking]=useState(false);
  const [error,setError]=useState<string|null>(null);
+ const [parcelRows,setParcelRows]=useState<ParcelMapRow[]>([]);
+ const [parcelFocus,setParcelFocus]=useState(false);
+ const [selectedParcel,setSelectedParcel]=useState<ParcelMapRow|null>(null);
 
  useEffect(()=>{
   const onHash=()=>setOpen(location.hash.startsWith('#/areas'));
@@ -103,6 +108,14 @@ export default function NeighborhoodIntelligenceShell({children}:{children:React
  },[selected,open]);
 
  useEffect(()=>{
+  if(!selected||!open){setParcelRows([]);return;}
+  fetch('/api/neighborhood?neighborhoodId='+encodeURIComponent(selected)+'&section=parcels')
+   .then(r=>{if(!r.ok)throw new Error('Parcel API '+r.status);return r.json();})
+   .then(x=>setParcelRows(Array.isArray(x.data)?x.data:[]))
+   .catch(e=>setError(String(e)));
+ },[selected,open]);
+
+ useEffect(()=>{
   if(!selected||section==='overview')return;
   if(section==='identity'){
    fetch('/api/neighborhood-identity?neighborhoodId='+encodeURIComponent(selected))
@@ -118,22 +131,12 @@ export default function NeighborhoodIntelligenceShell({children}:{children:React
  const selectedRow=rows.find(r=>r.neighborhood_id===selected)||null;
  const selectedCityRow=cities.find(r=>r.city_id===selectedCity)||null;
  const cityNeighborhoods=selectedCityRow?rows.filter(r=>r.city===selectedCityRow.name_he):rows;
- const bounds=useMemo(()=>{
-  const pts=mapRows.flatMap(r=>flattenCoords(r.geometry));
-  if(!pts.length)return {minX:34.15,maxX:35.9,minY:29.4,maxY:33.4};
-  const minX=Math.min(...pts.map(p=>p[0])),maxX=Math.max(...pts.map(p=>p[0])),minY=Math.min(...pts.map(p=>p[1])),maxY=Math.max(...pts.map(p=>p[1]));
-  const padX=Math.max((maxX-minX)*.025,.01),padY=Math.max((maxY-minY)*.025,.01);
-  return {minX:minX-padX,maxX:maxX+padX,minY:minY-padY,maxY:maxY+padY};
- },[mapRows]);
- const osmSrc=useMemo(()=>{
-  const params=new URLSearchParams({bbox:`${bounds.minX},${bounds.minY},${bounds.maxX},${bounds.maxY}`,layer:'mapnik'});
-  return 'https://www.openstreetmap.org/export/embed.html?'+params.toString();
- },[bounds.minX,bounds.minY,bounds.maxX,bounds.maxY]);
  const values=cities.map(r=>Number(r[layer])).filter((v,i)=>cities[i]?.has_transaction_data&&Number.isFinite(v));
  const min=values.length?Math.min(...values):0,max=values.length?Math.max(...values):100;
  const current=selectedRow;
  const currentMetric=layers.find(l=>l.key===layer)!;
  const chooseCity=(r:CityMapRow)=>{
+  setParcelFocus(false);setSelectedParcel(null);
   setSelectedCity(r.city_id);
   const first=rows.find(n=>n.city===r.name_he);
   setSelected(first?.neighborhood_id||null);
@@ -178,21 +181,25 @@ export default function NeighborhoodIntelligenceShell({children}:{children:React
   </header>
   <div className="ni-layout">
    <section className="ni-map-panel">
-    <div className="ni-map-topline"><span>{currentMetric.label}</span><span className="ni-muted">Israel · {cities.filter(x=>x.has_transaction_data).length} settlements with transaction data · {cities.length} mapped settlements</span></div>
+    <div className="ni-map-topline"><span>{parcelFocus&&selectedRow?selectedRow.name_he+' · parcel geometry':currentMetric.label}</span><span className="ni-muted">{parcelFocus&&selectedRow?((selectedRow.parcel_geometry_count??0)+' mapped parcels'):(`Israel · ${cities.filter(x=>x.has_transaction_data).length} settlements with transaction data · ${cities.length} mapped settlements`)}</span>{parcelFocus&&<button className="ni-map-back" onClick={()=>{setParcelFocus(false);setSelectedParcel(null)}}>Back to Israel</button>}</div>
     {loading?<div className="ni-empty">Loading neighborhood intelligence…</div>:
-     mapRows.length?<div className="ni-map-stage ni-israel-map">
-      <iframe className="ni-osm-base" title="OpenStreetMap base map" src={osmSrc} loading="lazy"/>
-      <svg className="ni-map ni-map-overlay" viewBox="0 0 900 1280" role="img" aria-label="Israel transaction intelligence map">
-       {mapRows.map(r=><path key={r.city_id} d={geoPath(r.geometry,bounds,900,1280)}
-        fill={r.has_transaction_data?colorFor(Number(r[layer]),min,max):'var(--ni-no-data)'} className={selectedCity===r.city_id?'selected':''}
-        onClick={()=>chooseCity(r)}><title>{r.name_he} · {currentMetric.label}: {r.has_transaction_data?(r[layer]??'No metric'):'No transaction data'}</title></path>)}
-      </svg>
-      <div className="ni-map-provider">OpenStreetMap</div>
-     </div>:<div className="ni-empty"><strong>Neighborhood polygons are still being resolved.</strong><span>The dashboard remains usable from the neighborhood list; heat polygons appear automatically once geometry is available.</span></div>}
+     mapRows.length?<OpenStreetIntelligenceMap
+      mode={parcelFocus&&selectedRow?.geometry?'neighborhood':'israel'}
+      cities={mapRows}
+      neighborhood={selectedRow}
+      parcels={parcelRows}
+      layer={layer}
+      min={min}
+      max={max}
+      selectedCity={selectedCity}
+      onCity={chooseCity}
+      onParcel={setSelectedParcel}
+     />:<div className="ni-empty"><strong>Neighborhood polygons are still being resolved.</strong><span>The dashboard remains usable from the neighborhood list; heat polygons appear automatically once geometry is available.</span></div>}
     <div className="ni-legend"><span>Low</span><div className="ni-gradient"/><span>High</span><span className="ni-no-data-box"/> <span>No metric data</span></div>
-    <div className="ni-map-note">All available CBS settlement geography is shown. Gray means geography exists but the current transaction archive has no data for that settlement. Colored areas use executed transaction data only.</div>
+    <div className="ni-map-note">{parcelFocus&&selectedRow?'OpenStreetMap base with canonical neighborhood and parcel polygons. Click a parcel for cadastral and transaction context.':'All available CBS settlement geography is shown. Gray means geography exists but the current transaction archive has no data for that settlement. Colored areas use executed transaction data only.'}</div>
+    {selectedParcel&&<div className="ni-parcel-card"><div><b>גוש {selectedParcel.gush} · חלקה {selectedParcel.helka}</b><span>{selectedParcel.transaction_count||0} linked transactions{selectedParcel.latest_transaction_date?' · latest '+new Date(selectedParcel.latest_transaction_date).toLocaleDateString('he-IL'):''}</span></div><button onClick={()=>setSelectedParcel(null)}>×</button></div>}
     <div className="ni-neighborhood-list">
-     {cityNeighborhoods.map(r=><button key={r.neighborhood_id} className={selected===r.neighborhood_id?'active':''} onClick={()=>setSelected(r.neighborhood_id)}>
+     {cityNeighborhoods.map(r=><button key={r.neighborhood_id} className={selected===r.neighborhood_id?'active':''} onClick={()=>{setSelected(r.neighborhood_id);setParcelFocus(Boolean(r.geometry));setSelectedParcel(null)}}>
       <span><b>{r.name_he}</b><small>{r.city}</small></span>
       <span className="ni-list-score">{r.parcel_geometry_count??r.parcel_count??0} parcels</span>
      </button>)}
