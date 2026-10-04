@@ -77,3 +77,11 @@
  .ni-map-topline{flex-direction:column}
  .ni-map-note{font-size:11px}
 }
+
+.ni-map-stage{position:relative;width:100%;height:min(72vh,760px);border:1px solid var(--ni-line);border-radius:18px;overflow:hidden;background:#eef2ee}
+.ni-osm-base{position:absolute;inset:0;width:100%;height:100%;border:0;pointer-events:none;filter:saturate(.72) contrast(.96) brightness(1.02)}
+.ni-map-overlay{position:absolute;inset:0;width:100%;height:100%;border:0;background:transparent;border-radius:0}
+.ni-map-overlay path{fill-opacity:.58;stroke:rgba(255,255,255,.92);vector-effect:non-scaling-stroke}
+.ni-map-overlay path:hover{fill-opacity:.74}
+.ni-map-provider{position:absolute;right:8px;bottom:7px;padding:3px 6px;border-radius:5px;background:rgba(255,255,255,.88);font-size:9px;color:#4e5b54;pointer-events:none}
+@media(max-width:650px){.ni-map-stage{height:520px;border-radius:14px}}
