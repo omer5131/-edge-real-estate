@@ -17,12 +17,9 @@ function ensureLeaflet(){
  });
 }
 
-type CityRow={
- city_id:string;name_he:string;geometry:any|null;has_transaction_data:boolean;
- [key:string]:any;
-};
+type CityRow={city_id:string;settlement_code:string;name_he:string;name_en:string|null;geometry:any|null;transaction_count_12m:number;median_deal_amount_12m:number|null;median_price_sqm_12m:number|null;price_change_1y:number|null;latest_transaction_date:string|null;has_transaction_data:boolean;[key:string]:any};
 type NeighborhoodRow={neighborhood_id:string;name_he:string;city:string;geometry:any|null;geometry_confidence?:number|null;[key:string]:any};
-type ParcelRow={id:string;gush:number;helka:number;suffix:string;geometry:any|null;transaction_count:number;latest_transaction_date:string|null;[key:string]:any};
+type ParcelRow={id:string;gush:number;helka:number;suffix:string;lon:number|null;lat:number|null;geometry:any|null;transaction_count:number;latest_transaction_date:string|null;[key:string]:any};
 
 function colorFor(v:number|null,min:number,max:number){
  if(v==null||!Number.isFinite(v))return '#d9dedb';
