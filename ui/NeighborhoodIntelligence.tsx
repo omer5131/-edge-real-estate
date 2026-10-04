@@ -130,8 +130,8 @@ export default function NeighborhoodIntelligenceShell({children}:{children:React
   try{
    const response=await fetch('/api/opportunities',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({mode:'workflow',action:'create_deal',listing_id:r.id})});
    const json=await response.json();if(!response.ok)throw new Error(json.error||'create_deal_failed');
-   openListing(r);
-   setTimeout(()=>window.dispatchEvent(new CustomEvent('edge:open-deal-tab',{detail:{listingId:r.id}})),0);
+   close();
+   window.dispatchEvent(new CustomEvent('edge:open-deals',{detail:{listingId:r.id}}));
   }catch(e){setError(String(e));}
  };
 
