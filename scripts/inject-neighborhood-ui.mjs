@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 fs.mkdirSync('src/components',{recursive:true});
 fs.copyFileSync('ui/NeighborhoodIntelligence.tsx','src/components/NeighborhoodIntelligence.tsx');
+fs.copyFileSync('ui/OpenStreetIntelligenceMap.tsx','src/components/OpenStreetIntelligenceMap.tsx');
 fs.copyFileSync('ui/neighborhood-intelligence.css','src/components/neighborhood-intelligence.css');
 fs.copyFileSync('ui/DealWorkflow.tsx','src/components/DealWorkflow.tsx');
 fs.copyFileSync('ui/MyDeals.tsx','src/components/MyDeals.tsx');
