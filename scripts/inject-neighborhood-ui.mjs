@@ -2,6 +2,8 @@ import fs from 'node:fs';
 fs.mkdirSync('src/components',{recursive:true});
 fs.copyFileSync('ui/NeighborhoodIntelligence.tsx','src/components/NeighborhoodIntelligence.tsx');
 fs.copyFileSync('ui/OpenStreetIntelligenceMap.tsx','src/components/OpenStreetIntelligenceMap.tsx');
+fs.copyFileSync('ui/ExternalDataIntake.tsx','src/components/ExternalDataIntake.tsx');
+fs.copyFileSync('ui/external-data-intake.css','src/components/external-data-intake.css');
 fs.copyFileSync('ui/neighborhood-intelligence.css','src/components/neighborhood-intelligence.css');
 fs.copyFileSync('ui/DealWorkflow.tsx','src/components/DealWorkflow.tsx');
 fs.copyFileSync('ui/MyDeals.tsx','src/components/MyDeals.tsx');
@@ -82,3 +84,11 @@ if(!bridge.includes("edge:open-listing")){
 }
 fs.writeFileSync(edge,bridge);
 console.log('Phase 3 Area Intelligence → Deal bridge injected.');
+
+const edgePath='src/EdgeP1.tsx';
+if(fs.existsSync(edgePath)){
+ let edge=fs.readFileSync(edgePath,'utf8');
+ if(!edge.includes("import ExternalDataIntake from")) edge="import ExternalDataIntake from './components/ExternalDataIntake';\n"+edge;
+ edge=edge.replace("<DataExplorer/><DataConsole status={status}/>","<ExternalDataIntake/><DataExplorer/><DataConsole status={status}/>");
+ fs.writeFileSync(edgePath,edge,'utf8');
+}
