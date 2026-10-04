@@ -121,14 +121,17 @@ function deepFindNumber(obj:any,names:string[]):number|null{
 
 export async function discoverTargetParcels(runId:string){
   const rules=await sql`
-    SELECT sr.id,sr.normalized_street,n.id neighborhood_id,n.city_id,c.name_he city,
+    SELECT sr.neighborhood_id::text||':'||md5(sr.normalized_street) rule_key,
+           sr.normalized_street,n.id neighborhood_id,n.city_id,c.name_he city,
            coalesce((cp.cursor->>'next_number')::int,1) next_number
     FROM neighborhood_street_rules sr
     JOIN neighborhoods n ON n.id=sr.neighborhood_id
     JOIN cities c ON c.id=n.city_id
-    LEFT JOIN etl_checkpoints cp ON cp.source_id='over_nadlan' AND cp.job_key='street:'||sr.id::text
+    LEFT JOIN etl_checkpoints cp
+      ON cp.source_id='over_nadlan'
+     AND cp.job_key='street:'||(sr.neighborhood_id::text||':'||md5(sr.normalized_street))
     WHERE n.is_focus
-    ORDER BY coalesce(cp.last_success_at,'1970-01-01'::timestamptz),sr.id
+    ORDER BY coalesce(cp.last_success_at,'1970-01-01'::timestamptz),sr.neighborhood_id,sr.normalized_street
   `;
 
   let fetched=0,inserted=0,errors=0;
@@ -174,7 +177,7 @@ export async function discoverTargetParcels(runId:string){
     }
     await sql`
       INSERT INTO etl_checkpoints(source_id,job_key,cursor,status,last_started_at,last_success_at,last_error,updated_at)
-      VALUES('over_nadlan',${'street:'+String(rule.id)},${JSON.stringify({next_number:next})}::jsonb,'idle',now(),now(),NULL,now())
+      VALUES('over_nadlan',${'street:'+String(rule.rule_key)},${JSON.stringify({next_number:next})}::jsonb,'idle',now(),now(),NULL,now())
       ON CONFLICT(source_id,job_key) DO UPDATE SET cursor=EXCLUDED.cursor,status='idle',last_started_at=now(),last_success_at=now(),last_error=NULL,updated_at=now()
     `;
   }
