@@ -221,7 +221,7 @@ async function evidence(neighborhoodId:string,dataset?:string){
 }
 
 async function mapData(req:VercelRequest,res:VercelResponse){
- const neighborhoods=await queryDatabase(\`
+ const neighborhoods=await queryDatabase(`
   SELECT n.id::text neighborhood_id,n.slug,n.name_he,c.name_he city,c.settlement_code,
    m.deal_heat::float8,m.investment_score::float8,m.confidence_score::float8,m.confidence_level,
    m.coverage_pct::float8,m.deal_count,m.transaction_count_12m,m.median_price_sqm_12m::float8,
@@ -231,13 +231,13 @@ async function mapData(req:VercelRequest,res:VercelResponse){
   FROM neighborhoods n JOIN cities c ON c.id=n.city_id
   LEFT JOIN neighborhood_map_cache m ON m.neighborhood_id=n.id
   ORDER BY c.name_he,n.name_he
- \`);
+ `);
  const scope=String(req.query.scope||'neighborhood');
  if(scope!=='israel'){
   res.setHeader('Cache-Control','public, s-maxage=300, stale-while-revalidate=1800');
   return res.status(200).json({generatedAt:new Date().toISOString(),scope:'neighborhood',neighborhoods});
  }
- const cities=await queryDatabase(\`
+ const cities=await queryDatabase(`
   WITH parsed AS (
    SELECT settlement_code,
     CASE WHEN deal_date ~ '^[0-9]{2}/[0-9]{2}/[0-9]{4}$' THEN to_date(deal_date,'DD/MM/YYYY') END deal_date,
@@ -273,7 +273,7 @@ async function mapData(req:VercelRequest,res:VercelResponse){
    (tx.settlement_code IS NOT NULL) has_transaction_data
   FROM shapes s LEFT JOIN tx ON tx.settlement_code=s.settlement_code
   ORDER BY s.name_he
- \`);
+ `);
  res.setHeader('Cache-Control','public, s-maxage=3600, stale-while-revalidate=86400');
  return res.status(200).json({
   generatedAt:new Date().toISOString(),
