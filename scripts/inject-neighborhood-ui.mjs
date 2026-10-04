@@ -56,3 +56,28 @@ if(!phase3.includes("{tab==='deals'&&<MyDeals")){
 }
 fs.writeFileSync(edge,phase3);
 console.log('Phase 3 My Deals UI injected.');
+
+
+/* Phase 3 area-to-deal bridge */
+let bridge=fs.readFileSync(edge,'utf8');
+if(!bridge.includes("edge:open-listing")){
+ bridge=bridge.replace(
+   "  useEffect(()=>{load();},[]);",
+   `  useEffect(()=>{load();},[]);
+  useEffect(()=>{
+    const openListing=(event:Event)=>{
+      const detail=(event as CustomEvent).detail;
+      if(detail?.id){setProperty(detail as any);setTab('property');}
+    };
+    const openDeals=()=>setTab('deals');
+    window.addEventListener('edge:open-listing',openListing as EventListener);
+    window.addEventListener('edge:open-deals',openDeals);
+    return()=>{
+      window.removeEventListener('edge:open-listing',openListing as EventListener);
+      window.removeEventListener('edge:open-deals',openDeals);
+    };
+  },[]);`
+ );
+}
+fs.writeFileSync(edge,bridge);
+console.log('Phase 3 Area Intelligence → Deal bridge injected.');
