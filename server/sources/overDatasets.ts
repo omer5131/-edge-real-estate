@@ -113,10 +113,16 @@ async function ingestDataset(dataset: Dataset, deadline: number, maxPages: numbe
         ]);
         return { datasetId: d.dataset_id, fetched, inserted, complete: true, empty: true };
       }
-      const reconcile = d.watermark && (!d.last_reconciled_at || Date.parse(d.last_reconciled_at) < Date.now() - 7 * 86400000);
-      const phase: Cursor['phase'] = !d.watermark ? 'backfill' : reconcile ? 'reconcile' : 'daily';
+      // Backfill exactly once. After a watermark exists, every run is incremental:
+      // start from the last committed item and add a 2-day overlap for late-arriving
+      // source rows. Exact payload hashes are unique in the cache, so the overlap is
+      // idempotent and cannot create duplicate rows.
+      const phase: Cursor['phase'] = !d.watermark ? 'backfill' : 'daily';
       cursor = { phase, upper: watermark(newest[0]) };
-      if (phase === 'daily') { cursor.lower = d.watermark!; cursor.since = new Date(Date.now() - 7 * 86400000).toISOString(); }
+      if (phase === 'daily') {
+        cursor.lower = d.watermark!;
+        cursor.since = new Date(Date.now() - 2 * 86400000).toISOString();
+      }
       // Persist the upper bound before fetching so retries keep the same range.
       await query(`UPDATE over_datasets SET cursor=$2::jsonb,status=$3,last_checked_at=now() WHERE dataset_id=$1::uuid`, [d.dataset_id, JSON.stringify(cursor), phase === 'backfill' ? 'backfilling' : 'syncing']);
     }
@@ -128,7 +134,7 @@ async function ingestDataset(dataset: Dataset, deadline: number, maxPages: numbe
         // Exhaustion, rather than a short response, signals completion: OVER may cap SQL responses.
         await transaction([
           { text: `UPDATE over_datasets SET cursor=NULL,watermark=$2::jsonb,status='healthy',last_checked_at=now(),last_success_at=now(),last_error=NULL,
-            last_reconciled_at=CASE WHEN $3 IN ('backfill','reconcile') THEN now() ELSE last_reconciled_at END WHERE dataset_id=$1::uuid`, params: [d.dataset_id, JSON.stringify(cursor.upper), cursor.phase] },
+            last_reconciled_at=CASE WHEN $3='backfill' THEN now() ELSE last_reconciled_at END WHERE dataset_id=$1::uuid`, params: [d.dataset_id, JSON.stringify(cursor.upper), cursor.phase] },
           { text: `UPDATE over_sync_runs SET status='success',finished_at=now() WHERE id=$1::uuid`, params: [runId] }
         ]);
         return { datasetId: d.dataset_id, phase: cursor.phase, fetched, inserted, complete: true };
