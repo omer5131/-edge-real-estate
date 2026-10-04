@@ -4,6 +4,10 @@ on:
   schedule:
     - cron: '15 */6 * * *'
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/collection-trigger'
 
 concurrency:
   group: edge-collection-six-hourly
@@ -26,7 +30,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx tsc -p tsconfig.server.json --noEmit false --outDir .server-build
-      - name: Collect parcel data
+      - name: Collect parcel data and enrichments
         run: |
           node --input-type=module <<'NODE'
           const { runEdgeIngestion } = await import('./.server-build/agent/runIngestion.js');
