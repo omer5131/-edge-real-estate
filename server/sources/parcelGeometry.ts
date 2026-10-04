@@ -13,7 +13,7 @@ export const PARCEL_GEOMETRY_LOCALITIES=['חיפה'];
  */
 export async function syncScopedParcelGeometry(){
   const source='over_ff3176b1aafc49c2976dba25571e3564';
-  const [materialized, mapped, inherited] = await transaction([
+  const [materialized, mapped, audited, inherited] = await transaction([
     {
       text: `
         WITH src AS (
@@ -80,6 +80,26 @@ export async function syncScopedParcelGeometry(){
     },
     {
       text: `
+        INSERT INTO neighborhood_parcel_map(neighborhood_id,parcel_id,mapping_method,mapping_confidence,overlap_pct,mapping_version,evidence,mapped_at)
+        SELECT p.neighborhood_id,p.id,'parcel_point_in_neighborhood',
+          COALESCE(n.geometry_confidence,n.geom_confidence,.8),NULL,'edge-neighborhood-v1',
+          jsonb_build_object('source','parcel_geometry','method','point_on_surface','locality',c.name_he),now()
+        FROM parcels p
+        JOIN neighborhoods n ON n.id=p.neighborhood_id
+        JOIN cities c ON c.id=p.city_id
+        WHERE c.name_he=ANY($1::text[]) AND p.neighborhood_id IS NOT NULL AND p.geom IS NOT NULL
+        ON CONFLICT(neighborhood_id,parcel_id) DO UPDATE SET
+          mapping_method=EXCLUDED.mapping_method,
+          mapping_confidence=GREATEST(neighborhood_parcel_map.mapping_confidence,EXCLUDED.mapping_confidence),
+          mapping_version=EXCLUDED.mapping_version,
+          evidence=EXCLUDED.evidence,
+          mapped_at=now()
+        RETURNING parcel_id
+      `,
+      params:[PARCEL_GEOMETRY_LOCALITIES]
+    },
+    {
+      text: `
         WITH updated AS (
           UPDATE transactions t
           SET neighborhood_id=p.neighborhood_id,observed_at=now()
@@ -105,6 +125,7 @@ export async function syncScopedParcelGeometry(){
   return {
     affected:Number(materialized?.[0]?.affected||0),
     mapped:Number(mapped?.[0]?.mapped||0),
+    parcelMappings:Number(audited?.length||0),
     transactionsInherited:Number(inherited?.[0]?.inherited||0),
     coverage
   };
