@@ -225,7 +225,12 @@ export async function refreshNeighborhoodIdentity(){
         COALESCE((m.source_evidence->>'safe_for_polygon')::boolean,false) safe_for_polygon
       FROM neighborhood_stat_area_map m
       JOIN statistical_areas s ON s.id=m.stat_area_id
-      WHERE s.geom IS NOT NULL AND m.mapping_confidence>=.85
+      WHERE s.geom IS NOT NULL
+        AND (m.mapping_confidence>=.85 OR (
+          m.mapping_method='configured_crosswalk'
+          AND COALESCE((m.source_evidence->>'safe_for_polygon')::boolean,false)
+          AND m.mapping_confidence>=.70
+        ))
     ), agg AS(
       SELECT neighborhood_id,
         ST_Multi(ST_Union(geom)) FILTER(WHERE exclusive OR overlap_ratio=1 OR safe_for_polygon) geom,
