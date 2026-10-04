@@ -4,7 +4,7 @@ import './external-data-intake.css';
 
 type Kind='sale'|'rent';
 type Mode='url'|'manual';
-const blank={url:'',city:'',neighborhood:'',address:'',askingPrice:'',askingRent:'',areaSqm:'',rooms:'',floor:'',propertyType:'',brokerName:'',description:'',publishedAt:'',contactPhone:'',lat:'',lon:'',gush:'',helka:'',notes:''};
+const blank={url:'',city:'',neighborhood:'',address:'',askingPrice:'',askingRent:'',areaSqm:'',rooms:'',floor:'',propertyType:'',brokerName:'',contactName:'',contactPhone:'',description:'',publishedAt:'',entryDate:'',condition:'',parking:false,elevator:false,balcony:false,mamad:false,furnished:false,lat:'',lon:'',gush:'',helka:'',notes:''};
 const numeric=new Set(['askingPrice','askingRent','areaSqm','rooms','lat','lon','gush','helka']);
 
 export default function ExternalDataIntake(){
@@ -61,7 +61,16 @@ export default function ExternalDataIntake(){
     <label>Floor<input value={form.floor} onChange={e=>set('floor',e.target.value)}/></label>
     <label>Property type<input value={form.propertyType} onChange={e=>set('propertyType',e.target.value)} placeholder="Apartment"/></label>
     <label>Broker / publisher<input value={form.brokerName} onChange={e=>set('brokerName',e.target.value)}/></label>
+    <label>Contact name<input value={form.contactName} onChange={e=>set('contactName',e.target.value)}/></label>
+    <label>Contact phone<input value={form.contactPhone} onChange={e=>set('contactPhone',e.target.value)}/></label>
     <label>Published at<input type="date" value={form.publishedAt} onChange={e=>set('publishedAt',e.target.value)}/></label>
+    <label>Entry date<input type="date" value={form.entryDate} onChange={e=>set('entryDate',e.target.value)}/></label>
+    <label>Condition<input value={form.condition} onChange={e=>set('condition',e.target.value)} placeholder="Renovated / needs renovation"/></label>
+    <div className="wide external-features">
+     {[
+      ['parking','Parking'],['elevator','Elevator'],['balcony','Balcony'],['mamad','Mamad'],['furnished','Furnished']
+     ].map(([k,label])=><label className="external-check" key={k}><input type="checkbox" checked={Boolean(form[k])} onChange={e=>set(k,e.target.checked)}/><span>{label}</span></label>)}
+    </div>
     <label>Gush<input type="number" value={form.gush} onChange={e=>set('gush',e.target.value)}/></label>
     <label>Helka<input type="number" value={form.helka} onChange={e=>set('helka',e.target.value)}/></label>
     <label>Latitude<input type="number" step="any" value={form.lat} onChange={e=>set('lat',e.target.value)}/></label>
