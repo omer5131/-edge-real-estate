@@ -1,4 +1,4 @@
-name: Resume OVER backfills
+name: Haifa parcel geometry backfill
 
 on:
   push:
@@ -8,14 +8,14 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: over-backfill-resume
+  group: haifa-parcel-geometry-backfill
   cancel-in-progress: false
 
 permissions:
   contents: read
 
 jobs:
-  resume:
+  backfill:
     runs-on: ubuntu-latest
     timeout-minutes: 360
     env:
@@ -28,49 +28,41 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx tsc -p tsconfig.server.json --noEmit false --outDir .server-build
-      - name: Resume interrupted OVER backfills to completion
+      - name: Backfill Haifa parcel geometry to completion
         run: |
           node --input-type=module <<'NODE'
           const { runOverDatasets } = await import('./.server-build/server/sources/overDatasets.js');
           const { queryDatabase } = await import('./.server-build/server/db.js');
 
-          const ids = [
-            'fd06f5ae-8a4f-4120-b275-8a514ad23499',
-            'ff3176b1-aafc-49c2-976d-ba25571e3564'
-          ];
+          const id = 'ff3176b1-aafc-49c2-976d-ba25571e3564';
           const deadline = Date.now() + 350 * 60 * 1000;
           const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-          for (const id of ids) {
-            while (Date.now() < deadline - 90_000) {
-              const [before] = await queryDatabase(
-                'SELECT dataset_id,title,status,row_count,cursor,last_error FROM over_datasets WHERE dataset_id=$1::uuid',
-                [id]
-              );
-              console.log('STATE BEFORE', JSON.stringify(before));
-              if (!before?.cursor && before?.status === 'healthy') break;
-
-              const report = await runOverDatasets({ datasetId: id, budgetMs: 230000, maxPages: 100 });
-              console.log('SYNC REPORT', JSON.stringify(report));
-
-              if (report?.skipped) {
-                await sleep(5000);
-                continue;
-              }
-              const failed = report?.datasets?.find(d => d.error);
-              if (failed) {
-                console.error('Dataset sync error', failed.error);
-                await sleep(10000);
-              }
-            }
-
-            const [after] = await queryDatabase(
-              'SELECT dataset_id,title,status,row_count,cursor,last_error FROM over_datasets WHERE dataset_id=$1::uuid',
+          while (Date.now() < deadline - 90_000) {
+            const [state] = await queryDatabase(
+              'SELECT dataset_id,title,enabled,status,row_count,cursor,last_error,filters FROM over_datasets WHERE dataset_id=$1::uuid',
               [id]
             );
-            console.log('STATE AFTER', JSON.stringify(after));
-            if (after?.cursor || after?.status !== 'healthy') {
-              throw new Error('Backfill did not complete for ' + id + ': ' + JSON.stringify(after));
+            console.log('HAIFA GEOMETRY STATE', JSON.stringify(state));
+            if (!state?.enabled) throw new Error('Haifa parcel geometry dataset is disabled');
+            if (!state?.cursor && state?.status === 'healthy' && state?.last_success_at) break;
+
+            const report = await runOverDatasets({ datasetId: id, budgetMs: 230000, maxPages: 100 });
+            console.log('HAIFA GEOMETRY REPORT', JSON.stringify(report));
+            if (report?.skipped) {
+              await sleep(5000);
+              continue;
             }
+            const failed = report?.datasets?.find(d => d.error);
+            if (failed) await sleep(15000);
+          }
+
+          const [after] = await queryDatabase(
+            'SELECT dataset_id,title,status,row_count,cursor,last_error,filters,last_success_at FROM over_datasets WHERE dataset_id=$1::uuid',
+            [id]
+          );
+          console.log('HAIFA GEOMETRY FINAL', JSON.stringify(after));
+          if (after?.cursor || after?.status !== 'healthy' || !after?.last_success_at) {
+            throw new Error('Haifa parcel geometry backfill did not complete: ' + JSON.stringify(after));
           }
           NODE
