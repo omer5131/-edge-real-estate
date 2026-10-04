@@ -7,6 +7,17 @@ import { archiveQuery, archiveRows, datasetTable, filterClause, identifier, lite
 
 type Cursor = { phase: 'backfill' | 'daily' | 'reconcile'; upper: Watermark; after?: Watermark; lower?: Watermark; since?: string };
 type Dataset = { dataset_id: string; table_name: string; source_table: string | null; source_schema: ArchiveSchema; filters: Record<string, unknown>; date_column?: string; min_record_year?: number; cursor: Cursor | null; watermark: Watermark | null; last_reconciled_at: string | null };
+
+// Parcel geometry is intentionally scoped. National geometry is expensive and is not
+// required for the current product rollout. Add another locality here when a new
+// parcel-geometry collection is explicitly requested.
+const PARCEL_SHAPE_DATASET_ID='ff3176b1-aafc-49c2-976d-ba25571e3564';
+export const PARCEL_GEOMETRY_LOCALITIES=['חיפה'];
+
+function effectiveFilters(dataset:Dataset){
+  if(dataset.dataset_id!==PARCEL_SHAPE_DATASET_ID)return dataset.filters;
+  return {...dataset.filters,LOCALITY_N:PARCEL_GEOMETRY_LOCALITIES};
+}
 let initialization: Promise<unknown> | undefined;
 export function ensureOverSchema(): Promise<unknown> {
   initialization ??= (async()=>{
@@ -102,7 +113,7 @@ async function ingestDataset(dataset: Dataset, deadline: number, maxPages: numbe
     const definition=researchCatalog.find(d=>d.id===dataset.dataset_id);
     if(definition && definition.adapter!=='archive')return await ingestResearchAdapter(definition,dataset,runId,deadline,maxPages);
     const d = await prepareDataset(dataset, deadline);
-    const filters = [filterClause(d.filters, d.source_schema.columns),recordYearClause(d.date_column,d.min_record_year ?? 2022,d.source_schema.columns)].filter(Boolean).join(' AND ');
+    const filters = [filterClause(effectiveFilters(d), d.source_schema.columns),recordYearClause(d.date_column,d.min_record_year ?? 2022,d.source_schema.columns)].filter(Boolean).join(' AND ');
     let cursor = d.cursor;
     if (!cursor) {
       const newest = await archiveRows(d.dataset_id, archiveQuery(d.source_table!, { filters, newest: true }), deadline);
