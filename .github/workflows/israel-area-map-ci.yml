@@ -1,0 +1,31 @@
+name: Israel Area Map CI
+
+on:
+  push:
+    branches:
+      - israel-area-map
+    paths:
+      - "server/**"
+      - "ui/**"
+      - "scripts/**"
+      - "src/**"
+      - ".github/workflows/israel-area-map-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run check:server
+      - run: npm run test:phase3
+      - run: npm run build
