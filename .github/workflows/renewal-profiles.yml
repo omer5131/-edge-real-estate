@@ -1,0 +1,31 @@
+name: Renewal profiles validation and additive migration
+on:
+  push:
+    branches: [renewal-project-profiles]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run test:renewal
+      - run: npm run test:phase3
+      - run: npm run build
+      - name: Apply additive project research schema and attributed seed
+        run: node scripts/migrate-renewal-profiles.mjs
+      - name: Verify real project, address and market contracts
+        run: node scripts/validate-renewal-profiles.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: renewal-project-validation
+          path: artifacts/renewal-profile-*.json

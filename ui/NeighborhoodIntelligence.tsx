@@ -80,9 +80,9 @@ export default function NeighborhoodIntelligenceShell({children}:{children:React
  const [selectedParcel,setSelectedParcel]=useState<ParcelMapRow|null>(null);
 
  useEffect(()=>{
-  const onHash=()=>setOpen(location.hash.startsWith('#/areas'));
-  addEventListener('hashchange',onHash);return()=>removeEventListener('hashchange',onHash);
- },[]);
+  const onHash=()=>{setOpen(location.hash.startsWith('#/areas'));const id=new URLSearchParams(location.hash.split('?')[1]||'').get('neighborhoodId');if(id){setSelected(id);const n=rows.find(x=>x.neighborhood_id===id);const c=cities.find(x=>x.name_he===n?.city);if(c)setSelectedCity(c.city_id);}};
+  onHash();addEventListener('hashchange',onHash);return()=>removeEventListener('hashchange',onHash);
+ },[rows,cities]);
  useEffect(()=>{
   if(!open||cities.length)return;
   setLoading(true);
@@ -90,10 +90,12 @@ export default function NeighborhoodIntelligenceShell({children}:{children:React
    .then(x=>{
     const nextCities=x.cities||[],nextRows=x.neighborhoods||[];
     setCities(nextCities);setRows(nextRows);
-    const firstCity=nextCities.find((x:any)=>x.has_transaction_data)||nextCities[0];
+    const requested=new URLSearchParams(location.hash.split('?')[1]||'').get('neighborhoodId');
+    const requestedNeighborhood=nextRows.find((n:any)=>n.neighborhood_id===requested);
+    const firstCity=nextCities.find((x:any)=>x.name_he===requestedNeighborhood?.city)||nextCities.find((x:any)=>x.has_transaction_data)||nextCities[0];
     if(firstCity){
       setSelectedCity(firstCity.city_id);
-      const firstNeighborhood=nextRows.find((n:any)=>n.city===firstCity.name_he);
+      const firstNeighborhood=requestedNeighborhood||nextRows.find((n:any)=>n.city===firstCity.name_he);
       setSelected(firstNeighborhood?.neighborhood_id||null);
     }
    })
@@ -145,14 +147,13 @@ export default function NeighborhoodIntelligenceShell({children}:{children:React
 
  const openListing=(r:any)=>{
   const detail={id:r.id,address:r.canonical_address||'נכס',neighborhood_id:current?.neighborhood_id||'',neighborhood:current?.name_he||'',city:current?.city||'',asking_price:Number(r.asking_price_nis||0),sqm:r.area_sqm==null?null:Number(r.area_sqm),rooms:r.rooms==null?null:Number(r.rooms),floor:r.floor==null?null:String(r.floor)};
-  window.dispatchEvent(new CustomEvent('edge:open-listing',{detail}));
-  close();
+  location.hash='#/property/'+r.id;setOpen(false);window.dispatchEvent(new CustomEvent('edge:open-listing',{detail}));
  };
  const startDeal=async(r:any)=>{
   try{
    const response=await fetch('/api/opportunities',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({mode:'workflow',action:'create_deal',listing_id:r.id})});
    const json=await response.json();if(!response.ok)throw new Error(json.error||'create_deal_failed');
-   close();
+   location.hash='#/deals';setOpen(false);
    window.dispatchEvent(new CustomEvent('edge:open-deals',{detail:{listingId:r.id}}));
   }catch(e){setError(String(e));}
  };
@@ -168,15 +169,15 @@ export default function NeighborhoodIntelligenceShell({children}:{children:React
   }catch(e){setError(String(e));}finally{setAsking(false);}
  };
  const openArea=()=>{location.hash='#/areas';setOpen(true)};
- const close=()=>{if(location.hash.startsWith('#/areas'))history.pushState(null,'',location.pathname+location.search);setOpen(false)};
+ const close=()=>{location.hash='#/research';setOpen(false)};
 
- if(!open)return <><div className="ni-launch-wrap"><button className="ni-launch" onClick={openArea}>Area Intelligence</button></div>{children}</>;
- return <div className="ni-root">
+ if(!open)return <><div style={{display:'contents'}}>{children}</div><div className="ni-launch-wrap"><button className="ni-launch" onClick={openArea}>Area Intelligence</button></div></>;
+ return <><div style={{display:'none'}}>{children}</div><div className="ni-root">
   <header className="ni-header">
    <div><div className="ni-eyebrow">EDGE · ISRAEL AREA INTELLIGENCE</div><h1>Israel Investment Map</h1></div>
    <div className="ni-header-actions">
     <select value={layer} onChange={e=>setLayer(e.target.value as LayerKey)}>{layers.map(x=><option key={x.key} value={x.key}>{x.label}</option>)}</select>
-    <button onClick={close}>Back to Edge</button>
+    <a href='#/renewal'>פרויקטי התחדשות</a><button onClick={close}>חזרה למחקר</button>
    </div>
   </header>
   <div className="ni-layout">
@@ -231,7 +232,7 @@ export default function NeighborhoodIntelligenceShell({children}:{children:React
    </section>
   </div>
   {error&&<div className="ni-error">{error}<button onClick={()=>setError(null)}>×</button></div>}
- </div>;
+ </div></>;
 }
 
 function Overview({current,summary}:{current:NeighborhoodMapRow;summary:Summary|null}){
@@ -318,7 +319,7 @@ function Listings({rows,onOpen,onStartDeal}:{rows:any[];onOpen:(r:any)=>void;onS
   </tr>)}</tbody></table></div></div>;
 }
 function Renewal({rows}:{rows:any[]}){
- return <div className="ni-section"><div className="ni-table-wrap"><table><thead><tr><th>Project</th><th>Stage</th><th>Status</th><th>Existing</th><th>Planned</th><th>Certainty</th></tr></thead><tbody>{rows.map(r=><tr key={r.id}><td><b>{r.project_name||r.plan_number||'Project'}</b><small>{r.developer||''}</small></td><td>{r.stage||'—'}</td><td>{r.status||'—'}</td><td>{r.existing_units??'—'}</td><td>{r.planned_units??'—'}</td><td>{r.planning_certainty==null?'—':Math.round(Number(r.planning_certainty)*100)+'%'}</td></tr>)}</tbody></table></div></div>;
+ return <div className="ni-section"><div className="ni-table-wrap"><table><thead><tr><th>Project</th><th>Stage</th><th>Status</th><th>Existing</th><th>Planned</th><th>Certainty</th></tr></thead><tbody>{rows.map(r=><tr key={r.id}><td><a href={'#/renewal/'+r.id}>{r.project_name||r.plan_number||'Project'}</a><small>{r.developer||''}</small></td><td>{r.stage||'—'}</td><td>{r.status||'—'}</td><td>{r.existing_units??'—'}</td><td>{r.planned_units??'—'}</td><td>{r.planning_certainty==null?'—':Math.round(Number(r.planning_certainty)*100)+'%'}</td></tr>)}</tbody></table></div></div>;
 }
 
 

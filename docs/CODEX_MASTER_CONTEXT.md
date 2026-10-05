@@ -729,3 +729,15 @@ The migration executed successfully as one transaction against production Neon.
 
 Phase 3 is no longer blocked on schema availability. Continue with integration acceptance, workflow UI, contextual agent support, merge/deploy and production smoke tests.
 
+
+## 22. Renewal project research and navigation — 2026-10-05
+
+New first-class project directory/profile uses the existing `/api/renewal` function and additive migration `031_renewal_project_profiles.sql`. See `docs/renewal-project-research.md` for prioritized source research, source links, remaining adapters and exact delivery contracts.
+
+Project planning, permits, execution, reported signatures and developer forecasts stay separate. Claims carry source kind/date/URL/locator and evidence status. Missing data and scope conflicts remain visible. Project-address membership is explicit; a neighborhood/project proximity match never grants an apartment renewal rights.
+
+Saadia Gaon Oron developer research is separate from official legacy infill plan חפ/2278. Number 8 remains unverified. Reported developer units are attributed facts and do not overwrite collector/official project counts. Existing street-only candidate listings remain unchanged.
+
+Navigation introduces project directory/details and property URLs with return context, and opens the real Areas map from primary navigation. Project rows link through neighborhood and property screens. Future project sources prioritize official boundary/parcel identity, planning/committee documents, building files, executed sales and registry/contract evidence.
+
+Release note: project-profile code is committed locally, but public GitHub push was blocked by automatic approval review pending explicit user publication authorization. Production migration and release have not run. Build and 24 domain/regression tests pass; browser acceptance remains pending because Chromium is unavailable. See renewal-project-research.md for the exact state.

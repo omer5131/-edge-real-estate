@@ -20,7 +20,7 @@ export async function recomputeOpportunityScores(){
     SELECT neighborhood_id,count(*)::int project_count,
       count(*) FILTER(WHERE in_execution)::int execution_count,
       max(permits_count)::int max_permits
-    FROM renewal_projects WHERE neighborhood_id IS NOT NULL GROUP BY neighborhood_id
+    FROM renewal_projects WHERE neighborhood_id IS NOT NULL AND source_id <> 'renewal_research' GROUP BY neighborhood_id
   ), seller AS (
     SELECT listing_id,days_on_market,price_reductions,total_reduction_pct FROM listing_seller_signals
   )

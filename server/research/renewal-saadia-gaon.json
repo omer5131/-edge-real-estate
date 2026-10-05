@@ -1,0 +1,28 @@
+{
+ "reviewedOn":"2026-10-05",
+ "project":{
+  "source_project_id":"saadia-gaon-oron-haifa",
+  "project_name":"סעדיה גאון — אורון",
+  "developer":"אורון נדל״ן",
+  "neighborhood_slug":"kiryat-sprinzak-haifa",
+  "city":"חיפה",
+  "project_type":"pinui_binui",
+  "summary":"פרויקט פינוי־בינוי שמדווח על ידי אורון ברחוב סעדיה גאון. גבול סטטוטורי, מספר תוכנית ושיוך הבניינים טרם אומתו. אין להסיק שהפרויקט חל על סעדיה גאון 8.",
+  "planning_stage":"לפי היזם: לקראת הגשה לוועדה המקומית במסגרת הליך אישור תב״ע (מרץ 2026)",
+  "permit_stage":"לא אותר היתר מאומת",
+  "execution_stage":"לא אומת מועד פינוי או תחילת ביצוע",
+  "gaps":["מספר תוכנית וגבול סטטוטורי עדכני","רשימת גושים וחלקות ובניינים חתומה","אימות הכללת סעדיה גאון 8","עדכון יזם חדש יותר ממרץ 2026","בקשת היתר, תנאים והחלטות ועדה","הסכם תמורות, שטח דירה חדשה ומפרט","ליווי פיננסי, ערבויות ושכר דירה בתקופת הבנייה","מסמכי נציגות, עורך דין דיירים וחתימות ברמת בניין"]
+ },
+ "facts":[
+  {"fact_key":"existing_units","value":133,"source_kind":"developer","source_url":"https://mayafiles.tase.co.il/rpdf/1729001-1730000/P1729033-00.pdf","source_title":"אורון — מצגת שוק ההון מרץ 2026","source_date":"2026-03-01","locator":"עמוד 18 / שקף 18; חודש הפרסום בלבד ידוע","evidence_status":"reported"},
+  {"fact_key":"planned_units","value":536,"source_kind":"developer","source_url":"https://mayafiles.tase.co.il/rpdf/1729001-1730000/P1729033-00.pdf","source_title":"אורון — מצגת שוק ההון מרץ 2026","source_date":"2026-03-01","locator":"עמוד 18 / שקף 18; חודש הפרסום בלבד ידוע","evidence_status":"reported"},
+  {"fact_key":"marketed_units","value":403,"source_kind":"developer","source_url":"https://mayafiles.tase.co.il/rpdf/1729001-1730000/P1729033-00.pdf","source_title":"אורון — מצגת שוק ההון מרץ 2026","source_date":"2026-03-01","locator":"עמוד 18 / שקף 18; חודש הפרסום בלבד ידוע","evidence_status":"reported"},
+  {"fact_key":"signatures_pct","value":85,"source_kind":"developer","source_url":"https://mayafiles.tase.co.il/rpdf/1729001-1730000/P1729033-00.pdf","source_title":"אורון — מצגת שוק ההון מרץ 2026","source_date":"2026-03-01","locator":"עמוד 18; שיעור דיווח יזם, לא אישור זכויות","evidence_status":"reported"},
+  {"fact_key":"permit_forecast","value":"רבעון 4, 2028 — תחזית יזם להיתר; אין מועד פינוי מאושר","source_kind":"developer","source_url":"https://mayafiles.tase.co.il/rpdf/1729001-1730000/P1729033-00.pdf","source_title":"אורון — מצגת שוק ההון מרץ 2026","source_date":"2026-03-01","locator":"עמוד 18; מידע צופה פני עתיד; חודש הפרסום בלבד ידוע","evidence_status":"reported"},
+  {"fact_key":"planning_stage","value":"לקראת הגשה לוועדה מקומית במסגרת הליך אישור תב״ע","source_kind":"developer","source_url":"https://mayafiles.tase.co.il/rpdf/1729001-1730000/P1729033-00.pdf","source_title":"אורון — מצגת שוק ההון מרץ 2026","source_date":"2026-03-01","locator":"עמוד 18; חודש הפרסום בלבד ידוע","evidence_status":"reported"},
+  {"fact_key":"historical_scope","value":"דיווח עיתונאי: סעדיה גאון 1–31; 131 קיימות ו־525 מתוכננות. אין להשתמש בגודל ההיסטורי במקום נתוני היזם מ־2026 או להסיק שכל מספר בטווח נכלל.","source_kind":"secondary","source_url":"https://haifa.mynet.co.il/real_estate/article/bkfvbo9ss","source_title":"מיינט חיפה — פרסום מוקדם על סעדיה גאון","source_date":null,"locator":"רשימת הכתובות אינה גבול תכנוני מאומת","evidence_status":"reported"},
+  {"fact_key":"scope_conflict","value":"פרסום נוסף מציין 1–39 ו־500 דירות. נדרש תשריט עדכני כדי להכריע בין תיאורי המתחם.","source_kind":"secondary","source_url":"https://haifa.mynet.co.il/local_news/article/bji4nvboa","source_title":"מיינט חיפה — שינויי תיאור המתחם","source_date":null,"locator":"אין לראות באישור קידום אישור תוכנית או היתר","evidence_status":"conflicting"},
+  {"fact_key":"stakeholders","value":"לפי פרסום מוקדם: אדריכל גבי שוורץ / שוורץ־בסנוסוף; מנהלת דיירים סיגל שטרנברג; עו״ד דיירים יוסף ישורון ושות׳; עו״ד יזם רון ברנט ואיתי פריד. נדרש אימות עדכני.","source_kind":"secondary","source_url":"https://blinker.co.il/קריות/נדלן-קריות/מרגש-כנס-פינוי-בינוי-לתושבי-סעדיה-גאון/378788/","source_title":"פרסום כנס הדיירים — גורמים ותמורות","source_date":null,"locator":"דיווח מוקדם, לא מסמכי התקשרות","evidence_status":"reported"},
+  {"fact_key":"benefits","value":"בפרסום כנס דווח על הגדלת דירה, שכירות במהלך הבנייה, השתתפות בוועד בית לחמש שנים ומענק 10,000 ₪. לא אומת הסכם מחייב או תחולה על דירה מסוימת.","source_kind":"secondary","source_url":"https://blinker.co.il/קריות/נדלן-קריות/מרגש-כנס-פינוי-בינוי-לתושבי-סעדיה-גאון/378788/","source_title":"פרסום כנס הדיירים — גורמים ותמורות","source_date":null,"locator":"תמורות מדווחות בלבד","evidence_status":"reported"}
+ ]
+}

@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import {neon} from '@neondatabase/serverless';
+import {getRenewalProfile,listRenewalProfiles} from '../.server-build/server/renewalProfiles.js';
+const sql=neon(process.env.DATABASE_URL);
+const projects=await listRenewalProfiles({city:'חיפה',q:'סעדיה'});const oron=projects.find(x=>x.project_name==='סעדיה גאון — אורון');assert(oron);
+const profile=await getRenewalProfile(oron.id);assert.equal(profile.project.project_type,'pinui_binui');assert.equal(profile.evidence.status,'provisional');
+assert.equal(profile.addresses.find(x=>x.house_number==='8').membership,'unverified');
+assert.equal(profile.facts.find(x=>x.fact_key==='planned_units').value,536);
+assert.equal(profile.project.planned_units,null,'Reported developer units must not overwrite canonical official counts');
+const [legacy]=await sql`SELECT id FROM renewal_projects WHERE source_id='urban_renewal_gov' AND source_project_id='32949'`;
+const old=await getRenewalProfile(legacy.id);assert.equal(old.project.project_type,'infill');assert.equal(old.addresses.some(x=>x.house_number==='8'),false);assert.notEqual(old.project.id,oron.id);
+const report={passed:true,projectId:oron.id,legacyProjectId:legacy.id,projectCount:projects.length,facts:profile.facts.length,address8Membership:'unverified',listings:profile.listings.length,transactions:profile.transactions.length};
+fs.mkdirSync('artifacts',{recursive:true});fs.writeFileSync('artifacts/renewal-profile-validation.json',JSON.stringify(report,null,2));console.log(JSON.stringify(report));

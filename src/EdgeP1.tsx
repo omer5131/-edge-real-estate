@@ -1,6 +1,9 @@
+import RenewalProjects from './components/RenewalProjects';
+import ExternalDataIntake from './components/ExternalDataIntake';
 import EdgeAgentDrawer from './components/EdgeAgentDrawer';
 import DataExplorer from './components/DataExplorer';
 import DealRoom from './components/DealRoom';
+import MyDeals from './components/MyDeals';
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
@@ -311,7 +314,10 @@ export default function EdgeP1(){
   const [data,setData]=useState<EdgePayload|null>(null);
   const [status,setStatus]=useState<DataStatus|null>(null);
   const [error,setError]=useState('');
-  const [tab,setTab]=useState<'radar'|'research'|'opps'|'area'|'data'|'admin'|'property'>('radar');
+  const [tab,setTabState]=useState<'radar'|'research'|'opps'|'deals'|'area'|'data'|'admin'|'property'|'renewal'>('radar');
+  const [projectId,setProjectId]=useState<string|null>(null);
+  const [returnRoute,setReturnRoute]=useState('#/research');
+  const setTab=(next:any)=>{setTabState(next);if(next!=='property')location.hash='#/'+next;};
   const [area,setArea]=useState<Area|null>(null);
   const [property,setProperty]=useState<Opportunity|null>(null);
   const [askOpen,setAskOpen]=useState(false);
@@ -329,6 +335,35 @@ export default function EdgeP1(){
     }catch(e:any){setError(e?.message||String(e));setData(null);}finally{setRefreshing(false);}
   };
   useEffect(()=>{load();},[]);
+  useEffect(()=>{
+    let previous=location.hash||'#/radar';
+    const route=()=>{
+      const parts=location.hash.slice(2).split('/');
+      const page=parts[0]||'radar';
+      if(page==='renewal'){setProjectId(parts[1]||null);setTabState('renewal');}
+      else if(page==='property'&&parts[1]){
+        if(!previous.startsWith('#/property/'))setReturnRoute(previous.startsWith('#/')?previous:'#/research');
+        setProperty(current=>current?.id===parts[1]?current:({id:parts[1],address:'טוען נכס…'} as any));setTabState('property');
+      }else if(['radar','research','opps','deals','area','data','admin'].includes(page))setTabState(page as any);
+      previous=location.hash||'#/radar';
+    };
+    route();window.addEventListener('hashchange',route);
+    return()=>window.removeEventListener('hashchange',route);
+  },[]);
+  useEffect(()=>{if(tab==='property'&&property?.id&&location.hash!=='#/property/'+property.id)location.hash='#/property/'+property.id;},[tab,property?.id]);
+  useEffect(()=>{
+    const openListing=(event:Event)=>{
+      const detail=(event as CustomEvent).detail;
+      if(detail?.id){setProperty(detail as any);setTab('property');}
+    };
+    const openDeals=()=>setTab('deals');
+    window.addEventListener('edge:open-listing',openListing as EventListener);
+    window.addEventListener('edge:open-deals',openDeals);
+    return()=>{
+      window.removeEventListener('edge:open-listing',openListing as EventListener);
+      window.removeEventListener('edge:open-deals',openDeals);
+    };
+  },[]);
 
   const currentArea=area||data?.areas?.[0]||null;
   const sourceHealth=useMemo(()=>status?.freshness||[],[status]);
@@ -338,12 +373,12 @@ export default function EdgeP1(){
   if(!data)return <div dir="rtl" className="edge-p1 fatal"><RefreshCw className="spin"/><h1>טוען נתוני אמת…</h1></div>;
 
   const nav=[
-    ['radar','רדאר',MapPinned],['research','מחקר',Search],['opps','הזדמנויות',Target],['area','אזור',Layers3],['data','נתונים',Database],['admin','ניהול',Settings]
+    ['radar','רדאר',MapPinned],['research','מחקר',Search],['opps','הזדמנויות',Target],['deals','העסקאות שלי',Bookmark],['renewal','פרויקטים',Layers3],['area','אזור',Layers3],['data','נתונים',Database],['admin','ניהול',Settings]
   ] as const;
 
   return <div dir="rtl" className="edge-p1">
     <aside className="rail"><div className="brand"><span>E</span><b>EDGE</b></div>
-      {nav.map(([id,label,Icon])=><button key={id} className={tab===id?'active':''} onClick={()=>setTab(id as any)}><Icon size={18}/><span>{label}</span></button>)}
+      {nav.map(([id,label,Icon])=><button key={id} className={tab===id?'active':''} onClick={()=>{if(id==='area')location.hash='#/areas';else setTab(id as any)}}><Icon size={18}/><span>{label}</span></button>)}
     </aside>
     <div className="workspace">
       <header className="topbar">
@@ -354,10 +389,12 @@ export default function EdgeP1(){
         {tab==='radar'&&<Radar areas={data.areas||[]} onArea={a=>{setArea(a);setTab('area')}}/>}
         {tab==='research'&&<Research onOpen={x=>{setProperty(x);setTab('property')}}/>}
         {tab==='opps'&&<Opportunities items={data.opportunities||[]} onOpen={x=>{setProperty(x);setTab('property')}}/>}
+        {tab==='deals'&&<MyDeals onOpen={x=>{setProperty(x as any);setTab('property')}}/>}
         {tab==='area'&&currentArea&&<AreaView area={currentArea}/>}
-        {tab==='data'&&<div className='screen'><DataExplorer/><DataConsole status={status}/></div>} 
+        {tab==='data'&&<div className='screen'><ExternalDataIntake/><DataExplorer/><DataConsole status={status}/></div>}
         {tab==='admin'&&<Admin/>}
-        {tab==='property'&&property&&<DealRoom item={property} onBack={()=>setTab('opps')} onAsk={ctx=>{setAskContext(ctx);setAskOpen(true)}}/>}
+        {tab==='renewal'&&<RenewalProjects projectId={projectId} onOpenListing={x=>{setProperty(x as any);setTab('property')}}/>}
+        {tab==='property'&&property&&<DealRoom item={property} onBack={()=>{location.hash=returnRoute}} onAsk={ctx=>{setAskContext(ctx);setAskOpen(true)}}/>}
       </main>
     </div>
     <EdgeAgentDrawer open={askOpen} onClose={()=>setAskOpen(false)} context={askContext}/>

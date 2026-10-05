@@ -226,7 +226,7 @@ async function linkEvidence(){
    SELECT 'urban_renewal_complexes',r.id::text,r.neighborhood_id,'renewal_project',r.observed_at::date,
      'canonical_neighborhood',1,
      jsonb_build_object('status',r.status,'stage',r.stage,'existing_units',r.existing_units,'planned_units',r.planned_units,'planning_certainty',r.planning_certainty)
-   FROM renewal_projects r WHERE r.neighborhood_id IS NOT NULL
+   FROM renewal_projects r WHERE r.neighborhood_id IS NOT NULL AND r.source_id <> 'renewal_research'
    ON CONFLICT(dataset_slug,source_record_id,neighborhood_id) DO UPDATE SET
      observation_date=EXCLUDED.observation_date,payload=EXCLUDED.payload,linked_at=now()
    RETURNING 1

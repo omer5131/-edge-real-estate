@@ -3,6 +3,7 @@ import type {PlanningContext} from './contracts/investmentContext.js';
 
 export function buildPlanningContext(renewalProjects:any[],plans:any[],infrastructure:any[]):PlanningContext{
   const all=[...renewalProjects,...plans,...infrastructure];
+  const includesResearch=all.some((x:any)=>x.source_id==='renewal_research');
   const sourceIds=[...new Set(all.map((x:any)=>String(x.source_id||'unknown')).filter(Boolean))];
   const observed=all.map((x:any)=>x.observed_at).filter(Boolean).sort().at(-1)??null;
   return {
@@ -10,13 +11,13 @@ export function buildPlanningContext(renewalProjects:any[],plans:any[],infrastru
     plans,
     infrastructure,
     evidence:{
-      status:all.length?'supported':'insufficient_evidence',
-      confidence:all.length?.82:null,
+      status:all.length?(includesResearch?'provisional':'supported'):'insufficient_evidence',
+      confidence:all.length && !includesResearch ? .82 : null,
       sampleSize:all.length,
       observedAt:observed,
       modelVersion:'planning-context-v1',
       sourceIds,
-      notes:all.length?[]:['No renewal, statutory planning, or infrastructure evidence is currently mapped to this neighborhood.']
+      notes:all.length?(includesResearch?['Includes attributed project research; developer claims and asset membership require verification.']:[]):['No renewal, statutory planning, or infrastructure evidence is currently mapped to this neighborhood.']
     }
   };
 }

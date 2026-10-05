@@ -1,0 +1,50 @@
+// UI contract tests against bounded fixtures; no production writes or API calls.
+import {createRequire} from 'node:module';
+import {spawn} from 'node:child_process';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+const require=createRequire(import.meta.url);const {chromium}=require('playwright');
+const server=spawn('python',['-m','http.server','4187','--directory','dist'],{stdio:'ignore'});
+const seed=JSON.parse(fs.readFileSync('server/research/renewal-saadia-gaon.json','utf8'));
+const projectId='11111111-1111-1111-1111-111111111111',listingId='22222222-2222-2222-2222-222222222222';
+const project={...seed.project,id:projectId,source_url:seed.facts[0].source_url,observed_at:'2026-10-05',planned_units:null};
+const facts=seed.facts.map((f,i)=>({...f,id:String(i),checked_at:'2026-10-05'}));
+const listing={id:listingId,address:'סעדיה גאון 8',membership:'unverified',asking_price:1090000,sqm:85,rooms:4,floor:3};
+let browser;
+try{
+ browser=await chromium.launch({headless:true,args:['--no-sandbox']});
+ const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.route('**/api/**',async route=>{
+  const u=new URL(route.request().url());let response={};
+  if(u.pathname==='/api/edge-data')response={mode:'live',generatedAt:'2026-10-05',areas:[],opportunities:[]};
+  else if(u.pathname==='/api/data-status')response={freshness:[],counts:{}};
+  else if(u.pathname==='/api/renewal')response={data:u.searchParams.has('id')?{project,facts,addresses:[{street_name:'סעדיה גאון',house_number:'8',membership:'unverified',note:'QA fixture — unverified',source_url:seed.facts[0].source_url}],parcels:[],listings:[listing],transactions:[]}:[{...project,fact_count:facts.length}]};
+  else if(u.pathname==='/api/property')response={tier:'basic',listing:{...listing,area_sqm:85,asking_price_ils:1090000},comps:[]};
+  await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(response)});
+ });
+ await page.goto('http://127.0.0.1:4187/#/renewal');
+ await page.getByRole('heading',{name:'פרויקטים',exact:true}).waitFor();
+ assert.equal(await page.locator('.rp-screen').count(),1,'Exactly one directory after reconstruction');
+ await page.getByRole('link',{name:'סעדיה גאון — אורון',exact:true}).click();
+ await page.getByRole('heading',{name:'סעדיה גאון — אורון',exact:true}).waitFor();
+ await page.getByRole('button',{name:'כתובות וחלקות',exact:true}).click();
+ await page.getByText('הכללה לא אומתה',{exact:true}).waitFor();
+ await page.getByRole('button',{name:'דירות ועסקאות',exact:true}).click();
+ await page.getByRole('button',{name:'סעדיה גאון 8',exact:true}).click();
+ await page.getByRole('heading',{name:'סעדיה גאון 8',exact:true}).waitFor();
+ assert(page.url().endsWith('#/property/'+listingId));
+ await page.getByRole('button',{name:'חזרה למסך הקודם',exact:true}).click();
+ await page.getByRole('heading',{name:'סעדיה גאון — אורון',exact:true}).waitFor();
+ assert(page.url().endsWith('#/renewal/'+projectId));
+ await page.reload();await page.getByRole('heading',{name:'סעדיה גאון — אורון',exact:true}).waitFor();
+ await page.getByRole('button',{name:'מסמכים ומקורות',exact:true}).click();await page.getByText('סתירה בגבולות הפרויקט',{exact:true}).waitFor();
+ await page.getByRole('button',{name:'מידע חסר',exact:true}).click();await page.getByText('אימות הכללת סעדיה גאון 8',{exact:true}).waitFor();
+ await page.setViewportSize({width:390,height:844});
+ await page.getByRole('button',{name:'סקירה וסטטוס',exact:true}).click();
+ assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2),false,'No mobile page overflow');
+ fs.mkdirSync('artifacts',{recursive:true});await page.screenshot({path:'artifacts/renewal-profile-mobile.png',fullPage:true});
+ await page.setViewportSize({width:1440,height:1000});await page.screenshot({path:'artifacts/renewal-profile-desktop.png',fullPage:true});
+ await page.getByRole('link',{name:'כל הפרויקטים',exact:true}).click();await page.getByRole('heading',{name:'פרויקטים',exact:true}).waitFor();
+ await page.getByRole('textbox',{name:'חיפוש פרויקטים'}).fill('לא קיים');await page.getByText('לא נמצאו פרויקטים לפי הסינון.').waitFor();
+ assert.deepEqual(errors,[]);console.log('PASS: directory, exact-membership labels, project → property → back, deep-link reload, evidence, gaps, mobile width, empty filter; no runtime errors. Fixtures only; production validation pending.');
+}finally{if(browser)await browser.close();server.kill();}

@@ -89,6 +89,44 @@ const edgePath='src/EdgeP1.tsx';
 if(fs.existsSync(edgePath)){
  let edge=fs.readFileSync(edgePath,'utf8');
  if(!edge.includes("import ExternalDataIntake from")) edge="import ExternalDataIntake from './components/ExternalDataIntake';\n"+edge;
- edge=edge.replace("<DataExplorer/><DataConsole status={status}/>","<ExternalDataIntake/><DataExplorer/><DataConsole status={status}/>");
+ if(!edge.includes("<ExternalDataIntake/><DataExplorer/>")) edge=edge.replace("<DataExplorer/><DataConsole status={status}/>","<ExternalDataIntake/><DataExplorer/><DataConsole status={status}/>");
  fs.writeFileSync(edgePath,edge,'utf8');
 }
+
+// First-class renewal project directory and URL-backed navigation.
+fs.copyFileSync('ui/RenewalProjects.tsx','src/components/RenewalProjects.tsx');
+fs.copyFileSync('ui/renewal-projects.css','src/components/renewal-projects.css');
+let renewalUi=fs.readFileSync(edgePath,'utf8');
+if(!renewalUi.includes("import RenewalProjects from")) renewalUi="import RenewalProjects from './components/RenewalProjects';\n"+renewalUi;
+renewalUi=renewalUi.replace("|'property'>('radar')","|'property'|'renewal'>('radar')");
+renewalUi=renewalUi.replace("const [tab,setTab]=useState<", "const [tab,setTabState]=useState<");
+if(!renewalUi.includes('const [projectId,setProjectId]')){
+ renewalUi=renewalUi.replace('  const [area,setArea]=useState<Area|null>(null);',`  const [projectId,setProjectId]=useState<string|null>(null);
+  const [returnRoute,setReturnRoute]=useState('#/research');
+  const setTab=(next:any)=>{setTabState(next);if(next!=='property')location.hash='#/'+next;};
+  const [area,setArea]=useState<Area|null>(null);`);
+ renewalUi=renewalUi.replace('  useEffect(()=>{load();},[]);',`  useEffect(()=>{load();},[]);
+  useEffect(()=>{
+    let previous=location.hash||'#/radar';
+    const route=()=>{
+      const parts=location.hash.slice(2).split('/');
+      const page=parts[0]||'radar';
+      if(page==='renewal'){setProjectId(parts[1]||null);setTabState('renewal');}
+      else if(page==='property'&&parts[1]){
+        if(!previous.startsWith('#/property/'))setReturnRoute(previous.startsWith('#/')?previous:'#/research');
+        setProperty(current=>current?.id===parts[1]?current:({id:parts[1],address:'טוען נכס…'} as any));setTabState('property');
+      }else if(['radar','research','opps','deals','area','data','admin'].includes(page))setTabState(page as any);
+      previous=location.hash||'#/radar';
+    };
+    route();window.addEventListener('hashchange',route);
+    return()=>window.removeEventListener('hashchange',route);
+  },[]);
+  useEffect(()=>{if(tab==='property'&&property?.id&&location.hash!=='#/property/'+property.id)location.hash='#/property/'+property.id;},[tab,property?.id]);`);
+}
+renewalUi=renewalUi.replace("['deals','My Deals',Bookmark]","['deals','העסקאות שלי',Bookmark],['renewal','פרויקטים',Layers3]");
+if(!renewalUi.includes("{tab==='renewal'&&<RenewalProjects")) renewalUi=renewalUi.replace("{tab==='admin'&&<Admin/>}","{tab==='admin'&&<Admin/>}\n        {tab==='renewal'&&<RenewalProjects projectId={projectId} onOpenListing={x=>{setProperty(x as any);setTab('property')}}/>}");
+renewalUi=renewalUi.replace("onBack={()=>setTab('opps')}","onBack={()=>{location.hash=returnRoute}}");
+// The old Areas tab hid the richer map behind a floating secondary entrypoint.
+renewalUi=renewalUi.replace("onClick={()=>setTab(id as any)}", "onClick={()=>{if(id==='area')location.hash='#/areas';else setTab(id as any)}}");
+renewalUi=renewalUi.replace(/(?:<ExternalDataIntake\/>){2,}/g,'<ExternalDataIntake/>').replace(/[ \t]+$/gm,'');
+fs.writeFileSync(edgePath,renewalUi);
