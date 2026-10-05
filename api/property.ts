@@ -43,7 +43,7 @@ export default async function handler(req:VercelRequest,res:VercelResponse){
   const observedTimes=history.map((x:any)=>new Date(x.observed_at).getTime()).filter((x:number)=>Number.isFinite(x)).sort((a:number,b:number)=>a-b);
   const observedSpanDays=observedTimes.length>=2?(observedTimes.at(-1)!-observedTimes[0])/86400000:null;
   const life=listingLifecycle(history.length,observedSpanDays);
-  const sellerContext={...(seller||{}),days_on_market:life.daysOnMarket,price_reductions:life.supported?seller?.price_reductions??null:null,lifecycle_evidence:life.status,snapshot_count:history.length};
+  const sellerContext={...(seller||{}),days_on_market:life.daysOnMarket,original_asking_price:life.supported?seller?.original_asking_price??null:null,total_reduction_pct:life.supported?seller?.total_reduction_pct??null:null,price_reductions:life.supported?seller?.price_reductions??null:null,lifecycle_evidence:life.status,snapshot_count:history.length};
   const rent=listing.neighborhood_id?await sql`SELECT * FROM neighborhood_rent_metrics WHERE neighborhood_id=${listing.neighborhood_id}::uuid`: [];
   const [score]=await sql`SELECT score,price_gap_score,renewal_score,seller_motivation_score,comp_confidence_score,risk_deduction,model_version,inputs,explanation,calculated_at FROM opportunity_scores WHERE entity_type='listing' AND entity_id=${id}::uuid ORDER BY calculated_at DESC LIMIT 1`;
 

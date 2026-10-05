@@ -59,6 +59,10 @@ export default async function handler(req:VercelRequest,res:VercelResponse){
    sql`
     WITH latest_snap AS (
      SELECT DISTINCT ON(listing_id) * FROM listing_snapshots ORDER BY listing_id,observed_at DESC
+    ), lifecycle AS(
+     SELECT listing_id,count(*)::int snapshot_count,
+      extract(epoch from(max(observed_at)-min(observed_at)))/86400.0 observed_span_days
+     FROM listing_snapshots GROUP BY listing_id
     ), latest_score AS(
      SELECT DISTINCT ON(entity_id) entity_id,score,model_version,calculated_at
      FROM opportunity_scores
@@ -78,10 +82,11 @@ export default async function handler(req:VercelRequest,res:VercelResponse){
      CASE WHEN s.area_sqm>0 AND comps.comp_pp_sqm>0 THEN (s.area_sqm*comps.comp_pp_sqm)::float8 END adjusted_value,
      CASE WHEN s.area_sqm>0 AND comps.comp_pp_sqm>0 THEN
        (100*(s.area_sqm*comps.comp_pp_sqm-s.asking_price_nis)/(s.area_sqm*comps.comp_pp_sqm))::float8 END discount_pct,
-     coalesce(sig.days_on_market,0)::int days_on_market,
-     CASE WHEN coalesce(sig.days_on_market,0)>120 OR coalesce(sig.price_reductions,0)>=3 THEN 'גבוה מאוד'
-          WHEN coalesce(sig.days_on_market,0)>75 OR coalesce(sig.price_reductions,0)>=2 THEN 'גבוה'
-          WHEN coalesce(sig.days_on_market,0)>35 THEN 'בינוני' ELSE 'נמוך' END seller_motivation,
+     CASE WHEN life.snapshot_count>=2 AND life.observed_span_days>=1 THEN floor(life.observed_span_days)::int END days_on_market,
+     CASE WHEN life.snapshot_count<2 OR life.observed_span_days<1 OR life.snapshot_count IS NULL THEN 'לא ידוע'
+          WHEN life.observed_span_days>120 OR sig.price_reductions>=3 THEN 'גבוה מאוד'
+          WHEN life.observed_span_days>75 OR sig.price_reductions>=2 THEN 'גבוה'
+          WHEN life.observed_span_days>35 THEN 'בינוני' ELSE 'נמוך' END seller_motivation,
      coalesce(comps.comp_count,0)::int comp_count,comps.latest_comp_date,
      CASE WHEN comps.comp_count>=20 THEN 'high'
           WHEN comps.comp_count>=8 THEN 'medium'
@@ -89,10 +94,11 @@ export default async function handler(req:VercelRequest,res:VercelResponse){
           ELSE 'insufficient' END confidence,
      sc.score::int score,sc.model_version,sc.calculated_at,
      (sc.entity_id IS NOT NULL) system_flag,(sub.id IS NOT NULL) manual_flag,
-     coalesce(sig.price_reductions,0)+1 price_points,
-     sig.original_asking_price::float8 original_price,
+     life.snapshot_count price_points,
+     CASE WHEN life.snapshot_count>=2 AND life.observed_span_days>=1 THEN sig.original_asking_price::float8 END original_price,
      l.last_seen_at
     FROM listings l
+    LEFT JOIN lifecycle life ON life.listing_id=l.id
     JOIN latest_snap s ON s.listing_id=l.id
     JOIN neighborhoods n ON n.id=l.neighborhood_id
     JOIN cities c ON c.id=l.city_id
