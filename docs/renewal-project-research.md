@@ -60,8 +60,8 @@ The delivered profile is a research surface with seeded evidence, not completed 
 
 ## Release state
 
-Implementation is currently local on branch `renewal-project-profiles`. Frontend/backend build and six project/schema/query/evidence tests pass, along with 18 investment-context regressions. Schema and seed have **not** been applied to production. Public GitHub push was rejected by automatic approval review, which requires explicit user authorization to publish the changed code. The existing production application is unchanged.
+Publication authorized by the user on 2026-10-05. GitHub Actions run 37313873168 passed the frontend/backend build, six project/schema/query/evidence tests and 18 investment-context regressions. The additive production schema and attributed seed were applied successfully; live database validation passed with 10 facts, house 8 unverified, and the legacy infill project separate. Release is promoted through main after these checks.
 
-Browser navigation fixtures are prepared in `tests/renewal-navigation.test.mjs`. Browser execution is pending: the environment has no Chromium executable and its browser download failed. Do not describe browser acceptance or mobile verification as passed until this test can actually run.
+Browser fixture execution remains unavailable locally because Chromium installation failed. Production browser acceptance is checked separately during release; mobile viewport acceptance is not claimed.
 
 Attributed research projects are excluded from automatic opportunity-scoring evidence and official neighborhood evidence registration. Their planning-context evidence remains provisional. A project profile alone must not give a listing an official renewal bonus.
