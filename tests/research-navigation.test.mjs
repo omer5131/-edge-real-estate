@@ -24,7 +24,7 @@ try{
  });
  await page.goto('http://127.0.0.1:4188/#/research');
  await page.getByRole('button',{name:'נכס 0',exact:true}).waitFor();
- assert.equal(await page.locator('thead th').count(),6);
+ assert.equal(await page.locator('thead th').count(),6);assert.equal(seen[0].maxPrice,undefined,'Unset numeric filters must be omitted, not sent as zero-like empty strings');
  assert((await page.locator('tbody tr').first().innerText()).includes('לא ידוע'));
  const before=seen.length;await page.getByLabel('מחיר מקסימלי',{exact:true}).fill('1500000');await page.getByLabel('מיון',{exact:true}).selectOption('asking_price_nis');
  assert.equal(seen.length,before,'Draft filters do not silently change results');
