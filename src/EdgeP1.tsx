@@ -5,6 +5,7 @@ import EdgeAgentDrawer from './components/EdgeAgentDrawer';
 import DataExplorer from './components/DataExplorer';
 import DealRoom from './components/DealRoom';
 import MyDeals from './components/MyDeals';
+import {benchmarkGap} from './components/evidence-format';
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
@@ -124,17 +125,17 @@ function Opportunities({items,onOpen}:{items:Opportunity[];onOpen:(x:Opportunity
       <p>Score מוצג רק כשקיימים לפחות 3 comps סגורים תקינים. ללא ראיות — אין Score.</p></div>
       <div className="search"><Search size={15}/><input value={q} onChange={e=>setQ(e.target.value)} placeholder="חפש כתובת או שכונה"/></div>
     </div>
-    {filtered.length===0?<Empty title="אין כרגע הזדמנויות מאומתות" body="Edge לא יציג נכסי דמו. המלאי יופיע כאן לאחר קליטת מודעות מכירה אמיתיות וחיבורן ל-comps תקינים."/>:
+    {filtered.length===0?<Empty title="אין כרגע מועמדים עם מדגם מספיק" body="המלאי יופיע לאחר קליטת מודעות וחיבורן לעסקאות. מדגם מספק אינו מאמת כתובת, זמינות או זכויות."/>:
     <>
     <div className="opp-cards">{filtered.map(x=><button className="opp-card" key={x.id} onClick={()=>onOpen(x)}>
       <div className="opp-title"><div><strong>{x.address}</strong><span>{x.neighborhood}, {x.city}</span></div>{x.score==null?<span className="no-score">ללא Score</span>:<span className="score">{x.score}</span>}</div>
-      <div className="opp-metrics"><Metric label="מבוקש" value={money(x.asking_price)}/><Metric label='₪/מ"ר' value={money(x.price_sqm)}/><Metric label="פער comps" value={pct(x.discount_pct)}/><Metric label="ימים בשוק" value={x.days_on_market}/></div>
+      <div className="opp-metrics"><Metric label="מבוקש" value={money(x.asking_price)}/><Metric label='₪/מ"ר' value={money(x.price_sqm)}/><Metric label="מול מדד עסקאות" value={benchmarkGap(x.discount_pct,true)}/><Metric label="ימי תצפית" value={x.days_on_market??'לא ידוע'}/></div>
       <div className="opp-foot"><Confidence value={x.confidence} sample={x.comp_count}/><span>{x.seller_motivation||'—'}</span></div>
     </button>)}</div>
     <div className="table-wrap opp-table"><table><thead><tr><th>נכס</th><th>מבוקש</th><th>₪/מ"ר</th><th>שווי comps</th><th>פער</th><th>Seller</th><th>ראיות</th><th>Score</th></tr></thead>
     <tbody>{filtered.map(x=><tr key={x.id} onClick={()=>onOpen(x)}>
       <td><strong>{x.address}</strong><small>{x.neighborhood}, {x.city}</small></td><td>{money(x.asking_price)}</td><td>{money(x.price_sqm)}</td>
-      <td>{money(x.adjusted_value)}</td><td>{pct(x.discount_pct)}</td><td>{x.seller_motivation||'—'}<small>{x.days_on_market} ימים</small></td>
+      <td>{money(x.adjusted_value)}</td><td>{benchmarkGap(x.discount_pct,true)}</td><td>{x.seller_motivation||'—'}<small>{x.days_on_market==null?'משך תצפית לא ידוע':x.days_on_market+' ימי תצפית'}</small></td>
       <td><Confidence value={x.confidence} sample={x.comp_count}/><small>עד {date(x.latest_comp_date)}</small></td>
       <td>{x.score==null?<span className="muted">אין Score</span>:<span className="score">{x.score}</span>}</td>
     </tr>)}</tbody></table></div></>}
@@ -290,7 +291,7 @@ export default function EdgeP1(){
       if(page==='renewal'){setProjectId(parts[1]||null);setTabState('renewal');}
       else if(page==='property'&&parts[1]){
         if(!previous.startsWith('#/property/'))setReturnRoute(previous.startsWith('#/')?previous:'#/research');
-        setProperty(current=>current?.id===parts[1]?current:({id:parts[1],address:'טוען נכס…'} as any));setTabState('property');
+        const listingId=parts[1].split('?')[0];setProperty(current=>current?.id===listingId?current:({id:listingId,address:'טוען נכס…'} as any));setTabState('property');
       }else if(page==='area'){location.hash='#/areas'+(parts[0].includes('?')?'?'+parts[0].split('?')[1]:'');}
       else if(['radar','research','opps','deals','data','admin'].includes(page))setTabState(page as any);
       previous=location.hash||'#/radar';
@@ -298,7 +299,7 @@ export default function EdgeP1(){
     route();window.addEventListener('hashchange',route);
     return()=>window.removeEventListener('hashchange',route);
   },[]);
-  useEffect(()=>{if(tab==='property'&&property?.id&&location.hash!=='#/property/'+property.id)location.hash='#/property/'+property.id;},[tab,property?.id]);
+  useEffect(()=>{if(tab==='property'&&property?.id&&!location.hash.startsWith('#/property/'+property.id))location.hash='#/property/'+property.id;},[tab,property?.id]);
   useEffect(()=>{
     const openListing=(event:Event)=>{
       const detail=(event as CustomEvent).detail;

@@ -1,6 +1,8 @@
 import type {VercelRequest,VercelResponse} from '@vercel/node';
 import {sql} from '../server/db.js';
 import {getAssetContext} from '../server/assetContext.js';
+import {listingLifecycle} from '../server/listingLifecycle.js';
+import {classifySourceUrl} from '../server/contracts/investmentContext.js';
 
 export default async function handler(req:VercelRequest,res:VercelResponse){
  if(req.method!=='GET')return res.status(405).json({error:'method_not_allowed'});
@@ -18,6 +20,7 @@ export default async function handler(req:VercelRequest,res:VercelResponse){
     LEFT JOIN asset_subscriptions sub ON sub.entity_type='listing' AND sub.entity_id=l.id
     WHERE l.id=${id}::uuid`;
   if(!listing)return res.status(404).json({error:'not_found'});
+  listing.source_url_kind=classifySourceUrl(listing.url);
   const subscribed=!!listing.subscription_id;
 
   let basicComps:any[]=[];
@@ -39,8 +42,8 @@ export default async function handler(req:VercelRequest,res:VercelResponse){
   const [seller]=await sql`SELECT * FROM listing_seller_signals WHERE listing_id=${id}::uuid`;
   const observedTimes=history.map((x:any)=>new Date(x.observed_at).getTime()).filter((x:number)=>Number.isFinite(x)).sort((a:number,b:number)=>a-b);
   const observedSpanDays=observedTimes.length>=2?(observedTimes.at(-1)!-observedTimes[0])/86400000:null;
-  const lifecycleSupported=observedSpanDays!=null&&observedSpanDays>=1;
-  const sellerContext={...(seller||{}),days_on_market:lifecycleSupported?Math.floor(observedSpanDays):null,price_reductions:lifecycleSupported?seller?.price_reductions??null:null,lifecycle_evidence:lifecycleSupported?'supported':'provisional',snapshot_count:history.length};
+  const life=listingLifecycle(history.length,observedSpanDays);
+  const sellerContext={...(seller||{}),days_on_market:life.daysOnMarket,price_reductions:life.supported?seller?.price_reductions??null:null,lifecycle_evidence:life.status,snapshot_count:history.length};
   const rent=listing.neighborhood_id?await sql`SELECT * FROM neighborhood_rent_metrics WHERE neighborhood_id=${listing.neighborhood_id}::uuid`: [];
   const [score]=await sql`SELECT score,price_gap_score,renewal_score,seller_motivation_score,comp_confidence_score,risk_deduction,model_version,inputs,explanation,calculated_at FROM opportunity_scores WHERE entity_type='listing' AND entity_id=${id}::uuid ORDER BY calculated_at DESC LIMIT 1`;
 

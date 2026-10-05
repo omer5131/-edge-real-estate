@@ -5,7 +5,9 @@ fs.copyFileSync('ui/OpenStreetIntelligenceMap.tsx','src/components/OpenStreetInt
 fs.copyFileSync('ui/ExternalDataIntake.tsx','src/components/ExternalDataIntake.tsx');
 fs.copyFileSync('ui/external-data-intake.css','src/components/external-data-intake.css');
 fs.copyFileSync('ui/neighborhood-intelligence.css','src/components/neighborhood-intelligence.css');
-fs.copyFileSync('ui/DealWorkflow.tsx','src/components/DealWorkflow.tsx');
+fs.copyFileSync('ui/DealWorkspace.tsx','src/components/DealWorkflow.tsx');
+fs.copyFileSync('ui/workflow.css','src/components/workflow.css');
+fs.copyFileSync('ui/evidence-format.ts','src/components/evidence-format.ts');
 fs.copyFileSync('ui/MyDeals.tsx','src/components/MyDeals.tsx');
 const main='src/main.tsx';
 let s=fs.readFileSync(main,'utf8');
@@ -145,3 +147,9 @@ if(researchStart>=0){const end=researchShell.indexOf('function Admin(',researchS
 if(!researchShell.includes("import Research from"))researchShell="import Research from './components/Research';\n"+researchShell;
 researchShell=researchShell.replace("const page=parts[0]||'radar';","const page=parts[0].split('?')[0]||'radar';");
 fs.writeFileSync(edgePath,researchShell);
+
+// Property section/deal context is URL-backed and survives reconstruction.
+let workflowShell=fs.readFileSync(edgePath,'utf8');
+workflowShell=workflowShell.replace("setProperty(current=>current?.id===parts[1]?current:({id:parts[1],address:'טוען נכס…'} as any));setTabState('property');","const listingId=parts[1].split('?')[0];setProperty(current=>current?.id===listingId?current:({id:listingId,address:'טוען נכס…'} as any));setTabState('property');");
+workflowShell=workflowShell.replace("location.hash!=='#/property/'+property.id","!location.hash.startsWith('#/property/'+property.id)");
+fs.writeFileSync(edgePath,workflowShell);

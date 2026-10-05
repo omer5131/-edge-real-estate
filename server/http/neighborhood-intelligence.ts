@@ -70,6 +70,10 @@ async function listings(neighborhoodId:string){
   WITH snap AS(
    SELECT DISTINCT ON(listing_id) listing_id,asking_price_nis,area_sqm,rooms,floor,observed_at
    FROM listing_snapshots ORDER BY listing_id,observed_at DESC
+  ), lifecycle AS(
+   SELECT listing_id,count(*)::int snapshot_count,
+    extract(epoch from (max(observed_at)-min(observed_at)))/86400.0 observed_span_days
+   FROM listing_snapshots GROUP BY listing_id
   ), score AS(
    SELECT DISTINCT ON(entity_id) entity_id,score,model_version,calculated_at
    FROM opportunity_scores WHERE entity_type='listing' ORDER BY entity_id,calculated_at DESC
@@ -78,9 +82,11 @@ async function listings(neighborhoodId:string){
    s.asking_price_nis::float8,s.area_sqm::float8,s.rooms::float8,s.floor::float8,
    CASE WHEN s.area_sqm>0 THEN (s.asking_price_nis/s.area_sqm)::float8 END asking_price_sqm,
    sc.score::float8,sc.model_version,sc.calculated_at,
-   b.first_seen_at,b.days_on_market,b.first_asking_price_nis::float8,
-   b.price_change_since_first_pct::float8,b.snapshot_count,b.executed_percentile::float8,b.relative_value_signal,
-   b.historical_sample_count,b.matched_historical_sample_count,
+   CASE WHEN life.snapshot_count>=2 AND life.observed_span_days>=1 THEN floor(life.observed_span_days)::int END days_on_market,
+   b.first_asking_price_nis::float8,
+   CASE WHEN life.snapshot_count>=2 AND life.observed_span_days>=1 THEN b.price_change_since_first_pct::float8 END price_change_since_first_pct,
+   life.snapshot_count,life.observed_span_days::float8,b.executed_percentile::float8,b.relative_value_signal,
+   b.historical_sample_count,b.matched_historical_sample_count,b.historical_window_months,
    b.historical_median_price_sqm::float8,b.matched_historical_median_price_sqm::float8,
    b.current_listing_sample_count,b.current_listing_median_price_sqm::float8,
    b.executed_discount_pct::float8,b.matched_executed_discount_pct::float8,
@@ -89,6 +95,7 @@ async function listings(neighborhoodId:string){
    b.benchmark_confidence::float8,b.benchmark_method,b.evidence benchmark_evidence
   FROM listings l
   LEFT JOIN snap s ON s.listing_id=l.id
+  LEFT JOIN lifecycle life ON life.listing_id=l.id
   LEFT JOIN score sc ON sc.entity_id=l.id
   LEFT JOIN listing_market_benchmarks b ON b.listing_id=l.id
   WHERE l.neighborhood_id=$1

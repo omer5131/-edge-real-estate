@@ -1,7 +1,7 @@
 name: UX workflow browser acceptance
 on:
   push:
-    branches: [ux-workflow-recovery]
+    branches: [ux-workflow-recovery, workflow-release]
 permissions:
   contents: read
 jobs:
@@ -17,13 +17,24 @@ jobs:
       - run: npm ci
       - run: npm run test:renewal
       - run: npm run test:phase3
+      - name: PostgreSQL workflow persistence and agent safety acceptance
+        run: node --test tests/workflow-persistence.test.mjs tests/deepseek-agents.test.mjs tests/research-sql.test.mjs
       - run: npm run build
       - name: Install pinned browser test runner
         run: npm install --no-save --package-lock=false playwright@1.62.1 && npx playwright install --with-deps chromium
       - name: Desktop and mobile navigation acceptance with bounded fixtures
-        run: node tests/renewal-navigation.test.mjs && node tests/research-navigation.test.mjs
+        run: node tests/renewal-navigation.test.mjs && node tests/research-navigation.test.mjs && node tests/workflow-navigation.test.mjs
+      - name: Read-only live workflow contract audit
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: node scripts/workflow-schema.mjs
+      - name: Apply reviewed additive task schema after acceptance
+        if: github.ref_name == 'workflow-release'
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: node scripts/workflow-schema.mjs --apply-reviewed-tasks
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: ux-browser-acceptance
-          path: artifacts/renewal-profile-*.png
+          path: artifacts/*-*.png

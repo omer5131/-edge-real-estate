@@ -1,6 +1,7 @@
 import React,{useEffect,useMemo,useState} from 'react';
 import './neighborhood-intelligence.css';
 import OpenStreetIntelligenceMap from './OpenStreetIntelligenceMap';
+import {benchmarkGap} from './evidence-format';
 
 type NeighborhoodMapRow={
  neighborhood_id:string;slug:string;name_he:string;city:string;
@@ -73,6 +74,7 @@ export default function NeighborhoodIntelligenceShell({children}:{children:React
  const [summary,setSummary]=useState<Summary|null>(null);
  const [section,setSection]=useState('overview');
  const [sectionData,setSectionData]=useState<any>([]);
+ const [sectionLoading,setSectionLoading]=useState(false),[sectionError,setSectionError]=useState(''),[sectionRetry,setSectionRetry]=useState(0);
  const [agentAnswer,setAgentAnswer]=useState('');
  const [asking,setAsking]=useState(false);
  const [error,setError]=useState<string|null>(null);
@@ -123,16 +125,13 @@ export default function NeighborhoodIntelligenceShell({children}:{children:React
  },[selected,open]);
 
  useEffect(()=>{
-  if(!selected||section==='overview')return;
-  if(section==='identity'){
-   fetch('/api/neighborhood-identity?neighborhoodId='+encodeURIComponent(selected))
-    .then(r=>r.json()).then(x=>setSectionData(x.data??{})).catch(e=>setError(String(e)));
-   return;
-  }
+  if(!selected||!open||section==='overview'){setSectionLoading(false);setSectionError('');return;}
+  const controller=new AbortController();setSectionData(null);setSectionLoading(true);setSectionError('');
   const apiSection=section==='market'?'market-trends':section;
-  fetch('/api/neighborhood?neighborhoodId='+encodeURIComponent(selected)+'&section='+apiSection)
-   .then(r=>r.json()).then(x=>setSectionData(x.data??[])).catch(e=>setError(String(e)));
- },[selected,section]);
+  const url=section==='identity'?'/api/neighborhood-identity?neighborhoodId='+encodeURIComponent(selected):'/api/neighborhood?neighborhoodId='+encodeURIComponent(selected)+'&section='+apiSection;
+  fetch(url,{signal:controller.signal}).then(r=>{if(!r.ok)throw Error('טעינת הנתונים נכשלה ('+r.status+')');return r.json();}).then(x=>{if(controller.signal.aborted)return;if(x.data==null||(['listings','renewal','evidence'].includes(section)&&!Array.isArray(x.data)))throw Error('השרת החזיר נתונים לא תקינים');setSectionData(x.data);}).catch(e=>{if(!controller.signal.aborted)setSectionError(e.message||String(e));}).finally(()=>{if(!controller.signal.aborted)setSectionLoading(false);});
+  return()=>controller.abort();
+ },[selected,section,sectionRetry,open]);
 
  const mapRows=cities.filter(r=>r.geometry);
  const selectedRow=rows.find(r=>r.neighborhood_id===selected)||null;
@@ -225,6 +224,9 @@ export default function NeighborhoodIntelligenceShell({children}:{children:React
      <nav className="ni-tabs">{['overview','market','listings','rentals','renewal','demographics','infrastructure','supply','city-context','identity','evidence'].map(t=><button key={t} className={section===t?'active':''} onClick={()=>setSection(t)}>{t.replace('-',' ').replace(/\b\w/g,c=>c.toUpperCase())}</button>)}</nav>
      {agentAnswer&&<div className="ni-agent-answer"><b>Edge analysis</b><p>{agentAnswer}</p><button onClick={()=>setAgentAnswer('')}>Close</button></div>}
      {section==='overview'&&<Overview current={current} summary={summary}/>}
+     {section!=='overview'&&sectionLoading&&<div className="ni-empty" role="status">טוען נתוני אזור…</div>}
+     {section!=='overview'&&sectionError&&<div className="ni-error" role="alert">{sectionError}<button onClick={()=>setSectionRetry(x=>x+1)}>נסה שוב</button></div>}
+     {!sectionLoading&&!sectionError&&<>
      {section==='market'&&<Market data={sectionData}/>}
      {section==='listings'&&<Listings rows={Array.isArray(sectionData)?sectionData:[]} onOpen={openListing} onStartDeal={startDeal}/>} 
      {section==='rentals'&&<Rentals data={sectionData}/>}
@@ -235,6 +237,7 @@ export default function NeighborhoodIntelligenceShell({children}:{children:React
      {section==='city-context'&&<MetricPanel data={Array.isArray(sectionData)?{metrics:sectionData}:sectionData} title="City context inherited to neighborhood" inherited/>}
      {section==='identity'&&<Identity data={sectionData}/>}
      {section==='evidence'&&<Evidence rows={Array.isArray(sectionData)?sectionData:[]} summary={summary}/>}
+     </>}
     </>}
    </section>
   </div>
@@ -310,16 +313,16 @@ function Listings({rows,onOpen,onStartDeal}:{rows:any[];onOpen:(r:any)=>void;onS
  const active=rows.filter(r=>r.status==='active');
  return <div className="ni-section">
   <div className="ni-listing-flow"><div><b>From area to deal</b><span>Review the neighborhood → open a real listing → validate comps and market context → create a Deal and manage it in My Deals.</span></div><strong>{active.length} active properties</strong></div>
-  <div className="ni-callout"><b>Relative-value model:</b> each listing is compared separately to executed 12-month neighborhood history, matched room/size comps when sample permits, and the current asking market. Negative percentages mean the listing asks below that benchmark.</div>
+  <div className="ni-callout"><b>מה משווים?</b> מחיר הבקשה מול עסקאות השכונה ב־12 החודשים האחרונים, מדגם מותאם כשיש מספיק נתונים, ומודעות פעילות. אלה מדדים שונים מהערכת השווי בכרטיס הנכס. המדגם אינו מאמת את כתובת המודעה. זמן ושינוי מחיר מוצגים רק לאחר שתי תצפיות בהפרש יום לפחות — לא כהוכחה למשך הפרסום המקורי.</div>
   {!rows.length?<div className="ni-empty ni-small-empty">No listings are currently mapped to this neighborhood.</div>:
   <div className="ni-listing-cards">{rows.map(r=><article key={r.id} className={'ni-listing-card '+(r.status==='active'?'':'inactive')}>
    <div className="ni-listing-card-head"><div><b>{r.canonical_address||'Unresolved address'}</b><span>{r.status||'unknown'} · {r.rooms??'—'} rooms · {r.area_sqm??'—'} m²</span></div><span className={'ni-value-signal '+(r.relative_value_signal||'insufficient')}>{r.relative_value_signal||'insufficient'}</span></div>
-   <div className="ni-listing-metrics"><span><small>Asking</small><b>{money(r.asking_price_nis)}</b></span><span><small>₪/m²</small><b>{money(r.asking_price_sqm)}</b></span><span><small>Vs executed</small><b>{pct(r.executed_discount_pct)}</b></span><span><small>DOM</small><b>{r.days_on_market??'—'}</b></span></div>
+   <div className="ni-listing-metrics"><span><small>Asking</small><b>{money(r.asking_price_nis)}</b></span><span><small>₪/m²</small><b>{money(r.asking_price_sqm)}</b></span><span><small>עסקאות שכונה · 12 חודשים</small><b>{benchmarkGap(r.executed_discount_pct,false)}</b></span><span><small>ימי תצפית</small><b>{r.days_on_market??'לא ידוע'}</b></span></div>
    <div className="ni-listing-actions"><button onClick={()=>onOpen(r)}>Open property</button><button className="primary" disabled={r.status!=='active'} onClick={()=>onStartDeal(r)}>Start Deal</button></div>
   </article>)}</div>}
   <div className="ni-table-wrap ni-desktop-listings"><table><thead><tr><th>Signal</th><th>Score</th><th>Address</th><th>Asking</th><th>₪/m²</th><th>Vs executed</th><th>Vs matched</th><th>Vs current ask</th><th>DOM</th><th>Price cut</th><th>Confidence</th><th>Action</th></tr></thead><tbody>{rows.map(r=><tr key={r.id}>
    <td><b>{r.relative_value_signal||'—'}</b></td><td><b>{r.score==null?'—':Math.round(r.score)}</b></td><td>{r.canonical_address||'Unresolved'}</td><td>{money(r.asking_price_nis)}</td><td>{money(r.asking_price_sqm)}</td>
-   <td>{pct(r.executed_discount_pct)}</td><td>{pct(r.matched_executed_discount_pct)}</td><td>{pct(r.current_asking_discount_pct)}</td>
+   <td>{benchmarkGap(r.executed_discount_pct,false)}</td><td>{benchmarkGap(r.matched_executed_discount_pct,false)}</td><td>{benchmarkGap(r.current_asking_discount_pct,false)}</td>
    <td>{r.days_on_market??'—'}</td><td>{pct(r.price_change_since_first_pct)}</td>
    <td>{r.benchmark_confidence==null?'—':Math.round(Number(r.benchmark_confidence)*100)+'%'}</td>
    <td><div className="ni-inline-actions"><button onClick={()=>onOpen(r)}>Open</button><button onClick={()=>onStartDeal(r)} disabled={r.status!=='active'}>Deal</button></div></td>

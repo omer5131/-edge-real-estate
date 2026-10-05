@@ -1,9 +1,9 @@
 import type { VercelRequest,VercelResponse } from '@vercel/node';
 import { sql } from '../server/db.js';
-import {createDealForListing,deleteNote,getDealBundle,listDeals,saveNote,saveScenario,setDealStage,setOffer,updateDueDiligence,updateNextAction} from '../server/dealWorkflow.js';
+import {createDealForListing,deleteNote,getDealBundle,listDeals,saveNote,saveScenario,setDealStage,setOffer,updateDueDiligence,updateNextAction,saveTask,createDdItem} from '../server/dealWorkflow.js';
 import {ingestExternalListing,recentExternalIntakes} from '../server/externalListingIngestion.js';
 
-const n=(v:any)=>{const x=Number(v);return Number.isFinite(x)?x:null};
+const n=(v:any)=>{if(v==null||v==='')return null;const x=Number(v);return Number.isFinite(x)?x:null};
 const bool=(v:any)=>String(v||'').toLowerCase()==='true';
 
 export default async function handler(req:VercelRequest,res:VercelResponse){
@@ -32,6 +32,8 @@ export default async function handler(req:VercelRequest,res:VercelResponse){
      case 'save_note': result=await saveNote(b); break;
      case 'delete_note': result=await deleteNote(String(b.deal_id||''),String(b.note_id||'')); break;
      case 'update_dd': result=await updateDueDiligence(b); break;
+     case 'save_task': result=await saveTask(b); break;
+     case 'create_dd_item': result=await createDdItem(b); break;
      default:return res.status(400).json({error:'unknown_workflow_action'});
     }
     return res.status(200).json({ok:true,data:result});
@@ -82,6 +84,10 @@ export default async function handler(req:VercelRequest,res:VercelResponse){
    WITH latest AS (
     SELECT DISTINCT ON(listing_id) listing_id,asking_price_nis,area_sqm,rooms,floor,broker_name,observed_at
     FROM listing_snapshots ORDER BY listing_id,observed_at DESC
+   ), lifecycle AS (
+    SELECT listing_id,count(*)::int snapshot_count,
+     extract(epoch from (max(observed_at)-min(observed_at)))/86400.0 observed_span_days
+    FROM listing_snapshots GROUP BY listing_id
    ), score AS (
     SELECT DISTINCT ON(entity_id) entity_id,score,calculated_at,model_version
     FROM opportunity_scores WHERE entity_type='listing' ORDER BY entity_id,calculated_at DESC
@@ -109,8 +115,11 @@ export default async function handler(req:VercelRequest,res:VercelResponse){
       (sc.entity_id IS NOT NULL) system_flag,
       (sub.id IS NOT NULL) manual_flag,sub.id subscription_id,sub.status subscription_status,sub.enrichment_level,sub.subscribed_at,
       (fa.id IS NOT NULL AND fa.is_active) followed_area,
-      coalesce(sig.days_on_market,0)::int days_on_market,coalesce(sig.price_reductions,0)::int price_reductions,
-      sig.original_asking_price::float8 original_asking_price,sig.total_reduction_pct::float8,
+      CASE WHEN life.snapshot_count>=2 AND life.observed_span_days>=1 THEN floor(life.observed_span_days)::int END days_on_market,
+      CASE WHEN life.snapshot_count>=2 AND life.observed_span_days>=1 THEN sig.price_reductions::int END price_reductions,
+      life.snapshot_count,life.observed_span_days::float8,
+      CASE WHEN life.snapshot_count>=2 AND life.observed_span_days>=1 THEN sig.original_asking_price::float8 END original_asking_price,
+      CASE WHEN life.snapshot_count>=2 AND life.observed_span_days>=1 THEN sig.total_reduction_pct::float8 END total_reduction_pct,
       coalesce(comps.comp_count,0)::int comp_count,comps.comp_pp_sqm::float8 comp_pp_sqm,comps.latest_comp_date,
       CASE WHEN latest.area_sqm>0 AND comps.comp_pp_sqm>0 THEN (latest.area_sqm*comps.comp_pp_sqm)::float8 END estimated_value_nis,
       CASE WHEN latest.area_sqm>0 AND comps.comp_pp_sqm>0 THEN
@@ -120,6 +129,7 @@ export default async function handler(req:VercelRequest,res:VercelResponse){
       coalesce(renew.renewal_projects,0)::int renewal_projects,coalesce(renew.renewal_in_execution,0)::int renewal_in_execution,
       coalesce(plans.planning_plans,0)::int planning_plans
     FROM listings l
+    LEFT JOIN lifecycle life ON life.listing_id=l.id
     LEFT JOIN latest ON latest.listing_id=l.id
     LEFT JOIN neighborhoods n ON n.id=l.neighborhood_id
     LEFT JOIN cities c ON c.id=l.city_id
@@ -177,6 +187,10 @@ export default async function handler(req:VercelRequest,res:VercelResponse){
  const rows=await sql`
  WITH latest_snap AS (
    SELECT DISTINCT ON(listing_id) * FROM listing_snapshots ORDER BY listing_id,observed_at DESC
+ ), lifecycle AS (
+   SELECT listing_id,count(*)::int snapshot_count,
+     extract(epoch from (max(observed_at)-min(observed_at)))/86400.0 observed_span_days
+   FROM listing_snapshots GROUP BY listing_id
  ), latest_score AS (
    SELECT DISTINCT ON(entity_id) entity_id,score,price_gap_score,renewal_score,seller_motivation_score,
      comp_confidence_score,risk_deduction,calculated_at,model_version
@@ -200,9 +214,12 @@ export default async function handler(req:VercelRequest,res:VercelResponse){
    coalesce(comps.comp_count,0)::int comp_count,comps.latest_comp_date,
    CASE WHEN comps.comp_count>=20 THEN 'high' WHEN comps.comp_count>=8 THEN 'medium'
         WHEN comps.comp_count>=3 THEN 'low' ELSE 'insufficient' END confidence,
-   coalesce(sig.days_on_market,0)::int days_on_market,coalesce(sig.price_reductions,0)::int price_reductions,
-   sig.original_asking_price::float8 original_price,l.url,l.last_seen_at
+   CASE WHEN life.snapshot_count>=2 AND life.observed_span_days>=1 THEN floor(life.observed_span_days)::int END days_on_market,
+   CASE WHEN life.snapshot_count>=2 AND life.observed_span_days>=1 THEN sig.price_reductions::int END price_reductions,
+   life.snapshot_count,life.observed_span_days::float8,
+   CASE WHEN life.snapshot_count>=2 AND life.observed_span_days>=1 THEN sig.original_asking_price::float8 END original_price,l.url,l.last_seen_at
  FROM listings l
+ LEFT JOIN lifecycle life ON life.listing_id=l.id
  JOIN latest_snap s ON s.listing_id=l.id
  LEFT JOIN neighborhoods n ON n.id=l.neighborhood_id
  LEFT JOIN cities c ON c.id=l.city_id

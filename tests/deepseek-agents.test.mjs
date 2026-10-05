@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {translateSql,askEdge,boundedEvidence} from '../.server-test/server/agent/deepseekAgents.js';
+import {translateSql as liveTranslate,askEdge as liveAsk,boundedEvidence} from '../.server-test/server/agent/deepseekAgents.js';
+const dependencies={semanticContext:async()=>({nodes:[],edges:[]}),executeResearchSql:async()=>{throw Error('Unexpected real database access in unit test');}};
+const translateSql=(q,d)=>liveTranslate(q,d,undefined,dependencies),askEdge=(q,h,d)=>liveAsk(q,h,d,undefined,dependencies);
 const datasets=[{table:'yad2_dataset',title:'Yad2',grain:'One listing per market and ID.',status:'available',notes:'Asking prices are not transactions.',columns:[{column_name:'price',data_type:'numeric',meaning:'Asking NIS.',verified:true}],examples:['SELECT price FROM yad2_dataset LIMIT 50']}];
 const draft={sql:'SELECT price FROM yad2_dataset LIMIT 5',explanation:'Asking prices.',assumptions:[],clarification:null};
 function toolResponse(name,args){return {role:'assistant',content:null,tool_calls:[{id:'call_'+name,type:'function',function:{name,arguments:JSON.stringify(args)}}]};}

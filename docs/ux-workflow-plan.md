@@ -15,13 +15,13 @@ Directory search worked; directory → Saadia Gaon profile crashed with existing
 | P1b | Follow vs deal clarity | Property header has an explicit deal CTA; following is explained separately; empty pipeline links to Research; existing backend create action is unchanged | Implemented; CI browser acceptance passed |
 | P1c | Evidence readability | Valuation and active inventory show their own evidence envelopes; domain evidence is never collapsed into one quality label | Labels implemented; build passed; deeper comprehension review pending |
 | P2a | Research usability and return context | Core columns by default; secondary detail expansion; accessible filter labels; filters/sort/scroll restored after property return; common Hebrew wording | Implemented; CI 37348584746 passed build, 24 regressions and research/project browser acceptance |
-| P2b | Actionable missing information | Gap can become a task with source, owner/date, status and result; do not mark rights verified merely because a task is complete | Planned; requires additive workflow contract review |
-| P2c | Deal workspace guidance | Existing stages, next action, DD and scenarios grouped into a clear next-step workflow; explicit assumptions and scenario comparison | Planned |
+| P2b | Actionable missing information | Gap can become a task with source, owner/date, status and result; do not mark rights verified merely because a task is complete | Implemented locally; additive 032 contract and rollback tests passed; browser/release gate pending |
+| P2c | Deal workspace guidance | Existing stages, next action, DD and scenarios grouped into a clear next-step workflow; explicit assumptions and scenario comparison | Implemented locally; build and PostgreSQL persistence tests passed; browser/release gate pending |
 | P3 | Full acceptance | Real read-only API checks + desktop/mobile fixtures; isolated test-branch create/update persistence; contextual agent tests; failures and empty states; no production QA records | Planned |
 
 ## Release gates
 
-Build and 24 renewal/domain regressions must pass. Browser fixtures must pass before production promotion. Batch changes before production promotion; corrective patches must repeat acceptance. API function count remains 12; no new cron, database schema or collector change. Existing evidence/identity contracts remain authoritative. Browser fixtures do not establish apartment project membership or source correctness.
+Build and renewal/domain regressions must pass. Browser fixtures must pass before production promotion. Batch changes before production promotion; corrective patches must repeat acceptance. API function count remains 12; no new cron or collector change. The reviewed additive task contract is `db/032_deal_tasks.sql`: one new table/index, no existing record/schema mutation, and completion does not change DD verification. It is applied only on the explicit workflow-release branch after PostgreSQL, agent-safety and browser acceptance plus read-only live contract audit. Existing evidence/identity contracts remain authoritative. Browser fixtures do not establish apartment project membership or source correctness.
 
 The production UI review alone did not establish write persistence, agent accuracy or full mobile acceptance. Report these separately from fixture success.
 
@@ -48,3 +48,15 @@ Research batch additionally preserves notes after failed writes and displays wor
 
 
 Research acceptance: GitHub Actions 37348584746 passed build, 24 domain regressions, the existing project suite and research fixture tests. Research tests cover draft vs applied filters, omitted numeric filters, URL filter/sort restoration, property→back expanded row and vertical scroll, refresh, preserved notes and visible errors after failed writes, failed follow, malformed response/retry, pagination and 390px viewport overflow. These are bounded fixtures, not production writes. Live research API maxPrice=1500000 returned 14 results, all asking prices ≤1.49M. Production promotion and UI smoke follow this gate.
+
+## Remaining-work implementation batch
+
+R1: observed lifecycle requires >=2 snapshots separated by >=1 day on research, opportunity, area, property and active inventory. Unknown DOM/reductions/original price stay null; display uses words rather than opposite sign conventions, without changing valuation formulas. Sample quality and subject identity are separate.
+
+R2: DD findings and attributed dated sources, listing identity checklist, custom checks, owner/due/source/result tasks and gap-to-task actions. A completed task never verifies a check. 032 is idempotent in disposable PostgreSQL.
+
+R3: all 21 assumptions visible; illustrative defaults require acknowledgement; zero loan stays zero; saved scenario selection loads its assumptions; selected saved outputs and dirty drafts are distinguished; scenario comparison uses server outputs. Primary switch/save/event/activity are atomic; notes/DD/stages/offers/tasks also use atomic persistence where multiple writes occur. Rejection has explicit save/cancel and mandatory reason.
+
+R4: next-step guidance and open-check/task counts; pipeline deep link includes exact deal and section with listing-match validation; compare 2–6 candidates; delayed/error/retry area sections don't masquerade as empty inventory; source links available on basic profiles.
+
+R5: fresh service-level PostgreSQL persistence/rollback tests pass locally, alongside agent safety and SQL allowlist tests. Browser acceptance connects to the same actual service in a disposable PostgreSQL instance, not a JSON persistence mock. Live production remains read-only during acceptance. Release evidence and post-release investor reassessment will be appended after gates pass.
