@@ -16,10 +16,10 @@ export default function MyDeals({onOpen}:{onOpen:(x:OpenItem)=>void}){
  const grouped=useMemo(()=>stages.map(stage=>({stage,items:visible.filter(x=>x.stage===stage)})).filter(g=>g.items.length),[visible]);
  if(loading)return <div className="screen"><div className="loading"><RefreshCw className="spin"/>טוען My Deals…</div></div>;
  return <div className="screen my-deals">
-  <div className="screen-head"><div><span className="eyebrow">Acquisition workflow</span><h1>My Deals</h1><p>כל הנכסים שאתה באמת בוחן, מהשמירה ועד הצעה / סגירה.</p></div><button onClick={load}><RefreshCw size={14}/>רענן</button></div>
+  <div className="screen-head"><div><span className="eyebrow">Acquisition workflow</span><h1>העסקאות שלי</h1><p>כל הנכסים שאתה באמת בוחן, מהשמירה ועד הצעה / סגירה.</p></div><button onClick={load}><RefreshCw size={14}/>רענן</button></div>
   {error&&<div className="deal-empty"><AlertTriangle size={18}/><div><strong>לא ניתן לטעון עסקאות</strong><span>{error}</span></div></div>}
-  <div className="my-deals-filters">{(['active','closed','rejected','all'] as const).map(x=><button key={x} className={filter===x?'active':''} onClick={()=>setFilter(x)}>{x}</button>)}</div>
-  {!visible.length?<div className="workflow-start"><ClipboardList size={24}/><h3>אין עסקאות בקטגוריה הזו</h3><p>פתח נכס ממחקר או הזדמנויות ולחץ על יצירת Deal כדי להתחיל.</p></div>:
+  <div className="my-deals-filters">{(['active','closed','rejected','all'] as const).map(x=><button key={x} className={filter===x?'active':''} onClick={()=>setFilter(x)}>{{active:'פעילות',closed:'נסגרו',rejected:'נדחו',all:'הכול'}[x]}</button>)}</div>
+  {!visible.length?<div className="workflow-start"><ClipboardList size={24}/><h3>אין עסקאות בקטגוריה הזו</h3><p>פתח נכס ממחקר או הזדמנויות ולחץ על פתיחת תיק עסקה כדי להתחיל. שמירה למעקב בלבד לא יוצרת תיק עסקה.</p><a className="workflow-primary" href="#/research">מצא נכס למחקר</a></div>:
   <div className="deal-pipeline">
    {grouped.map(group=><section className="pipeline-stage" key={group.stage}><header><strong>{group.stage}</strong><span>{group.items.length}</span></header><div className="pipeline-cards">{group.items.map((d:any)=><button key={d.id} className="pipeline-card" onClick={()=>onOpen({id:d.listing_id,address:d.canonical_address||'נכס',neighborhood_id:'',neighborhood:d.neighborhood||'',city:d.city||'',asking_price:Number(d.current_asking_price_nis||d.asking_price_nis||0),sqm:d.area_sqm==null?null:Number(d.area_sqm),rooms:d.rooms==null?null:Number(d.rooms),floor:d.floor==null?null:String(d.floor)})}>
       <div className="pipeline-card-top"><strong>{d.canonical_address||'נכס'}</strong><span>{d.neighborhood||d.city||'—'}</span></div>

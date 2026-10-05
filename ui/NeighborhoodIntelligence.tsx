@@ -68,6 +68,7 @@ export default function NeighborhoodIntelligenceShell({children}:{children:React
  const [loading,setLoading]=useState(false);
  const [layer,setLayer]=useState<LayerKey>('median_price_sqm_12m');
  const [selected,setSelected]=useState<string|null>(null);
+ const [radarAreas,setRadarAreas]=useState<any[]>([]);
  const [selectedCity,setSelectedCity]=useState<string|null>(null);
  const [summary,setSummary]=useState<Summary|null>(null);
  const [section,setSection]=useState('overview');
@@ -92,16 +93,20 @@ export default function NeighborhoodIntelligenceShell({children}:{children:React
     setCities(nextCities);setRows(nextRows);
     const requested=new URLSearchParams(location.hash.split('?')[1]||'').get('neighborhoodId');
     const requestedNeighborhood=nextRows.find((n:any)=>n.neighborhood_id===requested);
-    const firstCity=nextCities.find((x:any)=>x.name_he===requestedNeighborhood?.city)||nextCities.find((x:any)=>x.has_transaction_data)||nextCities[0];
+    let remembered:string|null=null;try{remembered=localStorage.getItem('edge:last-neighborhood:v1');}catch{}
+    const preferred=requestedNeighborhood||nextRows.find((n:any)=>n.neighborhood_id===remembered);
+    const firstCity=nextCities.find((x:any)=>x.name_he===preferred?.city)||nextCities.find((x:any)=>x.name_he==='חיפה')||nextCities.find((x:any)=>x.has_transaction_data)||nextCities[0];
     if(firstCity){
       setSelectedCity(firstCity.city_id);
-      const firstNeighborhood=requestedNeighborhood||nextRows.find((n:any)=>n.city===firstCity.name_he);
+      const firstNeighborhood=preferred||nextRows.find((n:any)=>n.city===firstCity.name_he&&n.name_he==='קריית שפרינצק')||nextRows.find((n:any)=>n.city===firstCity.name_he);
       setSelected(firstNeighborhood?.neighborhood_id||null);
     }
    })
    .catch(e=>setError(String(e))).finally(()=>setLoading(false));
  },[open,cities.length]);
 
+ useEffect(()=>{if(selected&&open){try{localStorage.setItem('edge:last-neighborhood:v1',selected);}catch{}}},[selected,open]);
+ useEffect(()=>{if(!open)return;const controller=new AbortController();fetch('/api/edge-data',{signal:controller.signal}).then(r=>r.ok?r.json():null).then(x=>{if(x)setRadarAreas(x.areas||[])}).catch(()=>{});return()=>controller.abort();},[open]);
  useEffect(()=>{
   if(!selected||!open)return;
   setSummary(null);setSection('overview');setSectionData([]);setAgentAnswer('');
@@ -177,6 +182,8 @@ export default function NeighborhoodIntelligenceShell({children}:{children:React
    <div><div className="ni-eyebrow">EDGE · ISRAEL AREA INTELLIGENCE</div><h1>Israel Investment Map</h1></div>
    <div className="ni-header-actions">
     <select value={layer} onChange={e=>setLayer(e.target.value as LayerKey)}>{layers.map(x=><option key={x.key} value={x.key}>{x.label}</option>)}</select>
+    <select aria-label="בחירת עיר" value={selectedCity||''} onChange={e=>{const city=cities.find(x=>x.city_id===e.target.value);if(city)chooseCity(city);}}><option value="" disabled>בחר עיר</option>{cities.map(c=><option key={c.city_id} value={c.city_id}>{c.name_he}</option>)}</select>
+    <select aria-label="אזורי הרדאר" value={radarAreas.some(a=>a.id===selected)?selected||'':''} onChange={e=>{location.hash='#/areas?neighborhoodId='+e.target.value;setSection('overview');}}><option value="" disabled>אזורי הרדאר שלך</option>{radarAreas.map(a=><option key={a.id} value={a.id}>{a.name} · {a.city}</option>)}</select>
     <a href='#/renewal'>פרויקטי התחדשות</a><button onClick={close}>חזרה למחקר</button>
    </div>
   </header>
@@ -200,7 +207,7 @@ export default function NeighborhoodIntelligenceShell({children}:{children:React
     <div className="ni-map-note">{parcelFocus&&selectedRow?'OpenStreetMap base with canonical neighborhood and parcel polygons. Click a parcel for cadastral and transaction context.':'All available CBS settlement geography is shown. Gray means geography exists but the current transaction archive has no data for that settlement. Colored areas use executed transaction data only.'}</div>
     {selectedParcel&&<div className="ni-parcel-card"><div><b>גוש {selectedParcel.gush} · חלקה {selectedParcel.helka}</b><span>{selectedParcel.transaction_count||0} linked transactions{selectedParcel.latest_transaction_date?' · latest '+new Date(selectedParcel.latest_transaction_date).toLocaleDateString('he-IL'):''}</span></div><button onClick={()=>setSelectedParcel(null)}>×</button></div>}
     <div className="ni-neighborhood-list">
-     {cityNeighborhoods.map(r=><button key={r.neighborhood_id} className={selected===r.neighborhood_id?'active':''} onClick={()=>{setSelected(r.neighborhood_id);setParcelFocus(Boolean(r.geometry));setSelectedParcel(null)}}>
+     {cityNeighborhoods.map(r=><button key={r.neighborhood_id} className={selected===r.neighborhood_id?'active':''} onClick={()=>{location.hash='#/areas?neighborhoodId='+r.neighborhood_id;setSelected(r.neighborhood_id);setParcelFocus(Boolean(r.geometry));setSelectedParcel(null)}}>
       <span><b>{r.name_he}</b><small>{r.city}</small></span>
       <span className="ni-list-score">{r.parcel_geometry_count??r.parcel_count??0} parcels</span>
      </button>)}

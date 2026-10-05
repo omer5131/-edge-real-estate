@@ -1,0 +1,29 @@
+name: UX workflow browser acceptance
+on:
+  push:
+    branches: [ux-workflow-recovery]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run test:renewal
+      - run: npm run test:phase3
+      - run: npm run build
+      - name: Install pinned browser test runner
+        run: npm install --no-save --package-lock=false playwright@1.62.1 && npx playwright install --with-deps chromium
+      - name: Desktop and mobile navigation acceptance with bounded fixtures
+        run: node tests/renewal-navigation.test.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ux-browser-acceptance
+          path: artifacts/renewal-profile-*.png

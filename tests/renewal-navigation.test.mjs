@@ -6,21 +6,27 @@ import fs from 'node:fs';
 const require=createRequire(import.meta.url);const {chromium}=require('playwright');
 const server=spawn('python',['-m','http.server','4187','--directory','dist'],{stdio:'ignore'});
 const seed=JSON.parse(fs.readFileSync('server/research/renewal-saadia-gaon.json','utf8'));
+const neighborhoodId='33333333-3333-3333-3333-333333333333';
+const area={id:neighborhoodId,name:'קריית שפרינצק',city:'חיפה',confidence:'high',sample_size:26};
 const projectId='11111111-1111-1111-1111-111111111111',listingId='22222222-2222-2222-2222-222222222222';
 const project={...seed.project,id:projectId,source_url:seed.facts[0].source_url,observed_at:'2026-10-05',planned_units:null};
 const facts=seed.facts.map((f,i)=>({...f,id:String(i),checked_at:'2026-10-05'}));
 const listing={id:listingId,address:'סעדיה גאון 8',membership:'unverified',asking_price:1090000,sqm:85,rooms:4,floor:3};
-let browser;
+let browser,badProfile=false;
 try{
  browser=await chromium.launch({headless:true,args:['--no-sandbox']});
  const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.route('**/api/**',async route=>{
   const u=new URL(route.request().url());let response={};
-  if(u.pathname==='/api/edge-data')response={mode:'live',generatedAt:'2026-10-05',areas:[],opportunities:[]};
+  if(u.pathname==='/api/edge-data')response={mode:'live',generatedAt:'2026-10-05',areas:[area],opportunities:[]};
   else if(u.pathname==='/api/data-status')response={freshness:[],counts:{}};
-  else if(u.pathname==='/api/renewal')response={data:u.searchParams.has('id')?{project,facts,addresses:[{street_name:'סעדיה גאון',house_number:'8',membership:'unverified',note:'QA fixture — unverified',source_url:seed.facts[0].source_url}],parcels:[],listings:[listing],transactions:[]}:[{...project,fact_count:facts.length}]};
-  else if(u.pathname==='/api/property')response={tier:'basic',listing:{...listing,area_sqm:85,asking_price_ils:1090000},comps:[]};
-  await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(response)});
+  else if(u.pathname==='/api/renewal'){if(u.searchParams.has('id'))await new Promise(resolve=>setTimeout(resolve,300));response={data:u.searchParams.has('id')?{project,facts,addresses:[{street_name:'סעדיה גאון',house_number:'8',membership:'unverified',note:'QA fixture — unverified',source_url:seed.facts[0].source_url}],parcels:[],listings:[listing],transactions:[]}:[{...project,fact_count:facts.length}]};}
+  if(u.pathname==='/api/renewal'&&u.searchParams.has('id')&&badProfile)response={data:[]};
+  if(u.pathname==='/api/property')response={tier:'basic',listing:{...listing,area_sqm:85,asking_price_ils:1090000},comps:[]};
+  else if(u.pathname==='/api/opportunities')response=u.searchParams.get('mode')==='deals'?{deals:[]}:{error:'not_found'};
+  else if(u.pathname==='/api/neighborhood-map')response={cities:[{city_id:'haifa',name_he:'חיפה',has_transaction_data:true}],neighborhoods:[{neighborhood_id:neighborhoodId,name_he:area.name,city:area.city,geometry:null}]};
+  else if(u.pathname==='/api/neighborhood')response={data:u.searchParams.get('section')==='summary'?{neighborhood:{},metrics:[],datasets:[]}:[]};
+  await route.fulfill({status:u.pathname==='/api/opportunities'&&u.searchParams.get('mode')==='deal'?404:200,contentType:'application/json',body:JSON.stringify(response)});
  });
  await page.goto('http://127.0.0.1:4187/#/renewal');
  await page.getByRole('heading',{name:'פרויקטים',exact:true}).waitFor();
@@ -33,12 +39,16 @@ try{
  await page.getByRole('button',{name:'סעדיה גאון 8',exact:true}).click();
  await page.getByRole('heading',{name:'סעדיה גאון 8',exact:true}).waitFor();
  assert(page.url().endsWith('#/property/'+listingId));
+ await page.getByRole('button',{name:'פתח תיק עסקה',exact:true}).click();
+ await page.getByRole('button',{name:'צור Deal',exact:true}).waitFor();
  await page.getByRole('button',{name:'חזרה למסך הקודם',exact:true}).click();
  await page.getByRole('heading',{name:'סעדיה גאון — אורון',exact:true}).waitFor();
  assert(page.url().endsWith('#/renewal/'+projectId));
  await page.reload();await page.getByRole('heading',{name:'סעדיה גאון — אורון',exact:true}).waitFor();
  await page.getByRole('button',{name:'מסמכים ומקורות',exact:true}).click();await page.getByText('סתירה בגבולות הפרויקט',{exact:true}).waitFor();
  await page.getByRole('button',{name:'מידע חסר',exact:true}).click();await page.getByText('אימות הכללת סעדיה גאון 8',{exact:true}).waitFor();
+ badProfile=true;await page.reload();await page.getByRole('button',{name:'נסה שוב',exact:true}).waitFor();
+ badProfile=false;await page.getByRole('button',{name:'נסה שוב',exact:true}).click();await page.getByRole('heading',{name:'סעדיה גאון — אורון',exact:true}).waitFor();
  await page.setViewportSize({width:390,height:844});
  await page.getByRole('button',{name:'סקירה וסטטוס',exact:true}).click();
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2),false,'No mobile page overflow');
@@ -46,5 +56,13 @@ try{
  await page.setViewportSize({width:1440,height:1000});await page.screenshot({path:'artifacts/renewal-profile-desktop.png',fullPage:true});
  await page.getByRole('link',{name:'כל הפרויקטים',exact:true}).click();await page.getByRole('heading',{name:'פרויקטים',exact:true}).waitFor();
  await page.getByRole('textbox',{name:'חיפוש פרויקטים'}).fill('לא קיים');await page.getByText('לא נמצאו פרויקטים לפי הסינון.').waitFor();
+ await page.getByRole('button',{name:'רדאר',exact:true}).click();
+ await page.getByRole('button').filter({hasText:'קריית שפרינצק'}).click();
+ await page.getByRole('heading',{name:'קריית שפרינצק',exact:true}).waitFor();
+ assert(page.url().endsWith('#/areas?neighborhoodId='+neighborhoodId));
+ await page.getByRole('button',{name:'חזרה למחקר',exact:true}).click();
+ await page.getByRole('button',{name:'העסקאות שלי',exact:true}).click();
+ await page.getByRole('link',{name:'מצא נכס למחקר',exact:true}).click();
+ assert(page.url().endsWith('#/research'));
  assert.deepEqual(errors,[]);console.log('PASS: directory, exact-membership labels, project → property → back, deep-link reload, evidence, gaps, mobile width, empty filter; no runtime errors. Fixtures only; production validation pending.');
 }finally{if(browser)await browser.close();server.kill();}

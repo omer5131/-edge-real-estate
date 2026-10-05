@@ -130,3 +130,8 @@ renewalUi=renewalUi.replace("onBack={()=>setTab('opps')}","onBack={()=>{location
 renewalUi=renewalUi.replace("onClick={()=>setTab(id as any)}", "onClick={()=>{if(id==='area')location.hash='#/areas';else setTab(id as any)}}");
 renewalUi=renewalUi.replace(/(?:<ExternalDataIntake\/>){2,}/g,'<ExternalDataIntake/>').replace(/[ \t]+$/gm,'');
 fs.writeFileSync(edgePath,renewalUi);
+
+// All radar/legacy area entrypoints share the canonical map.
+let unified=fs.readFileSync(edgePath,'utf8');
+unified=unified.replace("onArea={a=>{setArea(a);setTab('area')}}", "onArea={a=>{location.hash='#/areas?neighborhoodId='+a.id}}");
+fs.writeFileSync(edgePath,unified);

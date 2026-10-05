@@ -344,7 +344,8 @@ export default function EdgeP1(){
       else if(page==='property'&&parts[1]){
         if(!previous.startsWith('#/property/'))setReturnRoute(previous.startsWith('#/')?previous:'#/research');
         setProperty(current=>current?.id===parts[1]?current:({id:parts[1],address:'טוען נכס…'} as any));setTabState('property');
-      }else if(['radar','research','opps','deals','area','data','admin'].includes(page))setTabState(page as any);
+      }else if(page==='area'){location.hash='#/areas'+(parts[0].includes('?')?'?'+parts[0].split('?')[1]:'');}
+      else if(['radar','research','opps','deals','data','admin'].includes(page))setTabState(page as any);
       previous=location.hash||'#/radar';
     };
     route();window.addEventListener('hashchange',route);
@@ -386,7 +387,7 @@ export default function EdgeP1(){
         <div className="top-actions"><button onClick={load} disabled={refreshing}><RefreshCw size={14} className={refreshing?'spin':''}/>רענן</button><button className="ask" onClick={()=>{setAskContext(null);setAskOpen(true)}}><MessageSquare size={15}/>Ask Edge</button></div>
       </header>
       <main>
-        {tab==='radar'&&<Radar areas={data.areas||[]} onArea={a=>{setArea(a);setTab('area')}}/>}
+        {tab==='radar'&&<Radar areas={data.areas||[]} onArea={a=>{location.hash='#/areas?neighborhoodId='+a.id}}/>}
         {tab==='research'&&<Research onOpen={x=>{setProperty(x);setTab('property')}}/>}
         {tab==='opps'&&<Opportunities items={data.opportunities||[]} onOpen={x=>{setProperty(x);setTab('property')}}/>}
         {tab==='deals'&&<MyDeals onOpen={x=>{setProperty(x as any);setTab('property')}}/>}

@@ -1,4 +1,4 @@
-import {useEffect,useState} from 'react';
+import {Component,useEffect,useState,type ReactNode} from 'react';
 import {AlertTriangle,ArrowRight,Building2,ExternalLink,RefreshCw,Search} from 'lucide-react';
 import './renewal-projects.css';
 const types:Record<string,string>={pinui_binui:'פינוי־בינוי',tama_38_1:'תמ״א 38 — חיזוק',tama_38_2:'תמ״א 38 — הריסה ובנייה',infill:'עיבוי',building_renewal:'התחדשות בניינית',unknown:'מסלול לא אומת'};
@@ -11,10 +11,17 @@ const safeUrl=(v:any)=>{try{const u=new URL(v);return u.protocol==='https:'?u.hr
 function Source({url,title}:{url:string;title:string}){const href=safeUrl(url);return href?<a href={href} target="_blank" rel="noreferrer">{title}<ExternalLink size={13}/></a>:<span>{title}</span>;}
 function Empty({children}:{children:any}){return <div className="rp-empty"><AlertTriangle size={18}/>{children}</div>;}
 function Fact({fact}:{fact:any}){return <div className={'rp-fact '+fact.evidence_status}><strong>{labels[fact.fact_key]||fact.fact_key}</strong><p>{typeof fact.value==='object'?JSON.stringify(fact.value):String(fact.value)}{fact.fact_key==='signatures_pct'?'%':''}</p><small>{kinds[fact.source_kind]} · {fact.source_date?new Date(fact.source_date).toLocaleDateString('he-IL',{month:'long',year:'numeric'}):'מועד פרסום לא ידוע'}{fact.evidence_status==='conflicting'?' · סתירה פתוחה':''}</small><Source url={fact.source_url} title={fact.source_title}/><small>{fact.locator} · נבדק {date(fact.checked_at)}</small></div>;}
-export default function RenewalProjects({projectId,onOpenListing}:{projectId?:string|null;onOpenListing:(x:any)=>void}){
+class ProjectBoundary extends Component<{children:ReactNode},{failed:boolean}> {
+ state={failed:false};
+ static getDerivedStateFromError(){return {failed:true};}
+ render(){return this.state.failed?<section className="screen rp-screen"><Empty>לא ניתן להציג את הפרויקט. אפשר לנסות שוב או לחזור לרשימה.</Empty><button onClick={()=>this.setState({failed:false})}>נסה שוב</button> <a href="#/renewal">כל הפרויקטים</a></section>:this.props.children;}
+}
+type ProjectProps={projectId?:string|null;onOpenListing:(x:any)=>void};
+export default function RenewalProjects(props:ProjectProps){return <ProjectBoundary key={props.projectId||'directory'}><ProjectContent key={props.projectId||'directory'} {...props}/></ProjectBoundary>;}
+function ProjectContent({projectId,onOpenListing}:{projectId?:string|null;onOpenListing:(x:any)=>void}){
  const [data,setData]=useState<any>(null),[error,setError]=useState(''),[busy,setBusy]=useState(false),[query,setQuery]=useState(''),[city,setCity]=useState('');
  const [tab,setTab]=useState('overview');
- const load=async(signal?:AbortSignal)=>{setBusy(true);setError('');try{const url='/api/renewal?view=profiles'+(projectId?'&id='+encodeURIComponent(projectId):'');const r=await fetch(url,{signal});const x=await r.json();if(!r.ok)throw new Error(x.message||x.error||'הטעינה נכשלה');setData(x.data);}catch(e:any){if(e.name!=='AbortError')setError('לא ניתן לטעון את הפרויקטים. '+e.message);}finally{if(!signal?.aborted)setBusy(false);}};
+ const load=async(signal?:AbortSignal)=>{setBusy(true);setError('');try{const url='/api/renewal?view=profiles'+(projectId?'&id='+encodeURIComponent(projectId):'');const r=await fetch(url,{signal});const x=await r.json();if(!r.ok)throw new Error(x.message||x.error||'הטעינה נכשלה');if(projectId?(!x.data?.project||x.data.project.id!==projectId):!Array.isArray(x.data))throw new Error('השרת החזיר מידע שאינו מתאים למסך');setData(x.data);}catch(e:any){if(e.name!=='AbortError')setError('לא ניתן לטעון את הפרויקטים. '+e.message);}finally{if(!signal?.aborted)setBusy(false);}};
  useEffect(()=>{const controller=new AbortController();setData(null);setTab('overview');void load(controller.signal);return()=>controller.abort();},[projectId]);
  if(error)return <section className="screen rp-screen"><a href="#/renewal">כל הפרויקטים</a><Empty>{error}</Empty><button onClick={()=>load()}>נסה שוב</button></section>;
  if(!data)return <section className="screen rp-screen"><RefreshCw className="spin"/> טוען פרויקטים…</section>;
