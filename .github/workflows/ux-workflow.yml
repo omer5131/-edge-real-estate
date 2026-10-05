@@ -18,7 +18,7 @@ jobs:
       - run: npm run test:renewal
       - run: npm run test:phase3
       - name: PostgreSQL workflow persistence and agent safety acceptance
-        run: node --test tests/workflow-persistence.test.mjs tests/workflow-schema-guard.test.mjs tests/deepseek-agents.test.mjs tests/research-sql.test.mjs
+        run: node --test tests/workflow-persistence.test.mjs tests/workflow-schema-guard.test.mjs tests/workflow-lifecycle-cache.test.mjs tests/deepseek-agents.test.mjs tests/research-sql.test.mjs
       - run: npm run build
       - name: Install pinned browser test runner
         run: npm install --no-save --package-lock=false playwright@1.62.1 && npx playwright install --with-deps chromium
@@ -37,6 +37,11 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: node scripts/workflow-schema.mjs --apply-reviewed-tasks
+      - name: Reconcile reviewed observed lifecycle in derived view/cache
+        if: github.ref_name == 'workflow-release'
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: node scripts/workflow-lifecycle-schema.mjs --apply-reviewed-lifecycle
       - uses: actions/upload-artifact@v4
         if: always()
         with:

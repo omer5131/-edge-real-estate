@@ -327,6 +327,7 @@ export async function refreshNeighborhoodMarketAnalytics(){
     ), life AS(
       SELECT l.id listing_id,
         count(s.*)::int snapshot_count,
+        extract(epoch from(max(s.observed_at)-min(s.observed_at)))/86400.0 observed_span_days,
         (array_agg(s.asking_price_nis ORDER BY s.observed_at)
           FILTER(WHERE s.asking_price_nis>0))[1] first_asking_price_nis
       FROM listings l
@@ -382,9 +383,9 @@ export async function refreshNeighborhoodMarketAnalytics(){
       executed_percentile,relative_value_signal,benchmark_confidence,benchmark_method,evidence
     )
     SELECT x.listing_id,x.neighborhood_id,now(),x.observed_at,x.first_seen_at,
-      GREATEST(0,current_date-x.first_seen_at::date)::int,
-      x.asking_price_nis,life.first_asking_price_nis,
-      CASE WHEN life.first_asking_price_nis>0
+      CASE WHEN life.snapshot_count>=2 AND life.observed_span_days>=1 THEN floor(life.observed_span_days)::int END,
+      x.asking_price_nis,CASE WHEN life.snapshot_count>=2 AND life.observed_span_days>=1 THEN life.first_asking_price_nis END,
+      CASE WHEN life.snapshot_count>=2 AND life.observed_span_days>=1 AND life.first_asking_price_nis>0
         THEN 100*(x.asking_price_nis/life.first_asking_price_nis-1) END,
       life.snapshot_count,
       x.area_sqm,x.rooms,x.asking_ppsqm,
@@ -437,6 +438,8 @@ export async function refreshNeighborhoodMarketAnalytics(){
         'matched_rule','area ±20%; rooms ±0.5 when transaction room count is available',
         'historical_sample',h.historical_n,
         'matched_sample',h.matched_n,
+        'lifecycle_rule','at least two snapshots separated by one day; collection age is not DOM',
+        'lifecycle_status',CASE WHEN life.snapshot_count>=2 AND life.observed_span_days>=1 THEN 'supported' ELSE 'provisional' END,
         'current_listing_sample',ca.n
       )
     FROM latest x
