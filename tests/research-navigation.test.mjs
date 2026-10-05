@@ -51,6 +51,6 @@ try{
  bad=true;await page.getByRole('button',{name:'נסה שוב',exact:true}).click();await page.getByText('תשובת החיפוש אינה תקינה. נסה שוב.',{exact:false}).waitFor();assert.equal(await page.getByText('לא נמצאו נכסים בסינון הזה',{exact:true}).count(),0);
  bad=false;await page.getByRole('button',{name:'נסה שוב',exact:true}).click();await page.getByRole('button',{name:'נכס 0',exact:true}).waitFor();
  await Promise.all([page.waitForResponse(r=>r.url().includes('offset=50')),page.getByRole('button',{name:'הבא',exact:true}).click()]);await page.getByRole('button',{name:'נכס 0',exact:true}).waitFor();assert(page.url().includes('offset=50'));
- await page.setViewportSize({width:390,height:844});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1),'No page-wide overflow on mobile');
+ await page.setViewportSize({width:390,height:844});console.log('Mobile dimensions',await page.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth,overflow:Array.from(document.querySelectorAll('body *')).filter(e=>e.getBoundingClientRect().right>innerWidth+1&&getComputedStyle(e).position!=='fixed').slice(0,10).map(e=>e.className)})));assert(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1),'No page-wide overflow on mobile');
  assert.deepEqual(errors,[]);console.log('PASS research: drafts, URL filters/sort, return/refresh context, expanded row/scroll, nulls, failed follow, malformed response, retry, pagination and mobile overflow');
 }finally{if(browser)await browser.close();server.kill();}
