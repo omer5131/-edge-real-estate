@@ -135,3 +135,13 @@ fs.writeFileSync(edgePath,renewalUi);
 let unified=fs.readFileSync(edgePath,'utf8');
 unified=unified.replace("onArea={a=>{setArea(a);setTab('area')}}", "onArea={a=>{location.hash='#/areas?neighborhoodId='+a.id}}");
 fs.writeFileSync(edgePath,unified);
+
+// Research view is maintained outside the reconstructed shell.
+fs.copyFileSync('ui/Research.tsx','src/components/Research.tsx');
+fs.copyFileSync('ui/research.css','src/components/research.css');
+let researchShell=fs.readFileSync(edgePath,'utf8');
+const researchStart=researchShell.indexOf('function Research(');
+if(researchStart>=0){const end=researchShell.indexOf('function Admin(',researchStart);if(end<0)throw Error('Research extraction boundary missing');researchShell=researchShell.slice(0,researchStart)+researchShell.slice(end);}
+if(!researchShell.includes("import Research from"))researchShell="import Research from './components/Research';\n"+researchShell;
+researchShell=researchShell.replace("const page=parts[0]||'radar';","const page=parts[0].split('?')[0]||'radar';");
+fs.writeFileSync(edgePath,researchShell);

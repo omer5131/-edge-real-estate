@@ -15,7 +15,7 @@ export default function DealWorkflow({listingId,section,askingPrice}:{listingId:
  useEffect(()=>{void load()},[listingId]);
  useEffect(()=>{setScenario((s:any)=>({...s,purchasePriceNis:s.purchasePriceNis||askingPrice||0,loanAmountNis:s.loanAmountNis||Math.round((askingPrice||0)*.5)}))},[askingPrice]);
 
- const mutate=async(body:any)=>{setBusy(true);setError('');try{await post(body);await load()}catch(e:any){setError(e?.message||String(e))}finally{setBusy(false)}};
+ const mutate=async(body:any)=>{setBusy(true);setError('');try{await post(body);await load();return true}catch(e:any){setError(e?.message||String(e));return false}finally{setBusy(false)}};
  if(loading)return <div className="workflow-loading"><RefreshCw className="spin" size={16}/>טוען workflow…</div>;
  if(error&&!bundle)return <div className="deal-empty"><AlertTriangle size={18}/><div><strong>Workflow unavailable</strong><span>{error}</span></div></div>;
  if(!bundle)return <div className="workflow-start"><ClipboardCheck size={24}/><h3>התחל Deal</h3><p>צור תיק עסקה כדי לנהל תרחישים, הערות, due diligence וטיימליין.</p><button disabled={busy} onClick={()=>mutate({action:'create_deal',listing_id:listingId})}>צור Deal</button></div>;
@@ -56,7 +56,7 @@ export default function DealWorkflow({listingId,section,askingPrice}:{listingId:
  </div>;
 
  if(section==='notes')return <div className="workflow-grid">
-  <section className="panel workflow-span-2"><h3>הוסף הערה</h3><div className="workflow-note-compose"><select value={category} onChange={e=>setCategory(e.target.value)}>{['seller','visit','legal','building','renovation','financing','renewal','general'].map(x=><option key={x}>{x}</option>)}</select><textarea value={note} onChange={e=>setNote(e.target.value)} placeholder="מה גילית? מה צריך לזכור?"/><button disabled={busy||!note.trim()} onClick={async()=>{await mutate({action:'save_note',deal_id:deal.id,category,content:note});setNote('')}}><FileText size={14}/>שמור הערה</button></div></section>
+  <section className="panel workflow-span-2"><h3>הוסף הערה</h3><div className="workflow-note-compose"><select value={category} onChange={e=>setCategory(e.target.value)}>{['seller','visit','legal','building','renovation','financing','renewal','general'].map(x=><option key={x}>{x}</option>)}</select><textarea value={note} onChange={e=>setNote(e.target.value)} placeholder="מה גילית? מה צריך לזכור?"/><button disabled={busy||!note.trim()} onClick={async()=>{if(await mutate({action:'save_note',deal_id:deal.id,category,content:note}))setNote('')}}><FileText size={14}/>שמור הערה</button></div></section>
   <section className="panel workflow-span-2"><h3>Notes</h3>{!bundle.notes?.length?<p className="deal-muted">אין הערות עדיין.</p>:<div className="workflow-note-list">{bundle.notes.map((x:any)=><div key={x.id}><div><strong>{x.category}</strong><span>{dt(x.created_at)}</span></div><p>{x.content}</p><button onClick={()=>mutate({action:'delete_note',deal_id:deal.id,note_id:x.id})}><Trash2 size={13}/></button></div>)}</div>}</section>
  </div>;
 
