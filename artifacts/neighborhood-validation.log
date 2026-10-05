@@ -2,28 +2,28 @@ file:///home/runner/work/-edge-real-estate/-edge-real-estate/node_modules/@neond
 let{status:G}=ce;if(G===400){let q=await ce.json(),ge=new N(q.message);for(let J of hi)ge[J]=q[J]??void 0;
                                                       ^
 
-NeonDbError: relation "neighborhood_aliases" does not exist
+NeonDbError: new row for relation "neighborhood_stat_area_map" violates check constraint "neighborhood_stat_area_map_mapping_method_check"
     at Zt.execute (file:///home/runner/work/-edge-real-estate/-edge-real-estate/node_modules/@neondatabase/serverless/index.mjs:1317:55)
     at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
-    at async refreshNeighborhoodIdentity (file:///home/runner/work/-edge-real-estate/-edge-real-estate/.server-build/server/neighborhoodIdentity.js:4:16)
-    at async refreshNeighborhoodIntelligence (file:///home/runner/work/-edge-real-estate/-edge-real-estate/.server-build/server/neighborhoodIntelligence.js:472:22)
+    at async refreshNeighborhoodIdentity (file:///home/runner/work/-edge-real-estate/-edge-real-estate/.server-build/server/neighborhoodIdentity.js:77:12)
+    at async refreshNeighborhoodIntelligence (file:///home/runner/work/-edge-real-estate/-edge-real-estate/.server-build/server/neighborhoodIntelligence.js:474:22)
     at async file:///home/runner/work/-edge-real-estate/-edge-real-estate/scripts/validate-area-intelligence.mjs:6:15 {
   severity: 'ERROR',
-  code: '42P01',
-  detail: undefined,
+  code: '23514',
+  detail: 'Failing row contains (04aac66e-96ee-4dd1-a706-342a6d18c9d6, 537a58e9-dddd-4cc8-a97e-fc1a356d13f0, null, parcel_evidence, 0.72000000000000000000, edge-neighborhood-v1, 2026-10-05 13:07:24.598286+00, 0, null, {}, {}).',
   hint: undefined,
-  position: '18',
+  position: undefined,
   internalPosition: undefined,
   internalQuery: undefined,
   where: undefined,
-  schema: undefined,
-  table: undefined,
+  schema: 'public',
+  table: 'neighborhood_stat_area_map',
   column: undefined,
   dataType: undefined,
-  constraint: undefined,
-  file: 'parse_relation.c',
-  line: '1498',
-  routine: 'parserOpenTable',
+  constraint: 'neighborhood_stat_area_map_mapping_method_check',
+  file: 'execMain.c',
+  line: '2086',
+  routine: 'ExecConstraints',
   sourceError: undefined
 }
 
