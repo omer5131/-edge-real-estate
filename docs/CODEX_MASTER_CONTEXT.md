@@ -749,3 +749,12 @@ See `docs/ux-workflow-plan.md` for observed live UX defects, ordered work and ac
 UX first-batch validation: GitHub Actions 37344187882 passed build, 24 domain regressions and desktop/mobile project navigation fixtures, including delayed/malformed API responses and radar→canonical area. Main promotion follows this acceptance; production smoke is a separate release check. Remaining P2/P3 plan work stays open.
 
 Production radar IDs were found to be slugs. The map resolves them through canonical neighborhood rows before requests and normalizes its URL. Final browser acceptance run 37345306175 verifies the real slug/UUID boundary, not an all-UUID fixture. Initial live profile smoke passed; canonical radar smoke follows the corrective release.
+
+
+## 24. Research UX and investor workflow review — 2026-10-05
+
+Research P2a now uses six core columns, expandable detail, explicit Hebrew filters and draft/applied status, URL-backed filters/sort/paging, session-backed return position, and HTTP/shape errors separate from empty results. Unset numeric filters are omitted because the existing endpoint parses an empty string as zero. Research benchmark labels explicitly describe the 18-month neighborhood median rather than subject-specific valuation. Failed note saves preserve the draft; errors are visible in each workflow section. No schema, finance/valuation calculation, collector or API function changes; 12 entrypoints remain.
+
+GitHub Actions 37348584746 passed build, 24 domain regressions and project/research desktop/mobile fixture suites. Initial fixture contract/label failures and the genuine mobile table-margin overflow were corrected before promotion. Live read-only research API price filtering returned 14 valid rows. Production release and smoke follow the gate; no production QA deal was created.
+
+See `docs/investor-workflow-review-2026-10-05.md`. Live Saadia listing review found a search-page source, missing house/building identity, neighborhood-only comparables with mostly missing addresses, and inconsistent lifecycle values across neighborhood list and Deal Room. Prior Phase 3 isolated database persistence is documented above; it is not a fresh full UI acceptance. Remaining priorities: benchmark/lifecycle evidence consistency, actionable DD evidence and identity tasks, complete explicit underwriting assumptions/scenario switching, stage guidance/workspace, then isolated full-flow and agent acceptance.

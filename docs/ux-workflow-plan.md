@@ -14,7 +14,7 @@ Directory search worked; directory → Saadia Gaon profile crashed with existing
 | P1a | Canonical area entry | Radar, primary Areas and legacy area URL reach the same canonical map; radar carries neighborhood ID; remembered area or Haifa default; city and radar-area selectors | Implemented; CI browser acceptance passed |
 | P1b | Follow vs deal clarity | Property header has an explicit deal CTA; following is explained separately; empty pipeline links to Research; existing backend create action is unchanged | Implemented; CI browser acceptance passed |
 | P1c | Evidence readability | Valuation and active inventory show their own evidence envelopes; domain evidence is never collapsed into one quality label | Labels implemented; build passed; deeper comprehension review pending |
-| P2a | Research usability and return context | Core columns by default; secondary detail expansion; accessible filter labels; filters/sort/scroll restored after property return; common Hebrew wording | Implemented; build and domain checks passed; browser acceptance pending |
+| P2a | Research usability and return context | Core columns by default; secondary detail expansion; accessible filter labels; filters/sort/scroll restored after property return; common Hebrew wording | Implemented; CI 37348584746 passed build, 24 regressions and research/project browser acceptance |
 | P2b | Actionable missing information | Gap can become a task with source, owner/date, status and result; do not mark rights verified merely because a task is complete | Planned; requires additive workflow contract review |
 | P2c | Deal workspace guidance | Existing stages, next action, DD and scenarios grouped into a clear next-step workflow; explicit assumptions and scenario comparison | Planned |
 | P3 | Full acceptance | Real read-only API checks + desktop/mobile fixtures; isolated test-branch create/update persistence; contextual agent tests; failures and empty states; no production QA records | Planned |
@@ -45,3 +45,6 @@ See `docs/investor-workflow-review-2026-10-05.md` for observations, source-code 
 5. **R5 / acceptance:** isolated database persistence, stages/notes/DD/scenarios, failure paths, contextual agent and phone flows. Do not claim end-to-end purchase acceptance from UI fixtures.
 
 Research batch additionally preserves notes after failed writes and displays workflow errors in every section. It makes no schema, collection, calculation or new API function changes.
+
+
+Research acceptance: GitHub Actions 37348584746 passed build, 24 domain regressions, the existing project suite and research fixture tests. Research tests cover draft vs applied filters, omitted numeric filters, URL filter/sort restoration, property→back expanded row and vertical scroll, refresh, preserved notes and visible errors after failed writes, failed follow, malformed response/retry, pagination and 390px viewport overflow. These are bounded fixtures, not production writes. Live research API maxPrice=1500000 returned 14 results, all asking prices ≤1.49M. Production promotion and UI smoke follow this gate.
