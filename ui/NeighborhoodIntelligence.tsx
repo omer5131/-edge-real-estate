@@ -81,7 +81,7 @@ export default function NeighborhoodIntelligenceShell({children}:{children:React
  const [selectedParcel,setSelectedParcel]=useState<ParcelMapRow|null>(null);
 
  useEffect(()=>{
-  const onHash=()=>{setOpen(location.hash.startsWith('#/areas'));const id=new URLSearchParams(location.hash.split('?')[1]||'').get('neighborhoodId');if(id){setSelected(id);const n=rows.find(x=>x.neighborhood_id===id);const c=cities.find(x=>x.name_he===n?.city);if(c)setSelectedCity(c.city_id);}};
+  const onHash=()=>{setOpen(location.hash.startsWith('#/areas'));const id=new URLSearchParams(location.hash.split('?')[1]||'').get('neighborhoodId');if(id){const n=rows.find(x=>x.neighborhood_id===id||x.slug===id);if(n){setSelected(n.neighborhood_id);const c=cities.find(x=>x.name_he===n.city);if(c)setSelectedCity(c.city_id);if(id!==n.neighborhood_id)location.hash='#/areas?neighborhoodId='+n.neighborhood_id;}}};
   onHash();addEventListener('hashchange',onHash);return()=>removeEventListener('hashchange',onHash);
  },[rows,cities]);
  useEffect(()=>{
@@ -92,7 +92,7 @@ export default function NeighborhoodIntelligenceShell({children}:{children:React
     const nextCities=x.cities||[],nextRows=x.neighborhoods||[];
     setCities(nextCities);setRows(nextRows);
     const requested=new URLSearchParams(location.hash.split('?')[1]||'').get('neighborhoodId');
-    const requestedNeighborhood=nextRows.find((n:any)=>n.neighborhood_id===requested);
+    const requestedNeighborhood=nextRows.find((n:any)=>n.neighborhood_id===requested||n.slug===requested);
     let remembered:string|null=null;try{remembered=localStorage.getItem('edge:last-neighborhood:v1');}catch{}
     const preferred=requestedNeighborhood||nextRows.find((n:any)=>n.neighborhood_id===remembered);
     const firstCity=nextCities.find((x:any)=>x.name_he===preferred?.city)||nextCities.find((x:any)=>x.name_he==='חיפה')||nextCities.find((x:any)=>x.has_transaction_data)||nextCities[0];
@@ -183,7 +183,7 @@ export default function NeighborhoodIntelligenceShell({children}:{children:React
    <div className="ni-header-actions">
     <select value={layer} onChange={e=>setLayer(e.target.value as LayerKey)}>{layers.map(x=><option key={x.key} value={x.key}>{x.label}</option>)}</select>
     <select aria-label="בחירת עיר" value={selectedCity||''} onChange={e=>{const city=cities.find(x=>x.city_id===e.target.value);if(city)chooseCity(city);}}><option value="" disabled>בחר עיר</option>{cities.map(c=><option key={c.city_id} value={c.city_id}>{c.name_he}</option>)}</select>
-    <select aria-label="אזורי הרדאר" value={radarAreas.some(a=>a.id===selected)?selected||'':''} onChange={e=>{location.hash='#/areas?neighborhoodId='+e.target.value;setSection('overview');}}><option value="" disabled>אזורי הרדאר שלך</option>{radarAreas.map(a=><option key={a.id} value={a.id}>{a.name} · {a.city}</option>)}</select>
+    <select aria-label="אזורי הרדאר" value={radarAreas.some(a=>a.id===selected||a.id===selectedRow?.slug)?selected||'':''} onChange={e=>{location.hash='#/areas?neighborhoodId='+e.target.value;setSection('overview');}}><option value="" disabled>אזורי הרדאר שלך</option>{radarAreas.map(a=><option key={a.id} value={rows.find(n=>n.neighborhood_id===a.id||n.slug===a.id)?.neighborhood_id||a.id}>{a.name} · {a.city}</option>)}</select>
     <a href='#/renewal'>פרויקטי התחדשות</a><button onClick={close}>חזרה למחקר</button>
    </div>
   </header>

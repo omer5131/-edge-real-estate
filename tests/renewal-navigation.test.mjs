@@ -7,7 +7,7 @@ const require=createRequire(import.meta.url);const {chromium}=require('playwrigh
 const server=spawn('python',['-m','http.server','4187','--directory','dist'],{stdio:'ignore'});
 const seed=JSON.parse(fs.readFileSync('server/research/renewal-saadia-gaon.json','utf8'));
 const neighborhoodId='33333333-3333-3333-3333-333333333333';
-const area={id:neighborhoodId,name:'קריית שפרינצק',city:'חיפה',confidence:'high',sample_size:26};
+const area={id:'kiryat-sprinzak-haifa',name:'קריית שפרינצק',city:'חיפה',confidence:'high',sample_size:26};
 const projectId='11111111-1111-1111-1111-111111111111',listingId='22222222-2222-2222-2222-222222222222';
 const project={...seed.project,id:projectId,source_url:seed.facts[0].source_url,observed_at:'2026-10-05',planned_units:null};
 const facts=seed.facts.map((f,i)=>({...f,id:String(i),checked_at:'2026-10-05'}));
@@ -24,7 +24,7 @@ try{
   if(u.pathname==='/api/renewal'&&u.searchParams.has('id')&&badProfile)response={data:[]};
   if(u.pathname==='/api/property')response={tier:'basic',listing:{...listing,area_sqm:85,asking_price_ils:1090000},comps:[]};
   else if(u.pathname==='/api/opportunities')response=u.searchParams.get('mode')==='deals'?{deals:[]}:{error:'not_found'};
-  else if(u.pathname==='/api/neighborhood-map')response={cities:[{city_id:'haifa',name_he:'חיפה',has_transaction_data:true}],neighborhoods:[{neighborhood_id:neighborhoodId,name_he:area.name,city:area.city,geometry:null}]};
+  else if(u.pathname==='/api/neighborhood-map')response={cities:[{city_id:'haifa',name_he:'חיפה',has_transaction_data:true}],neighborhoods:[{neighborhood_id:neighborhoodId,slug:area.id,name_he:area.name,city:area.city,geometry:null}]};
   else if(u.pathname==='/api/neighborhood')response={data:u.searchParams.get('section')==='summary'?{neighborhood:{},metrics:[],datasets:[]}:[]};
   await route.fulfill({status:u.pathname==='/api/opportunities'&&u.searchParams.get('mode')==='deal'?404:200,contentType:'application/json',body:JSON.stringify(response)});
  });
