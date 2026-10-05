@@ -10,7 +10,7 @@ try{
  const page=await browser.newPage({viewport:{width:1440,height:900}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.route('**/api/**',async route=>{
   const u=new URL(route.request().url());let response={},status=200;
-  if(u.pathname==='/api/edge-data')response={areas:[],opportunities:[],generatedAt:'2026-10-05'};
+  if(u.pathname==='/api/edge-data')response={mode:'live',areas:[],opportunities:[],generatedAt:'2026-10-05'};
   if(u.pathname==='/api/data-status')response={freshness:[],counts:{}};
   if(u.pathname==='/api/opportunities'){
    if(route.request().method()==='POST'){response={error:'save_failed'};status=postFails?503:200;if(!postFails)response={ok:true};}
@@ -28,8 +28,7 @@ try{
  assert((await page.locator('tbody tr').first().innerText()).includes('לא ידוע'));
  const before=seen.length;await page.getByLabel('מחיר מקסימלי',{exact:true}).fill('1500000');await page.getByLabel('מיון',{exact:true}).selectOption('asking_price_nis');
  assert.equal(seen.length,before,'Draft filters do not silently change results');
- await page.getByRole('button',{name:'חפש נכסים',exact:true}).click();
- await page.waitForResponse(r=>r.url().includes('maxPrice=1500000'));
+ await Promise.all([page.waitForResponse(r=>r.url().includes('maxPrice=1500000')),page.getByRole('button',{name:'חפש נכסים',exact:true}).click()]);
  await page.getByRole('button',{name:'נכס 0',exact:true}).waitFor();
  const saved=page.url();assert(saved.includes('maxPrice=1500000'));
  await page.getByRole('button',{name:'פרטים נוספים',exact:true}).first().click();
@@ -40,7 +39,7 @@ try{
  await page.getByRole('button',{name:'Notes',exact:true}).click();
  await page.getByPlaceholder('מה גילית? מה צריך לזכור?').fill('הערה שלא נשמרה');postFails=true;
  await page.getByRole('button',{name:'שמור הערה',exact:true}).click();
- await page.getByText('save_failed',{exact:true}).waitFor();
+ await page.getByRole('alert').filter({hasText:'save_failed'}).waitFor();
  assert.equal(await page.getByPlaceholder('מה גילית? מה צריך לזכור?').inputValue(),'הערה שלא נשמרה','Failed save must preserve note');postFails=false;
  await page.getByRole('button',{name:'חזרה למסך הקודם',exact:true}).click();
  await page.getByRole('button',{name:'נכס 0',exact:true}).waitFor();
@@ -51,7 +50,7 @@ try{
  postFails=true;await page.getByRole('button',{name:'עקוב אחר נכס',exact:true}).first().click();await page.getByRole('alert').waitFor();assert((await page.getByRole('alert').innerText()).includes('המעקב לא נשמר'));
  bad=true;await page.getByRole('button',{name:'נסה שוב',exact:true}).click();await page.getByText('תשובת החיפוש אינה תקינה. נסה שוב.',{exact:false}).waitFor();assert.equal(await page.getByText('לא נמצאו נכסים בסינון הזה',{exact:true}).count(),0);
  bad=false;await page.getByRole('button',{name:'נסה שוב',exact:true}).click();await page.getByRole('button',{name:'נכס 0',exact:true}).waitFor();
- await page.getByRole('button',{name:'הבא',exact:true}).click();await page.waitForResponse(r=>r.url().includes('offset=50'));await page.getByRole('button',{name:'נכס 0',exact:true}).waitFor();assert(page.url().includes('offset=50'));
+ await Promise.all([page.waitForResponse(r=>r.url().includes('offset=50')),page.getByRole('button',{name:'הבא',exact:true}).click()]);await page.getByRole('button',{name:'נכס 0',exact:true}).waitFor();assert(page.url().includes('offset=50'));
  await page.setViewportSize({width:390,height:844});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1),'No page-wide overflow on mobile');
  assert.deepEqual(errors,[]);console.log('PASS research: drafts, URL filters/sort, return/refresh context, expanded row/scroll, nulls, failed follow, malformed response, retry, pagination and mobile overflow');
 }finally{if(browser)await browser.close();server.kill();}
