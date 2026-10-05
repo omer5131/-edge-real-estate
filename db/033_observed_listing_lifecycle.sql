@@ -40,11 +40,11 @@ UPDATE listing_market_benchmarks b SET
  first_asking_price_nis=CASE WHEN l.snapshot_count>=2 AND l.observed_span_days>=1 THEN l.first_price END,
  price_change_since_first_pct=CASE WHEN l.snapshot_count>=2 AND l.observed_span_days>=1 AND l.first_price>0 THEN 100*(l.latest_price/l.first_price-1) END,
  snapshot_count=l.snapshot_count,
- evidence=coalesce(b.evidence,'{}'::jsonb)||jsonb_build_object('lifecycle_rule','at least two snapshots separated by one day; collection age is not DOM','lifecycle_status',CASE WHEN l.snapshot_count>=2 AND l.observed_span_days>=1 THEN 'supported' ELSE 'provisional' END,'lifecycle_observed_at',l.last_snapshot_at)
+ evidence=coalesce(b.evidence,'{}'::jsonb)||jsonb_build_object('lifecycle_rule','at least two snapshots separated by one day, collection age is not DOM','lifecycle_status',CASE WHEN l.snapshot_count>=2 AND l.observed_span_days>=1 THEN 'supported' ELSE 'provisional' END,'lifecycle_observed_at',l.last_snapshot_at)
 FROM current_lifecycle l WHERE b.listing_id=l.listing_id;
 
 UPDATE semantic_metrics SET
- confidence_rule='requires at least two listing snapshots separated by one day; NULL otherwise',
+ confidence_rule='requires at least two listing snapshots separated by one day, NULL otherwise',
  description=CASE WHEN metric_key='listing_days_on_market' THEN 'Elapsed days between first and last observed snapshots, not collection age or original publication time.' ELSE 'Latest observed asking price relative to first observed asking price, only with supported lifecycle history.' END,
- caveats=ARRAY['NULL means insufficient observed history; it is not zero','Collection dates do not establish original publication time or seller intent']
+ caveats=ARRAY['NULL means insufficient observed history, it is not zero','Collection dates do not establish original publication time or seller intent']
 WHERE metric_key IN ('listing_days_on_market','listing_price_change');
