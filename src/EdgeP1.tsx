@@ -343,10 +343,10 @@ export default function EdgeP1(){
         {tab==='data'&&<div className='screen'><ExternalDataIntake/><DataExplorer/><DataConsole status={status}/></div>}
         {tab==='admin'&&<Admin/>}
         {tab==='renewal'&&<RenewalProjects projectId={projectId} onOpenListing={x=>{setProperty(x as any);setTab('property')}}/>}
-        {tab==='property'&&property&&<DealRoom item={property} onBack={()=>{location.hash=returnRoute}} onAsk={ctx=>{setAskContext(ctx);setAskOpen(true)}}/>}
+        {tab==='property'&&property&&<DealRoom key={property.id} item={property} onBack={()=>{location.hash=returnRoute}} onAsk={ctx=>{setAskContext(ctx);setAskOpen(true)}}/>}
       </main>
     </div>
-    <EdgeAgentDrawer open={askOpen} onClose={()=>setAskOpen(false)} context={askContext}/>
+    <EdgeAgentDrawer key={[askContext?.entity_type,askContext?.listing_id,askContext?.property_id,askContext?.building_id,askContext?.neighborhood_id].join('|')} open={askOpen} onClose={()=>setAskOpen(false)} context={askContext}/>
   </div>;
 }
 

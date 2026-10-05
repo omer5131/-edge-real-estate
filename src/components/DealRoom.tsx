@@ -81,7 +81,7 @@ export default function DealRoom({item,onBack,onAsk}:{item:Opportunity;onBack:()
    </section>
   </div>}
 
-  {(['deal','notes','dd','timeline'] as string[]).includes(tab)&&<DealWorkflow key={item.id} listingId={item.id} dealId={new URLSearchParams(location.hash.split('?')[1]||'').get('deal_id')} section={tab as 'deal'|'notes'|'dd'|'timeline'} askingPrice={ask} gaps={gaps}/>}
+  {(['deal','notes','dd','timeline'] as string[]).includes(tab)&&<DealWorkflow key={item.id+':'+(new URLSearchParams(location.hash.split('?')[1]||'').get('deal_id')||'')} listingId={item.id} dealId={new URLSearchParams(location.hash.split('?')[1]||'').get('deal_id')} section={tab as 'deal'|'notes'|'dd'|'timeline'} askingPrice={ask} gaps={gaps}/>}
 
   {tab==='area'&&<div className="deal-grid">
    <section className="panel deal-span-2"><div className="deal-panel-head"><h3>{n?.name||legacy.neighborhood||item.neighborhood}</h3><Evidence e={n?.mapping?.evidence}/></div>{!n?<Empty title="אין Neighborhood Intelligence" body="הנכס עדיין לא ממופה לשכונה קנונית."/>:<div className="area-section-grid">{[['Market',n.market],['Population',n.population],['Socioeconomic',n.socioeconomic],['Education',n.education],['Housing',n.housing]].map(([label,metrics]:any)=><div className="area-metric-group" key={label}><h4>{label}</h4>{(metrics||[]).slice(0,6).map((x:any)=><div className="area-metric-line" key={x.key}><span>{x.label}</span><strong>{x.value==null?'—':typeof x.value==='number'?Number(x.value).toLocaleString('he-IL'):x.value}</strong><small>{x.period||x.unit||''}</small></div>)}</div>)}</div>}</section>
