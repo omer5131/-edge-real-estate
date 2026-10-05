@@ -745,3 +745,5 @@ Release note: publication authorized on 2026-10-05. GitHub Actions run 373138731
 ## 23. UX recovery plan — 2026-10-05
 
 See `docs/ux-workflow-plan.md` for observed live UX defects, ordered work and acceptance gates. First batch fixes project list/detail state isolation and render recovery, unifies radar area entry with the canonical map, adds city/radar selectors and remembered Haifa context, and makes follow vs deal initiation explicit. Valuation and active-market evidence labels are shown separately. No new API function or schema is needed. Remaining work includes research filter/scroll restoration, column simplification, actionable evidence-gap tasks and isolated write/agent acceptance. Status must follow actual CI and production acceptance; implementation alone is not completion.
+
+UX first-batch validation: GitHub Actions 37344187882 passed build, 24 domain regressions and desktop/mobile project navigation fixtures, including delayed/malformed API responses and radar→canonical area. Main promotion follows this acceptance; production smoke is a separate release check. Remaining P2/P3 plan work stays open.
