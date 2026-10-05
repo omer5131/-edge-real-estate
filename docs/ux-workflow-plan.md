@@ -21,7 +21,7 @@ Directory search worked; directory → Saadia Gaon profile crashed with existing
 
 ## Release gates
 
-Build and 24 renewal/domain regressions must pass. Browser fixtures must pass before production promotion. One production release for this batch. API function count remains 12; no new cron, database schema or collector change. Existing evidence/identity contracts remain authoritative. Browser fixtures do not establish apartment project membership or source correctness.
+Build and 24 renewal/domain regressions must pass. Browser fixtures must pass before production promotion. Batch changes before production promotion; corrective patches must repeat acceptance. API function count remains 12; no new cron, database schema or collector change. Existing evidence/identity contracts remain authoritative. Browser fixtures do not establish apartment project membership or source correctness.
 
 The production UI review alone did not establish write persistence, agent accuracy or full mobile acceptance. Report these separately from fixture success.
 
@@ -30,3 +30,5 @@ The production UI review alone did not establish write persistence, agent accura
 GitHub Actions run 37344187882 passed the reconstructed build, 24 domain tests and the browser fixture suite on 2026-10-05. Browser acceptance covers delayed directory/detail navigation, project→property→back, refresh, malformed response→retry, evidence/gaps, 390px project layout without page overflow, radar→canonical neighborhood and empty pipeline→Research. The fixture suite performs no production writes. Production smoke follows the release deployment; this does not mark remaining P2/P3 work complete.
 
 Production smoke found that radar IDs are neighborhood slugs, while map/API IDs are UUIDs. The map now resolves slugs through its canonical neighborhood rows before requests and normalizes the URL. Browser fixtures explicitly use the real slug/UUID distinction; prior all-UUID fixtures were insufficient for that boundary.
+
+Final canonical-identity acceptance: GitHub Actions run 37345306175 passed build, 24 regressions and the browser suite with radar slug → canonical UUID normalization and an assertion that neighborhood API requests use only the canonical ID. First production smoke already verified the repaired project directory→profile transition without application runtime errors. The identity patch is promoted after this CI; repeat the radar→Sprinzak smoke after deployment.
