@@ -12,7 +12,7 @@ const projectId='11111111-1111-1111-1111-111111111111',listingId='22222222-2222-
 const project={...seed.project,id:projectId,source_url:seed.facts[0].source_url,observed_at:'2026-10-05',planned_units:null};
 const facts=seed.facts.map((f,i)=>({...f,id:String(i),checked_at:'2026-10-05'}));
 const listing={id:listingId,address:'סעדיה גאון 8',membership:'unverified',asking_price:1090000,sqm:85,rooms:4,floor:3};
-let browser,badProfile=false;
+let browser,badProfile=false;const neighborhoodRequests=[];
 try{
  browser=await chromium.launch({headless:true,args:['--no-sandbox']});
  const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
@@ -25,7 +25,7 @@ try{
   if(u.pathname==='/api/property')response={tier:'basic',listing:{...listing,area_sqm:85,asking_price_ils:1090000},comps:[]};
   else if(u.pathname==='/api/opportunities')response=u.searchParams.get('mode')==='deals'?{deals:[]}:{error:'not_found'};
   else if(u.pathname==='/api/neighborhood-map')response={cities:[{city_id:'haifa',name_he:'חיפה',has_transaction_data:true}],neighborhoods:[{neighborhood_id:neighborhoodId,slug:area.id,name_he:area.name,city:area.city,geometry:null}]};
-  else if(u.pathname==='/api/neighborhood')response={data:u.searchParams.get('section')==='summary'?{neighborhood:{},metrics:[],datasets:[]}:[]};
+  else if(u.pathname==='/api/neighborhood'){neighborhoodRequests.push(u.searchParams.get('neighborhoodId'));response={data:u.searchParams.get('section')==='summary'?{neighborhood:{},metrics:[],datasets:[]}:[]};}
   await route.fulfill({status:u.pathname==='/api/opportunities'&&u.searchParams.get('mode')==='deal'?404:200,contentType:'application/json',body:JSON.stringify(response)});
  });
  await page.goto('http://127.0.0.1:4187/#/renewal');
@@ -57,8 +57,11 @@ try{
  await page.getByRole('link',{name:'כל הפרויקטים',exact:true}).click();await page.getByRole('heading',{name:'פרויקטים',exact:true}).waitFor();
  await page.getByRole('textbox',{name:'חיפוש פרויקטים'}).fill('לא קיים');await page.getByText('לא נמצאו פרויקטים לפי הסינון.').waitFor();
  await page.getByRole('button',{name:'רדאר',exact:true}).click();
+ const summaryResponse=page.waitForResponse(r=>r.url().includes('/api/neighborhood?')&&r.url().includes('section=summary'));
  await page.getByRole('button').filter({hasText:'קריית שפרינצק'}).click();
- await page.getByRole('heading',{name:'קריית שפרינצק',exact:true}).waitFor();
+ await page.waitForURL('**/#/areas?neighborhoodId='+neighborhoodId);
+ await page.getByRole('heading',{name:'קריית שפרינצק',exact:true,level:2}).waitFor();
+ assert.equal((await summaryResponse).status(),200);assert(neighborhoodRequests.length>0&&neighborhoodRequests.every(id=>id===neighborhoodId),'Only canonical UUIDs reach neighborhood APIs');
  assert(page.url().endsWith('#/areas?neighborhoodId='+neighborhoodId));
  await page.getByRole('button',{name:'חזרה למחקר',exact:true}).click();
  await page.getByRole('button',{name:'העסקאות שלי',exact:true}).click();
