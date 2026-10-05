@@ -1,0 +1,27 @@
+name: One-shot public agent lifecycle verification
+on:
+  push:
+    branches: [workflow-agent-verification]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: One public listing question to the deployed agent (no private data or DB writes)
+        run: |
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          const id='6fadc597-6c65-4aef-a088-13261d5fd7cc';
+          const response=await fetch('https://edge-real-estate.vercel.app/api/ask?mode=edge-agent',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({question:'Query only semantic_listing_market_benchmarks for listing_id '+id+'. Return listing_id, snapshot_count, days_on_market and price_change_since_first_pct. Use the SQL agent and actual returned evidence. Explain in Hebrew that NULL is insufficient observed history, not zero or one day. Do not run any other analysis.',history:[],context:{entity_type:'listing',listing_id:id,neighborhood_id:'03b2522f-3f71-4e92-bfc3-34b8492779d9',active_tab:'deal',label:'Public Saadia Gaon listing'}}),signal:AbortSignal.timeout(115000)});
+          assert.equal(response.status,200,'Live agent must return 200');
+          const data=await response.json();assert.equal(typeof data.answer,'string');assert(Array.isArray(data.evidence));
+          const rows=data.evidence.flatMap(e=>{if(!e.result)return[];const names=e.result.columns.map(c=>typeof c==='string'?c:c.name);return e.result.rows.map(r=>Array.isArray(r)?Object.fromEntries(names.map((n,i)=>[n,r[i]])):r);});
+          const subject=rows.find(r=>r.listing_id===id);assert(subject,'Exact listing must be returned by successful SQL evidence');assert.equal(Number(subject.snapshot_count),1);assert.equal(subject.days_on_market,null);assert.equal(subject.price_change_since_first_pct,null);
+          assert(/NULL|null|חסר|מספיק|תצפית|היסטוריה/.test(data.answer),'Answer must state evidence limitation');
+          console.log(JSON.stringify({livePublicAgent:true,listing_id:id,snapshot_count:subject.snapshot_count,days_on_market:subject.days_on_market,price_change_since_first_pct:subject.price_change_since_first_pct,successfulQueries:data.evidence.filter(e=>e.result).length,failedQueries:data.evidence.filter(e=>e.error).length,publicModelQuestions:1,productionQARecords:0,privateDataSent:false}));
+          JS
