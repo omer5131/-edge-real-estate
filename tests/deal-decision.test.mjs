@@ -25,3 +25,26 @@ test('Server offer preview uses selected scenario, preserves zero debt and makes
  assert.deepEqual(await s.getDealBundle({dealId:deal.id}),before);
  }finally{await db.close()}
 });
+test('Field evidence stays bound to a numeric value and legacy sources do not attest every assumption',()=>{
+ const b=makeBundle();let r=buildDecisionReview(b,'scenario');assert.equal(r.fieldEvidence.find(x=>x.key==='expectedMonthlyRentNis').status,'missing');
+ b.scenarios[0].assumptions={...assumptions,fieldEvidence:{expectedMonthlyRentNis:{value:4500,sourceUrl:'https://example.com/rent',observedAt:'2026-10-08',notes:'דירה מקבילה; יש לבדוק התאמה'},loanAmountNis:{value:0,sourceUrl:null,observedAt:null,notes:'רכישה ללא הלוואה'}}};
+ r=buildDecisionReview(b,'scenario');assert.equal(r.fieldEvidence.find(x=>x.key==='expectedMonthlyRentNis').status,'documented');assert.equal(r.fieldEvidence.find(x=>x.key==='loanAmountNis').status,'assumption');assert.equal(r.fieldEvidence.find(x=>x.key==='annualInterestRatePct').status,'not_used');assert.equal(r.fieldEvidence.find(x=>x.key==='exitPriceNis').status,'not_used');
+ b.scenarios[0].assumptions.expectedMonthlyRentNis=4600;r=buildDecisionReview(b,'scenario');assert.equal(r.fieldEvidence.find(x=>x.key==='expectedMonthlyRentNis').status,'stale');assert.equal(r.assumptionEvidenceSummary.stale,1);
+ b.scenarios[0].assumptions.fieldEvidence.purchasePriceNis={value:1000000,sourceUrl:'https://example.com/ask',observedAt:'2026-10-08',notes:'מחיר מודעה'};r=buildDecisionReview(b,'scenario',950000);assert.equal(r.fieldEvidence.find(x=>x.key==='purchasePriceNis').status,'stale');
+});
+test('Invalid field sources cannot alter an existing persisted scenario',async()=>{
+ const {db,service:s}=await workflowFixture();try{
+ const deal=await s.createDealForListing(listingId),saved=await s.saveScenario({deal_id:deal.id,assumptions}),before=await s.getDealBundle({dealId:deal.id});
+ for(const fieldEvidence of [{unknown:{value:1}}, {expectedMonthlyRentNis:{value:'4500'}},{expectedMonthlyRentNis:{value:4500,sourceUrl:'javascript:alert(1)'}},{expectedMonthlyRentNis:{value:4500,sourceUrl:'https://example.com/rent',notes:'ללא תאריך'}},{expectedMonthlyRentNis:{value:4500,sourceUrl:'https://example.com/rent',notes:'בדיקה',observedAt:'2026-02-30'}}])await assert.rejects(()=>s.saveScenario({deal_id:deal.id,scenario_id:saved.id,assumptions:{...assumptions,fieldEvidence}}));
+ assert.deepEqual(await s.getDealBundle({dealId:deal.id}),before);
+ }finally{await db.close()}
+});
+test('PostgreSQL persistence retains field evidence across refresh and older clients while recalculating unchanged finance',async()=>{
+ const {db,service:s}=await workflowFixture();try{
+ const deal=await s.createDealForListing(listingId),fieldEvidence={expectedMonthlyRentNis:{value:4500,sourceUrl:'https://example.com/rent',observedAt:'2026-10-08',notes:'מקור שכירות'}};
+ const saved=await s.saveScenario({deal_id:deal.id,name:'מתועד',assumptions:{...assumptions,fieldEvidence}});assert.deepEqual(saved.outputs,calculateDeal(assumptions));
+ const older=await s.saveScenario({deal_id:deal.id,scenario_id:saved.id,name:'עדכון',assumptions:{...assumptions,expectedMonthlyRentNis:4600}});assert.deepEqual(older.assumptions.fieldEvidence,fieldEvidence);
+ let r=await s.getDecisionReview({dealId:deal.id,listingId,scenarioId:saved.id});assert.equal(r.fieldEvidence.find(x=>x.key==='expectedMonthlyRentNis').status,'stale');
+ await s.saveScenario({deal_id:deal.id,scenario_id:saved.id,assumptions:{...older.assumptions,fieldEvidence:{...fieldEvidence,expectedMonthlyRentNis:{...fieldEvidence.expectedMonthlyRentNis,value:4600}}}});r=await s.getDecisionReview({dealId:deal.id,listingId,scenarioId:saved.id});assert.equal(r.fieldEvidence.find(x=>x.key==='expectedMonthlyRentNis').status,'documented');
+ }finally{await db.close()}
+});

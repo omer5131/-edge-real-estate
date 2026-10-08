@@ -67,3 +67,10 @@ R5: fresh service-level PostgreSQL persistence/rollback tests pass locally, alon
 Investor review item 4 is implemented on `decision-review`: selected saved scenario, total acquisition/equity/debt/cash-flow/return summary, model limits, unresolved DD with dated sources, incomplete standard checks, open/overdue tasks and next action. Offer preview is an explicit read-only server operation; it does not update scenarios, offer or timeline. Loan/fees/taxes remain fixed and visibly require review when purchase price changes. Incompatible explicit-exit maximum price is omitted. Dirty drafts and changed preview prices have distinct messages.
 
 Acceptance: local build, 43 domain/SQL/persistence tests pass. Chromium download is blocked locally; CI browser gate is pending. No production migration or writes; 12 API entrypoints. This extends the decision step, and does not mark future saved-search/visit/document features or live paid agent correctness complete.
+
+
+## Assumption evidence continuation — 2026-10-08
+
+Decision-review gate `37734456784` passed all 43 regressions, three browser suites and read-only production audits. The next priority adds source/date/findings to individual scenario assumptions in the existing JSONB field. A source stays attached to the value it documented; changed values and preview prices are stale until explicitly researched and rebound. General scenario notes do not verify all inputs. Unused assumptions are distinguished from missing evidence. Older-client updates preserve field records.
+
+The editor preserves failed-save drafts, reloads the selected scenario's sources and shows stale values separately from persisted results. Decision review includes field-by-field provenance and missing/stale counts. Local build and 46 tests pass; expanded desktop/mobile CI acceptance is the next gate. No migration or production writes. Next: structured visits, then saved searches/documents.

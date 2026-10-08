@@ -1,5 +1,6 @@
 import {calculateDeal} from './dealEngine.js';
 import {scenarioAssumptions,sourceUrl,isoDate} from './workflowValidation.js';
+import {reviewAssumptionEvidence} from './assumptionEvidence.js';
 
 // A review of user-recorded evidence, never an approval of an asset or its rights.
 const requiredChecks=['listing_identity','ownership','encumbrances','permit_match','building_condition','renewal_status','physical_condition','financing','taxes_costs'];
@@ -13,6 +14,7 @@ export function buildDecisionReview(bundle:any,scenarioId:string,offerPrice?:num
  // Loan and all fees remain explicit fixed assumptions; no inferred tax/financing approval.
  const effective=preview?scenarioAssumptions({...assumptions,purchasePriceNis:offerPrice}):assumptions;
  const outputs=preview?calculateDeal(effective as any):scenario.outputs||{};
+ const fieldEvidence=reviewAssumptionEvidence(effective);
  const checks=(bundle.dueDiligence||[]).map((d:any)=>{
   const sources=(Array.isArray(d.evidence)?d.evidence:[]).flatMap((e:any)=>{try{const url=sourceUrl(e.url),observedAt=isoDate(e.observedAt);return url?[{url,title:String(e.title||'מקור'),observedAt}]:[];}catch{return [];}});
   const recordedVerification=d.status==='verified'&&Boolean(d.notes?.trim())&&sources.some((s:any)=>s.observedAt);
@@ -23,7 +25,7 @@ export function buildDecisionReview(bundle:any,scenarioId:string,offerPrice?:num
  const openTasks=(bundle.tasks||[]).filter((t:any)=>!['done','cancelled'].includes(t.status)).map((t:any)=>({id:t.id,title:t.title,assignee:t.assignee||null,dueDate:t.due_date?String(t.due_date).slice(0,10):null,overdue:Boolean(t.due_date&&String(t.due_date).slice(0,10)<today)}));
  const limitations=['הסיכום מתייחס לתרחיש השמור ולבדיקות שתיעדת; הוא אינו אישור לרכישה או אימות מקצועי.','יכולת ההון העצמי אינה ידועה. עלויות נוספות ורזרבה שמורות יחד ואינן רזרבה נפרדת מאומתת.'];
  if(preview)limitations.push('בתצוגת ההצעה רק מחיר הרכישה משתנה. ההלוואה, המסים והעמלות נשארים כפי שנשמרו; יש לעדכן אותם בתרחיש אם הם תלויים במחיר.');
- if(!assumptions.evidence.sourceUrl||!assumptions.evidence.observedAt)limitations.push('חסר מקור מתוארך להנחות התרחיש.');
+ if(fieldEvidence.some(x=>['missing','assumption','stale'].includes(x.status)))limitations.push('לחלק מההנחות אין מקור מתוארך לערך הנוכחי. מקור כללי לתרחיש אינו מאמת כל הנחה.');
  if(bundle.taskSchemaReady===false)limitations.push('מידע המשימות אינו זמין; אין להסיק שאין משימות פתוחות.');
  if(effective.exitPriceNis!=null)limitations.push('מחיר מרבי אינו מוצג: מודל המחיר המרבי אינו משתמש במחיר יציאה מפורש.');
  const maxPrice=effective.exitPriceNis==null?numberOrNull(outputs.maxPurchasePriceForTargetReturnNis):null;
@@ -35,7 +37,7 @@ export function buildDecisionReview(bundle:any,scenarioId:string,offerPrice?:num
   reviewedAt:now.toISOString(),evidence:{status:'provisional',sourceIds:['deal_scenarios','due_diligence_items','deal_tasks'],notes:limitations},
   financials:{purchasePriceNis:purchasePrice,totalAcquisitionCostNis:numberOrNull(outputs.totalAcquisitionCostNis),equityRequiredNis:numberOrNull(outputs.equityRequiredNis),loanAmountNis:effective.loanAmountNis,monthlyDebtServiceNis:numberOrNull(outputs.monthlyDebtServiceNis),monthlyCashFlowNis:cashFlow,irrPct:irr,targetAnnualReturnPct:effective.targetAnnualReturnPct,maxPurchasePriceForTargetReturnNis:maxPrice,otherAcquisitionAndReserveNis:effective.otherAcquisitionNis},
   flags:{aboveModelPrice:maxPrice==null||purchasePrice==null?null:purchasePrice>maxPrice,belowTargetReturn:irr==null?null:irr<Number(effective.targetAnnualReturnPct),negativeCashFlow:cashFlow==null?null:cashFlow<0},
-  assumptionEvidence:assumptions.evidence,checks,missingChecks,openTasks:bundle.taskSchemaReady===false?null:openTasks,
+  assumptionEvidence:assumptions.evidence,fieldEvidence,assumptionEvidenceSummary:{documented:fieldEvidence.filter(x=>x.status==='documented').length,needsReview:fieldEvidence.filter(x=>['missing','assumption','stale'].includes(x.status)).length,stale:fieldEvidence.filter(x=>x.status==='stale').length,notUsed:fieldEvidence.filter(x=>x.status==='not_used').length},checks,missingChecks,openTasks:bundle.taskSchemaReady===false?null:openTasks,
   unresolvedCheckCount:checks.filter((c:any)=>c.needsReview).length+missingChecks.length,
   nextAction:bundle.deal.next_action||null
  };

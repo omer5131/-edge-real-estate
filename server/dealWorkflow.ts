@@ -81,10 +81,14 @@ async function setOffer(dealId:string,offerPrice:number|null){
 async function saveScenario(input:any){
  const dealId=String(input.deal_id||'');if(!dealId)throw new Error('deal_id_required');
  const scenarioType=String(input.scenario_type||'custom');if(!scenarioTypes.has(scenarioType))throw new Error('invalid_scenario_type');
- const assumptions=scenarioAssumptions(input.assumptions);
- const outputs=calculateDeal(assumptions as any),isPrimary=Boolean(input.is_primary);
  const [parent]=await queryDatabase('select id from deals where id=$1::uuid',[dealId]);if(!parent)throw Error('deal_not_found');
- if(input.scenario_id){const [existing]=await queryDatabase('select id from deal_scenarios where id=$1::uuid and deal_id=$2::uuid',[input.scenario_id,dealId]);if(!existing)throw Error('scenario_not_found');}
+ let rawAssumptions=input.assumptions;
+ if(input.scenario_id){const [existing]=await queryDatabase('select id,assumptions from deal_scenarios where id=$1::uuid and deal_id=$2::uuid',[input.scenario_id,dealId]);if(!existing)throw Error('scenario_not_found');
+  // Older clients do not know fieldEvidence. Preserve attribution, bound to its old value.
+  if(rawAssumptions&&typeof rawAssumptions==='object'&&!Array.isArray(rawAssumptions)&&!Object.hasOwn(rawAssumptions,'fieldEvidence'))rawAssumptions={...rawAssumptions,fieldEvidence:existing.assumptions?.fieldEvidence};
+ }
+ const assumptions=scenarioAssumptions(rawAssumptions);
+ const outputs=calculateDeal(assumptions as any),isPrimary=Boolean(input.is_primary);
  const scenarioId=input.scenario_id||randomUUID(),name=String(input.name||'Scenario').slice(0,200);
  const statements:any[]=[{text:'select id from deals where id=$1::uuid for update',params:[dealId]}];
  if(isPrimary)statements.push({text:'update deal_scenarios set is_primary=false,updated_at=now() where deal_id=$1::uuid',params:[dealId]});
