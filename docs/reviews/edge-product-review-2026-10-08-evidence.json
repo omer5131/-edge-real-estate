@@ -1,0 +1,1056 @@
+{
+  "auditDate": "2026-10-08",
+  "verificationScope": "SELECT-only production DB; live GET excerpts; no fresh visual acceptance",
+  "measurements": {
+    "coverageResult": [
+      {
+        "audit_at": "2026-10-08T13:24:39.091Z",
+        "sale_total": "42",
+        "sale_active": "42",
+        "sale_snapshots": "42",
+        "active_complete_price_size_rooms": "42",
+        "active_canonical_neighborhood": "42",
+        "active_property_link": "0",
+        "active_building_link": "0",
+        "active_address_with_number": "18",
+        "active_item_url": "0",
+        "active_lifecycle_supported": "0",
+        "rental_total": "1",
+        "rental_active": "1",
+        "transactions_total": "1478",
+        "transactions_flag_eligible": "1192",
+        "transactions_service_eligible_5y": "1192",
+        "transactions_neighborhood": "647",
+        "transactions_address": "6",
+        "transactions_street": "6",
+        "transactions_property": "0",
+        "transactions_parcel": "1478",
+        "transactions_12m": "1067",
+        "transaction_min_date": "2022-01-03T00:00:00.000Z",
+        "transaction_max_date": "2026-08-23T00:00:00.000Z",
+        "neighborhoods": "31",
+        "focus_neighborhoods": "5",
+        "properties": "0",
+        "buildings": "0",
+        "cbs_profile_rows": "8",
+        "safe_cbs_profiles": "0",
+        "official_crosswalk_rows": "0",
+        "curated_mapping_rows": "23",
+        "statistical_areas": "3750",
+        "stat_area_population": "0",
+        "deals": "0",
+        "scenarios": "0",
+        "dd": "0",
+        "tasks": "0",
+        "renewal_projects": "125",
+        "renewal_parcel_links": "0",
+        "renewal_address_rows": "17",
+        "renewal_verified_addresses": "16"
+      }
+    ],
+    "detailResult0": [
+      {
+        "city": "חיפה",
+        "neighborhood": "נווה דוד",
+        "is_focus": true,
+        "active_sale": "1",
+        "transactions": "19",
+        "eligible_5y": "15",
+        "active_rent": "0",
+        "safe_cbs": "0",
+        "oldest_listing_observation": "2026-10-02T00:00:00.000Z",
+        "newest_listing_observation": "2026-10-02T00:00:00.000Z"
+      },
+      {
+        "city": "חיפה",
+        "neighborhood": "קריית אליעזר",
+        "is_focus": true,
+        "active_sale": "4",
+        "transactions": "97",
+        "eligible_5y": "63",
+        "active_rent": "0",
+        "safe_cbs": "0",
+        "oldest_listing_observation": "2026-10-02T00:00:00.000Z",
+        "newest_listing_observation": "2026-10-02T00:00:00.000Z"
+      },
+      {
+        "city": "חיפה",
+        "neighborhood": "קריית שפרינצק",
+        "is_focus": true,
+        "active_sale": "4",
+        "transactions": "111",
+        "eligible_5y": "84",
+        "active_rent": "0",
+        "safe_cbs": "0",
+        "oldest_listing_observation": "2026-10-02T00:00:00.000Z",
+        "newest_listing_observation": "2026-10-02T00:00:00.000Z"
+      },
+      {
+        "city": "חיפה",
+        "neighborhood": "אחוזה",
+        "is_focus": false,
+        "active_sale": "1",
+        "transactions": "13",
+        "eligible_5y": "11",
+        "active_rent": "1",
+        "safe_cbs": "0",
+        "oldest_listing_observation": "2026-10-02T00:00:00.000Z",
+        "newest_listing_observation": "2026-10-02T00:00:00.000Z"
+      },
+      {
+        "city": "חיפה",
+        "neighborhood": "הדר עליון",
+        "is_focus": false,
+        "active_sale": "1",
+        "transactions": "14",
+        "eligible_5y": "6",
+        "active_rent": "0",
+        "safe_cbs": "0",
+        "oldest_listing_observation": "2026-10-02T00:00:00.000Z",
+        "newest_listing_observation": "2026-10-02T00:00:00.000Z"
+      },
+      {
+        "city": "חיפה",
+        "neighborhood": "יל\"ג",
+        "is_focus": false,
+        "active_sale": "1",
+        "transactions": "10",
+        "eligible_5y": "8",
+        "active_rent": "0",
+        "safe_cbs": "0",
+        "oldest_listing_observation": "2026-10-02T00:00:00.000Z",
+        "newest_listing_observation": "2026-10-02T00:00:00.000Z"
+      },
+      {
+        "city": "חיפה",
+        "neighborhood": "כבירים",
+        "is_focus": false,
+        "active_sale": "0",
+        "transactions": "8",
+        "eligible_5y": "6",
+        "active_rent": "0",
+        "safe_cbs": "0",
+        "oldest_listing_observation": null,
+        "newest_listing_observation": null
+      },
+      {
+        "city": "חיפה",
+        "neighborhood": "נווה יוסף",
+        "is_focus": false,
+        "active_sale": "1",
+        "transactions": "9",
+        "eligible_5y": "8",
+        "active_rent": "0",
+        "safe_cbs": "0",
+        "oldest_listing_observation": "2026-10-02T00:00:00.000Z",
+        "newest_listing_observation": "2026-10-02T00:00:00.000Z"
+      },
+      {
+        "city": "חיפה",
+        "neighborhood": "רמות רמז",
+        "is_focus": false,
+        "active_sale": "2",
+        "transactions": "102",
+        "eligible_5y": "86",
+        "active_rent": "0",
+        "safe_cbs": "0",
+        "oldest_listing_observation": "2026-10-02T00:00:00.000Z",
+        "newest_listing_observation": "2026-10-02T00:00:00.000Z"
+      },
+      {
+        "city": "חיפה",
+        "neighborhood": "רמת אשכול",
+        "is_focus": false,
+        "active_sale": "1",
+        "transactions": "5",
+        "eligible_5y": "4",
+        "active_rent": "0",
+        "safe_cbs": "0",
+        "oldest_listing_observation": "2026-10-02T00:00:00.000Z",
+        "newest_listing_observation": "2026-10-02T00:00:00.000Z"
+      },
+      {
+        "city": "חיפה",
+        "neighborhood": "רמת ספיר",
+        "is_focus": false,
+        "active_sale": "1",
+        "transactions": "3",
+        "eligible_5y": "2",
+        "active_rent": "0",
+        "safe_cbs": "0",
+        "oldest_listing_observation": "2026-10-02T00:00:00.000Z",
+        "newest_listing_observation": "2026-10-02T00:00:00.000Z"
+      },
+      {
+        "city": "חיפה",
+        "neighborhood": "שמבור",
+        "is_focus": false,
+        "active_sale": "1",
+        "transactions": "13",
+        "eligible_5y": "10",
+        "active_rent": "0",
+        "safe_cbs": "0",
+        "oldest_listing_observation": "2026-10-02T00:00:00.000Z",
+        "newest_listing_observation": "2026-10-02T00:00:00.000Z"
+      },
+      {
+        "city": "חיפה",
+        "neighborhood": "שער העליה",
+        "is_focus": false,
+        "active_sale": "1",
+        "transactions": "6",
+        "eligible_5y": "3",
+        "active_rent": "0",
+        "safe_cbs": "0",
+        "oldest_listing_observation": "2026-10-02T00:00:00.000Z",
+        "newest_listing_observation": "2026-10-02T00:00:00.000Z"
+      },
+      {
+        "city": "נתניה",
+        "neighborhood": "קריית נורדאו",
+        "is_focus": true,
+        "active_sale": "4",
+        "transactions": "116",
+        "eligible_5y": "50",
+        "active_rent": "0",
+        "safe_cbs": "0",
+        "oldest_listing_observation": "2026-10-02T00:00:00.000Z",
+        "newest_listing_observation": "2026-10-02T00:00:00.000Z"
+      },
+      {
+        "city": "נתניה",
+        "neighborhood": "גלי הים",
+        "is_focus": false,
+        "active_sale": "1",
+        "transactions": "0",
+        "eligible_5y": "0",
+        "active_rent": "0",
+        "safe_cbs": "0",
+        "oldest_listing_observation": "2026-10-02T00:00:00.000Z",
+        "newest_listing_observation": "2026-10-02T00:00:00.000Z"
+      },
+      {
+        "city": "נתניה",
+        "neighborhood": "מרכז העיר דרום",
+        "is_focus": false,
+        "active_sale": "2",
+        "transactions": "0",
+        "eligible_5y": "0",
+        "active_rent": "0",
+        "safe_cbs": "0",
+        "oldest_listing_observation": "2026-10-02T00:00:00.000Z",
+        "newest_listing_observation": "2026-10-02T00:00:00.000Z"
+      },
+      {
+        "city": "נתניה",
+        "neighborhood": "משכנות זבולון",
+        "is_focus": false,
+        "active_sale": "1",
+        "transactions": "0",
+        "eligible_5y": "0",
+        "active_rent": "0",
+        "safe_cbs": "0",
+        "oldest_listing_observation": "2026-10-02T00:00:00.000Z",
+        "newest_listing_observation": "2026-10-02T00:00:00.000Z"
+      },
+      {
+        "city": "נתניה",
+        "neighborhood": "נוף הטיילת",
+        "is_focus": false,
+        "active_sale": "1",
+        "transactions": "0",
+        "eligible_5y": "0",
+        "active_rent": "0",
+        "safe_cbs": "0",
+        "oldest_listing_observation": "2026-10-02T00:00:00.000Z",
+        "newest_listing_observation": "2026-10-02T00:00:00.000Z"
+      },
+      {
+        "city": "נתניה",
+        "neighborhood": "עיר ימים",
+        "is_focus": false,
+        "active_sale": "1",
+        "transactions": "0",
+        "eligible_5y": "0",
+        "active_rent": "0",
+        "safe_cbs": "0",
+        "oldest_listing_observation": "2026-10-02T00:00:00.000Z",
+        "newest_listing_observation": "2026-10-02T00:00:00.000Z"
+      },
+      {
+        "city": "נתניה",
+        "neighborhood": "צפון מזרח מרכז העיר",
+        "is_focus": false,
+        "active_sale": "1",
+        "transactions": "0",
+        "eligible_5y": "0",
+        "active_rent": "0",
+        "safe_cbs": "0",
+        "oldest_listing_observation": "2026-10-02T00:00:00.000Z",
+        "newest_listing_observation": "2026-10-02T00:00:00.000Z"
+      },
+      {
+        "city": "נתניה",
+        "neighborhood": "צפון מערב מרכז העיר",
+        "is_focus": false,
+        "active_sale": "0",
+        "transactions": "0",
+        "eligible_5y": "0",
+        "active_rent": "0",
+        "safe_cbs": "0",
+        "oldest_listing_observation": null,
+        "newest_listing_observation": null
+      },
+      {
+        "city": "נתניה",
+        "neighborhood": "קרית השרון",
+        "is_focus": false,
+        "active_sale": "2",
+        "transactions": "0",
+        "eligible_5y": "0",
+        "active_rent": "0",
+        "safe_cbs": "0",
+        "oldest_listing_observation": "2026-10-02T00:00:00.000Z",
+        "newest_listing_observation": "2026-10-02T00:00:00.000Z"
+      },
+      {
+        "city": "נתניה",
+        "neighborhood": "רמת פולג",
+        "is_focus": false,
+        "active_sale": "0",
+        "transactions": "0",
+        "eligible_5y": "0",
+        "active_rent": "0",
+        "safe_cbs": "0",
+        "oldest_listing_observation": null,
+        "newest_listing_observation": null
+      },
+      {
+        "city": "פתח תקווה",
+        "neighborhood": "יוספטל",
+        "is_focus": true,
+        "active_sale": "3",
+        "transactions": "121",
+        "eligible_5y": "103",
+        "active_rent": "0",
+        "safe_cbs": "0",
+        "oldest_listing_observation": "2026-10-02T00:00:00.000Z",
+        "newest_listing_observation": "2026-10-02T00:00:00.000Z"
+      },
+      {
+        "city": "פתח תקווה",
+        "neighborhood": "הדר המושבות החדשה / אם המושבות החדשה",
+        "is_focus": false,
+        "active_sale": "1",
+        "transactions": "0",
+        "eligible_5y": "0",
+        "active_rent": "0",
+        "safe_cbs": "0",
+        "oldest_listing_observation": "2026-10-02T00:00:00.000Z",
+        "newest_listing_observation": "2026-10-02T00:00:00.000Z"
+      },
+      {
+        "city": "פתח תקווה",
+        "neighborhood": "המרכז השקט / מרכז העיר",
+        "is_focus": false,
+        "active_sale": "1",
+        "transactions": "0",
+        "eligible_5y": "0",
+        "active_rent": "0",
+        "safe_cbs": "0",
+        "oldest_listing_observation": "2026-10-02T00:00:00.000Z",
+        "newest_listing_observation": "2026-10-02T00:00:00.000Z"
+      },
+      {
+        "city": "פתח תקווה",
+        "neighborhood": "כפר גנים א",
+        "is_focus": false,
+        "active_sale": "1",
+        "transactions": "0",
+        "eligible_5y": "0",
+        "active_rent": "0",
+        "safe_cbs": "0",
+        "oldest_listing_observation": "2026-10-02T00:00:00.000Z",
+        "newest_listing_observation": "2026-10-02T00:00:00.000Z"
+      },
+      {
+        "city": "פתח תקווה",
+        "neighborhood": "מחנה יהודה",
+        "is_focus": false,
+        "active_sale": "1",
+        "transactions": "0",
+        "eligible_5y": "0",
+        "active_rent": "0",
+        "safe_cbs": "0",
+        "oldest_listing_observation": "2026-10-02T00:00:00.000Z",
+        "newest_listing_observation": "2026-10-02T00:00:00.000Z"
+      },
+      {
+        "city": "פתח תקווה",
+        "neighborhood": "נווה גן",
+        "is_focus": false,
+        "active_sale": "1",
+        "transactions": "0",
+        "eligible_5y": "0",
+        "active_rent": "0",
+        "safe_cbs": "0",
+        "oldest_listing_observation": "2026-10-02T00:00:00.000Z",
+        "newest_listing_observation": "2026-10-02T00:00:00.000Z"
+      },
+      {
+        "city": "פתח תקווה",
+        "neighborhood": "עין גנים",
+        "is_focus": false,
+        "active_sale": "1",
+        "transactions": "0",
+        "eligible_5y": "0",
+        "active_rent": "0",
+        "safe_cbs": "0",
+        "oldest_listing_observation": "2026-10-02T00:00:00.000Z",
+        "newest_listing_observation": "2026-10-02T00:00:00.000Z"
+      },
+      {
+        "city": "פתח תקווה",
+        "neighborhood": "רמת ורבר",
+        "is_focus": false,
+        "active_sale": "1",
+        "transactions": "0",
+        "eligible_5y": "0",
+        "active_rent": "0",
+        "safe_cbs": "0",
+        "oldest_listing_observation": "2026-10-02T00:00:00.000Z",
+        "newest_listing_observation": "2026-10-02T00:00:00.000Z"
+      }
+    ],
+    "detailResult2": [
+      {
+        "metric": "seller_lifecycle_invalid",
+        "value": "0"
+      },
+      {
+        "metric": "cached_lifecycle_invalid",
+        "value": "0"
+      },
+      {
+        "metric": "duplicate_fingerprint_extra",
+        "value": "13"
+      },
+      {
+        "metric": "eligible_unmapped_neighborhood",
+        "value": "733"
+      },
+      {
+        "metric": "cbs_catalog_explicit",
+        "value": "0"
+      }
+    ],
+    "supplementResult": [
+      {
+        "kind": "city_coverage",
+        "rows": [
+          {
+            "city": "פתח תקווה",
+            "mapped": 121,
+            "eligible": 103,
+            "transactions": 121
+          },
+          {
+            "city": "חיפה",
+            "mapped": 410,
+            "eligible": 1039,
+            "transactions": 1241
+          },
+          {
+            "city": "נתניה",
+            "mapped": 116,
+            "eligible": 50,
+            "transactions": 116
+          }
+        ]
+      },
+      {
+        "kind": "cbs_lineage",
+        "rows": [
+          {
+            "profiles": 4,
+            "safe_for_score": false,
+            "profile_quality": "provisional",
+            "observation_year": 2022,
+            "calculated_at_max": "2026-10-03T10:23:08.464504+00:00",
+            "calculated_at_min": "2026-10-03T10:23:08.464504+00:00"
+          },
+          {
+            "profiles": 4,
+            "safe_for_score": false,
+            "profile_quality": "provisional",
+            "observation_year": 2024,
+            "calculated_at_max": "2026-10-03T10:23:08.464504+00:00",
+            "calculated_at_min": "2026-10-03T10:23:08.464504+00:00"
+          }
+        ]
+      },
+      {
+        "kind": "renewal_missing_units",
+        "rows": [
+          {
+            "projects": 125,
+            "url_present": 116,
+            "geometry_present": 0,
+            "planned_units_unknown": 3
+          }
+        ]
+      },
+      {
+        "kind": "all_unknown_renewal_unit_neighborhoods",
+        "rows": null
+      },
+      {
+        "kind": "focus_population",
+        "rows": [
+          {
+            "eligible": 315,
+            "active_sale": 16,
+            "transactions": 464,
+            "active_subscriptions": 0,
+            "listing_neighborhoods": 28,
+            "eligible_neighborhoods": 15
+          }
+        ]
+      }
+    ],
+    "exactCacheResult": [
+      {
+        "neighborhood": "יוספטל",
+        "cached_count": 0,
+        "actual_service_count_12m": "19",
+        "distinct_transactions_12m": "19",
+        "actual_service_median_12m": 27517,
+        "updated_at": "2026-10-03T08:57:22.554Z"
+      },
+      {
+        "neighborhood": "נווה דוד",
+        "cached_count": 0,
+        "actual_service_count_12m": "15",
+        "distinct_transactions_12m": "15",
+        "actual_service_median_12m": 23762,
+        "updated_at": "2026-10-03T08:57:24.108Z"
+      },
+      {
+        "neighborhood": "קריית אליעזר",
+        "cached_count": 10,
+        "actual_service_count_12m": "26",
+        "distinct_transactions_12m": "26",
+        "actual_service_median_12m": 20476,
+        "updated_at": "2026-10-03T08:57:23.196Z"
+      },
+      {
+        "neighborhood": "קריית נורדאו",
+        "cached_count": 0,
+        "actual_service_count_12m": "4",
+        "distinct_transactions_12m": "4",
+        "actual_service_median_12m": 20880,
+        "updated_at": "2026-10-03T08:57:23.583Z"
+      },
+      {
+        "neighborhood": "קריית שפרינצק",
+        "cached_count": 5,
+        "actual_service_count_12m": "26",
+        "distinct_transactions_12m": "26",
+        "actual_service_median_12m": 17669.5,
+        "updated_at": "2026-10-03T08:57:23.647Z"
+      }
+    ]
+  },
+  "api": {
+    "saadia": {
+      "http": 200,
+      "asset": {
+        "listingId": "6fadc597-6c65-4aef-a088-13261d5fd7cc",
+        "propertyId": null,
+        "buildingId": null,
+        "neighborhoodId": "03b2522f-3f71-4e92-bfc3-34b8492779d9",
+        "canonicalAddress": "סעדיה גאון",
+        "cityId": "a8a148d6-a94f-4c79-aea2-1d9dc1c88ca1",
+        "cityName": "חיפה",
+        "neighborhoodName": "קריית שפרינצק",
+        "streetId": null,
+        "parcelId": null,
+        "latitude": null,
+        "longitude": null,
+        "identityEvidence": {
+          "status": "supported",
+          "confidence": 1,
+          "sampleSize": 1,
+          "observedAt": "2026-10-02T13:03:24.564Z",
+          "modelVersion": "asset-identity-v1",
+          "sourceIds": [
+            "yad2_sale"
+          ],
+          "notes": [
+            "Canonical building identity is not yet resolved."
+          ]
+        }
+      },
+      "valuation": {
+        "lowNis": 1460916,
+        "baseNis": 1541178,
+        "highNis": 1737655,
+        "pricePerSqm": 18132,
+        "discountToBasePct": 29.27
+      },
+      "valuationEvidence": {
+        "status": "supported",
+        "confidence": 0.745,
+        "sampleSize": 12,
+        "observedAt": "2026-07-08",
+        "modelVersion": "valuation-v2",
+        "sourceIds": [
+          "over_deals"
+        ],
+        "notes": [
+          "Canonical building identity is unavailable; exact-address/street matching is used before neighborhood fallback."
+        ]
+      },
+      "selectedComps": [
+        {
+          "transactionId": "7f800101-8544-4f32-8527-9683154459bb",
+          "address": null,
+          "areaSqm": 85,
+          "rooms": 4,
+          "floor": 0,
+          "relation": "same_neighborhood",
+          "distanceMeters": null,
+          "dealDate": "2026-07-08"
+        },
+        {
+          "transactionId": "88b3ed23-f1cd-4a2f-8d89-85d09f2ec7bd",
+          "address": null,
+          "areaSqm": 84,
+          "rooms": 5,
+          "floor": 0,
+          "relation": "same_neighborhood",
+          "distanceMeters": null,
+          "dealDate": "2026-07-14"
+        },
+        {
+          "transactionId": "fd610fe7-4a01-4d52-85bb-32b2a8935b98",
+          "address": null,
+          "areaSqm": 98,
+          "rooms": 4,
+          "floor": 0,
+          "relation": "same_neighborhood",
+          "distanceMeters": null,
+          "dealDate": "2026-06-07"
+        },
+        {
+          "transactionId": "c7cccf24-8aa4-4685-8844-d94605871f6d",
+          "address": null,
+          "areaSqm": 90,
+          "rooms": 4,
+          "floor": 0,
+          "relation": "same_neighborhood",
+          "distanceMeters": null,
+          "dealDate": "2025-07-01"
+        },
+        {
+          "transactionId": "b4155b46-69fd-444c-8fa0-89a4d40a90b7",
+          "address": null,
+          "areaSqm": 100,
+          "rooms": 4,
+          "floor": 0,
+          "relation": "same_neighborhood",
+          "distanceMeters": null,
+          "dealDate": "2026-03-31"
+        },
+        {
+          "transactionId": "d81678ff-e142-4b52-afe7-7bbbb3871d53",
+          "address": null,
+          "areaSqm": 73,
+          "rooms": 3,
+          "floor": 0,
+          "relation": "same_neighborhood",
+          "distanceMeters": null,
+          "dealDate": "2026-07-14"
+        },
+        {
+          "transactionId": "8e2cfcc6-6080-4426-8d45-9c41bf3965fd",
+          "address": null,
+          "areaSqm": 65,
+          "rooms": 3,
+          "floor": 0,
+          "relation": "same_neighborhood",
+          "distanceMeters": null,
+          "dealDate": "2026-07-24"
+        },
+        {
+          "transactionId": "10193f7d-3d8f-43ba-9802-5560be3ff30f",
+          "address": null,
+          "areaSqm": 90,
+          "rooms": 3,
+          "floor": 0,
+          "relation": "same_neighborhood",
+          "distanceMeters": null,
+          "dealDate": "2024-12-03"
+        },
+        {
+          "transactionId": "740c0566-ee0b-499f-b397-7cdbfecaad1e",
+          "address": null,
+          "areaSqm": 98,
+          "rooms": 4,
+          "floor": 0,
+          "relation": "same_neighborhood",
+          "distanceMeters": null,
+          "dealDate": "2024-04-16"
+        },
+        {
+          "transactionId": "81fa845a-64e6-4df7-8894-89a48e0ace45",
+          "address": null,
+          "areaSqm": 78,
+          "rooms": 5,
+          "floor": 0,
+          "relation": "same_neighborhood",
+          "distanceMeters": null,
+          "dealDate": "2024-07-23"
+        },
+        {
+          "transactionId": "b9b6eaab-5f38-4152-89f2-2ec658cbc109",
+          "address": null,
+          "areaSqm": 60,
+          "rooms": 3,
+          "floor": 0,
+          "relation": "same_neighborhood",
+          "distanceMeters": null,
+          "dealDate": "2026-06-02"
+        },
+        {
+          "transactionId": "b59f11ee-c3b4-42db-a2a2-12390808219d",
+          "address": null,
+          "areaSqm": 120,
+          "rooms": 4,
+          "floor": 0,
+          "relation": "same_neighborhood",
+          "distanceMeters": null,
+          "dealDate": "2026-05-14"
+        }
+      ],
+      "activeSummary": {
+        "inventoryCount": 1,
+        "medianAskingPriceNis": 1490000,
+        "medianAskingPricePerSqm": 18625,
+        "medianDaysOnMarket": null,
+        "subjectAskingPercentile": 0,
+        "subjectDeltaToMedianPct": -26.85
+      },
+      "activeEvidence": {
+        "status": "provisional",
+        "confidence": 0.389,
+        "sampleSize": 1,
+        "observedAt": "2026-10-02T13:03:24.564Z",
+        "modelVersion": "similar-listings-v2.1",
+        "sourceIds": [
+          "yad2_sale"
+        ],
+        "notes": [
+          "v2.1 active-market eligibility requires area within ±25%, rooms within ±1, then scores address/street, area, rooms and floor.",
+          "Competitive inventory is small; summary remains provisional.",
+          "DOM is null until a listing has at least two observations spanning one or more days.",
+          "2 active candidates were rejected by hard eligibility or similarity rules."
+        ]
+      },
+      "sellerLifecycle": {
+        "days_on_market": null,
+        "price_reductions": null,
+        "original_asking_price": null,
+        "snapshot_count": 1,
+        "lifecycle_evidence": "provisional"
+      },
+      "researchAssets": null,
+      "dealCount": null
+    },
+    "drayfus": {
+      "http": 200,
+      "asset": {
+        "listingId": "7f68a88a-7b91-4d43-9a0b-ca40cece67ad",
+        "propertyId": null,
+        "buildingId": null,
+        "neighborhoodId": "03b2522f-3f71-4e92-bfc3-34b8492779d9",
+        "canonicalAddress": "דרייפוס 25",
+        "cityId": "a8a148d6-a94f-4c79-aea2-1d9dc1c88ca1",
+        "cityName": "חיפה",
+        "neighborhoodName": "קריית שפרינצק",
+        "streetId": null,
+        "parcelId": null,
+        "latitude": null,
+        "longitude": null,
+        "identityEvidence": {
+          "status": "supported",
+          "confidence": 1,
+          "sampleSize": 1,
+          "observedAt": "2026-10-02T13:03:24.564Z",
+          "modelVersion": "asset-identity-v1",
+          "sourceIds": [
+            "yad2_sale"
+          ],
+          "notes": [
+            "Canonical building identity is not yet resolved."
+          ]
+        }
+      },
+      "valuation": {
+        "lowNis": 1931770,
+        "baseNis": 2038778,
+        "highNis": 2265931,
+        "pricePerSqm": 17729,
+        "discountToBasePct": 12.69
+      },
+      "valuationEvidence": {
+        "status": "supported",
+        "confidence": 0.753,
+        "sampleSize": 12,
+        "observedAt": "2026-05-14",
+        "modelVersion": "valuation-v2",
+        "sourceIds": [
+          "over_deals"
+        ],
+        "notes": [
+          "Canonical building identity is unavailable; exact-address/street matching is used before neighborhood fallback."
+        ]
+      },
+      "selectedComps": [
+        {
+          "transactionId": "b59f11ee-c3b4-42db-a2a2-12390808219d",
+          "address": null,
+          "areaSqm": 120,
+          "rooms": 4,
+          "floor": 0,
+          "relation": "same_neighborhood",
+          "distanceMeters": null,
+          "dealDate": "2026-05-14"
+        },
+        {
+          "transactionId": "e2b8b16b-f430-4c9b-8861-2c38c7b95dc6",
+          "address": null,
+          "areaSqm": 120,
+          "rooms": 4,
+          "floor": 0,
+          "relation": "same_neighborhood",
+          "distanceMeters": null,
+          "dealDate": "2025-12-03"
+        },
+        {
+          "transactionId": "fd610fe7-4a01-4d52-85bb-32b2a8935b98",
+          "address": null,
+          "areaSqm": 98,
+          "rooms": 4,
+          "floor": 0,
+          "relation": "same_neighborhood",
+          "distanceMeters": null,
+          "dealDate": "2026-06-07"
+        },
+        {
+          "transactionId": "8f425ced-c9ba-4add-95bc-d8e6d9e4b22c",
+          "address": null,
+          "areaSqm": 120,
+          "rooms": 4,
+          "floor": 0,
+          "relation": "same_neighborhood",
+          "distanceMeters": null,
+          "dealDate": "2025-08-13"
+        },
+        {
+          "transactionId": "e525b31b-4419-4405-965a-9f4ab5d19891",
+          "address": "הצוללת דקר 10",
+          "areaSqm": 113,
+          "rooms": 5,
+          "floor": 0,
+          "relation": "same_neighborhood",
+          "distanceMeters": null,
+          "dealDate": "2026-05-17"
+        },
+        {
+          "transactionId": "b4155b46-69fd-444c-8fa0-89a4d40a90b7",
+          "address": null,
+          "areaSqm": 100,
+          "rooms": 4,
+          "floor": 0,
+          "relation": "same_neighborhood",
+          "distanceMeters": null,
+          "dealDate": "2026-03-31"
+        },
+        {
+          "transactionId": "a13faaf0-466b-4a84-84b5-697460108854",
+          "address": null,
+          "areaSqm": 125,
+          "rooms": 4,
+          "floor": 0,
+          "relation": "same_neighborhood",
+          "distanceMeters": null,
+          "dealDate": "2025-11-04"
+        },
+        {
+          "transactionId": "d326e0fc-b35d-425c-9e9c-70be1098d228",
+          "address": "הצוללת דקר 11",
+          "areaSqm": 121,
+          "rooms": 5,
+          "floor": 0,
+          "relation": "same_neighborhood",
+          "distanceMeters": null,
+          "dealDate": "2026-07-02"
+        },
+        {
+          "transactionId": "0cfacd40-a550-4e1f-b5d9-c0159e484503",
+          "address": null,
+          "areaSqm": 115,
+          "rooms": 5,
+          "floor": 0,
+          "relation": "same_neighborhood",
+          "distanceMeters": null,
+          "dealDate": "2026-02-10"
+        },
+        {
+          "transactionId": "c4bbe46c-2331-4040-9a0c-99b1cd47d305",
+          "address": null,
+          "areaSqm": 113,
+          "rooms": 5,
+          "floor": 0,
+          "relation": "same_neighborhood",
+          "distanceMeters": null,
+          "dealDate": "2025-12-17"
+        },
+        {
+          "transactionId": "7f800101-8544-4f32-8527-9683154459bb",
+          "address": null,
+          "areaSqm": 85,
+          "rooms": 4,
+          "floor": 0,
+          "relation": "same_neighborhood",
+          "distanceMeters": null,
+          "dealDate": "2026-07-08"
+        },
+        {
+          "transactionId": "5e88fdc7-2ce0-43c3-bf54-cb41e6174598",
+          "address": null,
+          "areaSqm": 112,
+          "rooms": 4,
+          "floor": 0,
+          "relation": "same_neighborhood",
+          "distanceMeters": null,
+          "dealDate": "2024-05-09"
+        }
+      ],
+      "activeSummary": {
+        "inventoryCount": 0,
+        "medianAskingPriceNis": null,
+        "medianAskingPricePerSqm": null,
+        "medianDaysOnMarket": null,
+        "subjectAskingPercentile": null,
+        "subjectDeltaToMedianPct": null
+      },
+      "activeEvidence": {
+        "status": "insufficient_evidence",
+        "confidence": null,
+        "sampleSize": 0,
+        "observedAt": null,
+        "modelVersion": "similar-listings-v2.1",
+        "sourceIds": [],
+        "notes": [
+          "v2.1 active-market eligibility requires area within ±25%, rooms within ±1, then scores address/street, area, rooms and floor.",
+          "Competitive inventory is small; summary remains provisional.",
+          "3 active candidates were rejected by hard eligibility or similarity rules."
+        ]
+      },
+      "sellerLifecycle": {
+        "days_on_market": null,
+        "price_reductions": null,
+        "original_asking_price": null,
+        "snapshot_count": 1,
+        "lifecycle_evidence": "provisional"
+      },
+      "researchAssets": null,
+      "dealCount": null
+    },
+    "research": {
+      "http": 200,
+      "asset": null,
+      "valuation": null,
+      "valuationEvidence": null,
+      "selectedComps": [],
+      "activeSummary": null,
+      "activeEvidence": null,
+      "sellerLifecycle": {
+        "days_on_market": null,
+        "price_reductions": null,
+        "original_asking_price": null,
+        "snapshot_count": null,
+        "lifecycle_evidence": null
+      },
+      "researchAssets": [
+        {
+          "id": "e0b00732-d119-46b8-9afb-76584de12907",
+          "source_id": "yad2_sale",
+          "source_listing_id": "116ea226969b3a32660765b6cdb3e243",
+          "canonical_address": "בני בנימין",
+          "url": "https://www.yad2.co.il/realestate/forsale/center-and-sharon?area=17",
+          "status": "active",
+          "first_seen_at": "2026-10-02T13:14:11.783Z",
+          "last_seen_at": "2026-10-02T13:14:11.783Z",
+          "neighborhood_id": "galei-hayam-netanya",
+          "neighborhood": "גלי הים",
+          "city": "נתניה",
+          "asking_price_nis": 3150000,
+          "area_sqm": 120,
+          "rooms": 4,
+          "floor": 6,
+          "broker_name": null,
+          "observed_at": "2026-10-02T00:00:00.000Z",
+          "asking_pp_sqm": 26250,
+          "score": null,
+          "score_at": null,
+          "model_version": null,
+          "system_flag": false,
+          "manual_flag": false,
+          "subscription_id": null,
+          "subscription_status": null,
+          "enrichment_level": null,
+          "subscribed_at": null,
+          "followed_area": false,
+          "days_on_market": null,
+          "price_reductions": null,
+          "snapshot_count": 1,
+          "observed_span_days": 0,
+          "original_asking_price": null,
+          "total_reduction_pct": null,
+          "comp_count": 0,
+          "comp_pp_sqm": null,
+          "latest_comp_date": null,
+          "estimated_value_nis": null,
+          "discount_pct": null,
+          "confidence": "insufficient",
+          "renewal_projects": 0,
+          "renewal_in_execution": 0,
+          "planning_plans": 0,
+          "total_count": 1
+        }
+      ],
+      "dealCount": null
+    },
+    "deals": {
+      "http": 200,
+      "asset": null,
+      "valuation": null,
+      "valuationEvidence": null,
+      "selectedComps": [],
+      "activeSummary": null,
+      "activeEvidence": null,
+      "sellerLifecycle": {
+        "days_on_market": null,
+        "price_reductions": null,
+        "original_asking_price": null,
+        "snapshot_count": null,
+        "lifecycle_evidence": null
+      },
+      "researchAssets": null,
+      "dealCount": 0
+    }
+  }
+}

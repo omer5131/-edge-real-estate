@@ -1,7 +1,7 @@
 # Edge — Master Product & Engineering Context
 
 **Status:** authoritative  
-**Date:** 2026-10-03
+**Date:** 2026-10-08 (current-priority reconciliation; historical entries retained)
 
 ## 1. Product
 Edge is a personal residential real-estate acquisition operating system, not only an analytics dashboard.
@@ -803,3 +803,38 @@ The Deal workspace has a compact per-assumption source editor with value/source/
 Local build and 46 tests passed (18 Phase 3, 22 workflow/decision/persistence/safety, 6 renewal). New regressions cover value binding, preview staleness, legacy attribution, unused assumptions, unsafe/partial source rejection without DB mutation, retained records on older-client updates and explicit reattachment. Browser CI extends persisted scenario switching, failed-save draft retention, stale-value messages and expanded mobile layout. The CI result is recorded in PR #14 after completion; local Chromium remains unavailable.
 
 Next ordered work: structured visit capture linked to DD and renovation/rent assumptions; saved searches; document repository and verified identity enrichment. Live paid-agent post-lifecycle-fix acceptance remains separately not executed.
+
+
+## 29. Product review and current priority override — 2026-10-08
+
+Authoritative review: [Edge product review](reviews/edge-product-review-2026-10-08.md), with SELECT-only queries and measured evidence beside it. This section supersedes the earlier **next-work order**, preserving historic completion/release records and user research.
+
+Current release reconciliation: production alias is READY deployment `dpl_EnFsv76PzFtWrH9pWiEwaStKfBhW` at main `60d0e562cf6d7a07120584ae9d48a29bbe22c771`. Earlier executable release/acceptance remains valid history. PR #14 head `d5f70623d86772eec3bb9f98a3933f0900c59665` passed CI37740421333 (46 tests, build, three bounded desktop/mobile suites and actual read-only production checks); **CI accepted, open/unmerged, not released**. Sections27/28's initial pending checks are historical, not current blockers. Fresh review repeats all46 tests/build successfully.
+
+Fresh stored baseline:1478 transactions,1192 flagged/service-valid comparable,459 comparable neighborhood-mapped;42 active sale listings/42 snapshots,0 exact-item URLs,0 lifecycle-supported listings,1 rental,0 canonical buildings/properties,31 neighborhoods,23 curated stat-area mappings,8 provisional CBS rows/0 score-safe/0 official key. Six enabled city collection scopes have no completed cycle/backfill. These are stored sample volumes, not comprehensive market coverage.
+
+Investor conclusion: workflows can support organized research; current identity/availability/rights evidence does not establish the Saadia apartment. Two new integrity defects take precedence: NULL comparable floor→0 and stale area summary (current exact counts26/26/15/4/19 vs cached10/5/0/0/0 across the five focus areas). Existing lifecycle repair remains freshly consistent. No production writes, refresh, collector, paid agent, migration, merge or deployment in the audit.
+
+| Finding ID | Priority | Buyer impact / deliverable | Dependencies | DoD / acceptance | Verification | Status |
+| --- | --- | --- | --- | --- | --- | --- |
+| EDGE-REV-20261008-01 | P0 | Preserve unknown comparable floors/distances; measured proximity only | Numeric and coordinate evidence contract | NULL/blank/absent stay NULL, genuine0 retained; UI/API/agent parity | Live API vs source floors reproduced; synthetic distance probe | Proposed repair |
+| EDGE-REV-20261008-02 | P0 | Align area cache with latest source revision; expose stale as-of | Exact aggregation contract and refresh/invalidation dependency | Isolated ingestion→derived refresh→API equals source counts/medians; stale never silently current | All5 focus areas differ; exact current service-query reproduced | Proposed repair; no audit refresh |
+| EDGE-REV-20261008-03 | P1 | Separate neighborhood and listing/building identity | Validated numbered-address/canonical-ID rules | Street-only equality cannot imply same building; no automatic project rights; qualified confidence | Synthetic same-building failure; live identity confidence1 with missing house | Proposed repair |
+| EDGE-REV-20261008-04 | P1 | Reviewed closed-sale eligibility and ranked rejection reasons | Approved subject-fit policy; model version | Threshold/rank reasons, bounded fallback, real before/after selection comparison | Live selected60/120m² vs85m²; empty rank reasons; model-policy risk | Proposed policy review/repair |
+| EDGE-REV-20261008-05 | P1 | Visible inventory freshness/coverage; source pilot recovery plan | Stable IDs, source access/preferences; no automatic paid collection | Exact sources/repeated observations; staged records separate; absent rent/DOM remain unknown |0/42 exact URLs/lifecycle;0/6 completed scopes;108 awaiting detail | Existing acquisition gap, carried forward |
+| EDGE-REV-20261008-06 | P1 | Evidence-backed parcel/neighborhood/building/project enrichment | Provenance/method/version; ambiguity quarantine | Representative mapped identity validated; unresolved membership explicit |733/1192 eligible unmapped; Saadia8 unverified; no canonical buildings | Existing identity gap, carried forward |
+| EDGE-REV-20261008-07 | P1 | Official CBS crosswalk and source lineage | Official workbook acquisition + isolated reconciliation | Only supported mappings explicitly promoted; provisional profiles never score-safe by default |0 official-key rows;0/8 safe profiles | Existing enrichment task; guardrail accepted |
+| EDGE-REV-20261008-08 | P2 | NULL total units when unknown; partial evidence labeled | Coverage/count vs value contract | Empty/all-NULL/partial/genuine0 unit fixtures; missing/error UI | Synthetic service output0; no current all-NULL renewal neighborhood | Proposed focused hardening |
+| EDGE-REV-20261008-09 | P2 | Structured visit findings tied to DD/tasks and assumption evidence | Integrity batch; listing-first workflow, additive contract review | Dated findings/source; explicit assumption reattachment; no automatic legal verification; isolated persistence/mobile | Freeform notes implemented; structured visits absent | Proposed product extension |
+
+### Next coherent implementation batch: Evidence integrity and freshness
+
+Sequence: -01 numeric contracts and -03 identity rules → focused regressions → -02 materialization/invalidation design and isolated equality → -04 policy review and exclusion explanations → -05 truthful coverage/freshness presentation. Do not add a production refresh or paid collection as part of reviewing the plan.
+
+DoD: source NULL floors/distances stay NULL and genuine0 stays0; proximity/building relations require measured/validated evidence; cache source revision and as-of are explicit and exact isolated count/median recomputation matches API; every excluded comp has a reason and selection policy/version is explicit; inventory freshness/incomplete coverage visible; deterministic finance, provisional CBS guardrail, observed lifecycle, independent task/DD status and12 API functions preserved. Build/relevant regression gates plus observed desktop/mobile/keyboard/error acceptance must pass. Production release/live smoke remain separate gates.
+
+After this batch, resume structured visits (-09), then saved searches and documents; identity/source/CBS acquisition remains evidence-dependent work. Future extensions do not reopen accepted phases.
+
+### Review limits
+
+Fresh cloud browser timed out; no new live screenshots, keyboard/zoom/phone/back/refresh acceptance. Prior exact-commit CI proves bounded fixture behavior only. Production deals remain empty; fresh isolated PostgreSQL tests prove mechanics, not a user's deal or professional verification. Live paid-agent post-lifecycle-fix evaluation remains not executed; cancelled run37365808869 is not automatically rerun. External registry/source documents were not newly verified.
