@@ -5,6 +5,7 @@ fs.copyFileSync('ui/OpenStreetIntelligenceMap.tsx','src/components/OpenStreetInt
 fs.copyFileSync('ui/ExternalDataIntake.tsx','src/components/ExternalDataIntake.tsx');
 fs.copyFileSync('ui/external-data-intake.css','src/components/external-data-intake.css');
 fs.copyFileSync('ui/neighborhood-intelligence.css','src/components/neighborhood-intelligence.css');
+fs.copyFileSync('ui/DealRoom.tsx','src/components/DealRoom.tsx');
 fs.copyFileSync('ui/DealWorkspace.tsx','src/components/DealWorkflow.tsx');
 fs.copyFileSync('ui/workflow.css','src/components/workflow.css');
 fs.copyFileSync('ui/evidence-format.ts','src/components/evidence-format.ts');

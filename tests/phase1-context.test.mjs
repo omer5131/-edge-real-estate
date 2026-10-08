@@ -17,7 +17,7 @@ const listing={
   last_seen_at:'2026-10-03T12:00:00Z'
 };
 
-test('valuation v2 collapses duplicate sale fingerprints and keeps rejected candidates',()=>{
+test('valuation v3 collapses duplicate sale fingerprints and keeps rejected candidates',()=>{
   const rows=[
     {transaction_id:'a',source_id:'tax',neighborhood_id:listing.neighborhood_id,address_text:'דרייפוס 25',deal_date:'2026-01-01',sale_price_nis:1800000,area_sqm:100,rooms:4,floor:3,price_per_sqm:18000},
     {transaction_id:'dup',source_id:'tax',neighborhood_id:listing.neighborhood_id,address_text:'דרייפוס 25',deal_date:'2026-01-01',sale_price_nis:1800000,area_sqm:100,rooms:4,floor:3,price_per_sqm:18000},
@@ -28,9 +28,9 @@ test('valuation v2 collapses duplicate sale fingerprints and keeps rejected cand
   const out=buildValuationFromRows(listing,rows);
   assert.equal(out.comparables.filter(x=>x.transactionId==='a'||x.transactionId==='dup').length,1);
   assert.ok(out.comparables.some(x=>x.selected===false));
-  assert.equal(out.comparables.find(x=>x.transactionId==='a')?.relation,'same_building');
+  assert.equal(out.comparables.find(x=>x.transactionId==='a')?.relation,'same_street');
   assert.ok(out.valuation.baseNis);
-  assert.equal(out.evidence.modelVersion,'valuation-v2');
+  assert.equal(out.evidence.modelVersion,'valuation-v3');
 });
 
 test('valuation stays provisional with sparse comparable evidence',()=>{
@@ -49,7 +49,7 @@ test('asset identity works without building identity',()=>{
   const out=assetIdentityFromListing({...listing,address:'דרייפוס 25',city_id:'c',city:'חיפה',neighborhood:'קריית שפרינצק'});
   assert.equal(out.buildingId,null);
   assert.equal(out.neighborhoodId,listing.neighborhood_id);
-  assert.equal(out.identityEvidence.status,'supported');
+  assert.equal(out.identityEvidence.status,'provisional');
   assert.ok(out.identityEvidence.notes.some(x=>x.includes('building')));
 });
 

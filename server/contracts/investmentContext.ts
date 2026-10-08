@@ -41,6 +41,8 @@ export type AssetIdentity = AssetRef & {
   latitude: number | null;
   longitude: number | null;
   identityEvidence: EvidenceMeta;
+  neighborhoodEvidence: EvidenceMeta;
+  buildingEvidence: EvidenceMeta;
 };
 
 export type MarketMetric = {
@@ -57,6 +59,7 @@ export type NeighborhoodIntelligenceResponse = {
   slug: string;
   name: string;
   city: string;
+  marketFreshness?: {status:string;cacheStatus:string;calculatedAt:string|null;sourceRevisionAt?:string|null;cacheCalculatedAt?:string|null;notes:string[]};
   market: MarketMetric[];
   population: MarketMetric[];
   socioeconomic: MarketMetric[];
@@ -83,7 +86,7 @@ export type ComparableSale = {
   transactionId: string;
   address: string | null;
   dealDate: string;
-  salePriceNis: number;
+  salePriceNis: number | null;
   areaSqm: number | null;
   rooms: number | null;
   floor: number | null;
@@ -190,6 +193,7 @@ export type PlanningContext = {
 
 export type AssetContextResponse = {
   asset: AssetIdentity;
+  inventoryEvidence?: {lastObservedAt:string|null;ageDays:number|null;sourceUrlKind:string;availability:string;coverage?:Record<string,number|null>;notes:string[]};
   listing: {
     askingPriceNis: number | null;
     areaSqm: number | null;

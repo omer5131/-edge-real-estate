@@ -1,4 +1,5 @@
 import type {VercelRequest,VercelResponse} from '@vercel/node';
+import {getCurrentAreaMarkets,reconcileAreaMarket} from '../currentAreaMarket.js';
 import {queryDatabase} from '../db.js';
 import {refreshNeighborhoodIntelligence} from '../neighborhoodIntelligence.js';
 import {neighborhoodIdentity,refreshNeighborhoodIdentity} from '../neighborhoodIdentity.js';
@@ -35,7 +36,10 @@ async function summary(neighborhoodId:string){
    GROUP BY dataset_slug,source_grain ORDER BY dataset_slug
   `,[neighborhoodId])
  ]);
- return {neighborhood:rows[0]||null,metrics,datasets};
+ const [current]=await getCurrentAreaMarkets([neighborhoodId]);
+ const neighborhood=rows[0]?reconcileAreaMarket(rows[0],current):null;
+ const stale=neighborhood?.market_freshness.cacheStatus==='stale';
+ return {neighborhood,metrics:metrics.map(m=>({...m,stale:stale&&['transaction_count_12m','median_price_sqm_12m','price_change_1y','deal_score_adjusted','estimated_gross_yield'].includes(m.metric_key)})),datasets};
 }
 
 async function transactions(neighborhoodId:string){
@@ -243,12 +247,12 @@ async function evidence(neighborhoodId:string,dataset?:string){
 }
 
 async function mapData(req:VercelRequest,res:VercelResponse){
- const neighborhoods=await queryDatabase(`
+ let neighborhoods=await queryDatabase(`
   SELECT n.id::text neighborhood_id,n.slug,n.name_he,c.name_he city,c.settlement_code,
    m.deal_heat::float8,m.investment_score::float8,m.confidence_score::float8,m.confidence_level,
    m.coverage_pct::float8,m.deal_count,m.transaction_count_12m,m.median_price_sqm_12m::float8,
    m.price_change_1y::float8,m.renewal_expansion_ratio::float8,m.estimated_gross_yield::float8,
-   m.average_wage::float8,m.net_internal_migration::float8,m.construction_starts::float8,
+   m.average_wage::float8,m.net_internal_migration::float8,m.construction_starts::float8,m.updated_at,
    (SELECT count(*)::int FROM parcels p WHERE p.neighborhood_id=n.id) parcel_count,
    (SELECT count(*)::int FROM parcels p WHERE p.neighborhood_id=n.id AND p.geom IS NOT NULL) parcel_geometry_count,
    CASE WHEN n.geom IS NULL THEN NULL ELSE ST_AsGeoJSON(n.geom)::jsonb END geometry
@@ -256,6 +260,9 @@ async function mapData(req:VercelRequest,res:VercelResponse){
   LEFT JOIN neighborhood_map_cache m ON m.neighborhood_id=n.id
   ORDER BY c.name_he,n.name_he
  `);
+ const currentMarkets=await getCurrentAreaMarkets(neighborhoods.map(n=>n.neighborhood_id));
+ const markets=new Map(currentMarkets.map(m=>[m.neighborhood_id,m]));
+ neighborhoods=neighborhoods.map(n=>reconcileAreaMarket(n,markets.get(n.neighborhood_id)));
  const scope=String(req.query.scope||'neighborhood');
  if(scope!=='israel'){
   res.setHeader('Cache-Control','public, s-maxage=300, stale-while-revalidate=1800');

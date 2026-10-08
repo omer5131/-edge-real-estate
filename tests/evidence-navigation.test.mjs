@@ -1,0 +1,42 @@
+// Bounded UI acceptance uses the real domain builders; no live writes/inference.
+import {createRequire} from 'node:module';
+import {spawn} from 'node:child_process';
+import {mkdir} from 'node:fs/promises';
+import assert from 'node:assert/strict';
+import {buildValuationFromRows} from '../.server-test/server/valuationContext.js';
+import {assetIdentityFromListing} from '../.server-test/server/assetContext.js';
+import {buildAreaIntelligenceFromRows} from '../.server-test/server/areaContext.js';
+import {reconcileAreaMarket} from '../.server-test/server/currentAreaMarket.js';
+const {chromium}=createRequire(import.meta.url)('playwright');
+const server=spawn('python',['-m','http.server','4191','--directory','dist'],{stdio:'ignore'});
+const id='6fadc597-6c65-4aef-a088-13261d5fd7cc',nid='22222222-2222-2222-2222-222222222222';
+const listing={id,neighborhood_id:nid,canonical_address:'נכס ראיות',address:'נכס ראיות',city:'חיפה',neighborhood:'שכונה',area_sqm:85,rooms:4,floor:3,asking_price_ils:1090000,url:'https://example.com/search',last_seen_at:'2026-10-02T00:00:00Z'};
+const rows=[{transaction_id:'unknown',neighborhood_id:nid,address_text:'כתובת א',deal_date:'2026-08-01',sale_price_nis:1500000,area_sqm:85,rooms:4,floor:null,price_per_sqm:18000},{transaction_id:'zero',neighborhood_id:nid,address_text:'כתובת ב',deal_date:'2026-08-02',sale_price_nis:1500001,area_sqm:85,rooms:4,floor:0,price_per_sqm:18000},{transaction_id:'outlier',neighborhood_id:nid,address_text:'עסקה מחוץ לטווח',deal_date:'2026-08-03',sale_price_nis:1800000,area_sqm:170,rooms:4,floor:0,price_per_sqm:10588}];
+const current=reconcileAreaMarket({neighborhood_id:nid,neighborhood_name:'שכונה',transaction_count_12m:5,investment_score:80,updated_at:'2026-10-03'}, {transaction_count_12m:26,median_price_sqm_12m:17669.5,price_change_1y:null,source_revision_at:'2026-10-08',calculated_at:'2026-10-08'});
+const context={asset:assetIdentityFromListing(listing),listing:{askingPriceNis:1090000,areaSqm:85,rooms:4,floor:3,sourceUrl:listing.url,sourceUrlKind:'search'},valuation:buildValuationFromRows(listing,rows),neighborhood:buildAreaIntelligenceFromRows({summary:current,identity:{neighborhood_id:nid,name_he:'שכונה'}}),inventoryEvidence:{lastObservedAt:listing.last_seen_at,ageDays:6,coverage:{activeSaleRecords:4,exactItemSources:0,lifecycleSupported:0,activeRentRecords:0,enabledCityScopes:2,completedCityBackfills:0}}};
+let browser,fail=false;
+try{
+ browser=await chromium.launch({headless:true,args:['--no-sandbox']});const page=await browser.newPage({viewport:{width:1440,height:1000}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.route('**/api/**',async route=>{const u=new URL(route.request().url());assert.equal(route.request().method(),'GET','Read-only review fixture');let body={};
+ if(u.pathname==='/api/edge-data')body={mode:'live',areas:[],opportunities:[]};
+ if(u.pathname==='/api/property')body=fail?{error:'fixture unavailable'}:{tier:'full',listing,context};
+ if(u.pathname==='/api/opportunities')body={deals:[]};
+ if(u.pathname==='/api/ask')body={configured:false};
+ await route.fulfill({status:u.pathname==='/api/property'&&fail?503:200,contentType:'application/json',body:JSON.stringify(body)});});
+ await page.goto('http://127.0.0.1:4191/#/property/'+id);
+ await page.getByRole('heading',{name:'נכס ראיות',exact:true}).waitFor();
+ await page.getByRole('heading',{name:'עדכניות וכיסוי',exact:true}).waitFor();await page.getByText('שיוך לשכונה אינו אימות זהות הדירה.',{exact:true}).waitFor();
+ const comps=page.getByRole('button',{name:'Comps',exact:true});await comps.focus();await page.keyboard.press('Enter');
+ const table=page.locator('section').filter({has:page.getByRole('heading',{name:'Closed comparable sales',exact:true})}).getByRole('table');
+ assert.equal(await table.getByRole('row').filter({hasText:'כתובת א'}).getByRole('cell').nth(5).innerText(),'—');
+ assert.equal(await table.getByRole('row').filter({hasText:'כתובת ב'}).getByRole('cell').nth(5).innerText(),'0');
+ await page.getByRole('region',{name:'עסקאות שלא נבחרו',exact:true}).getByText('שטח מחוץ לטווח',{exact:true}).waitFor();
+ await page.getByRole('button',{name:'Area',exact:true}).click();await page.getByRole('status').filter({hasText:'ציון השכונה השמור אינו מעודכן'}).waitFor();await page.getByText('26',{exact:true}).waitFor();
+ await page.reload();await page.getByRole('status').filter({hasText:'ציון השכונה השמור אינו מעודכן'}).waitFor();
+ await mkdir('artifacts',{recursive:true});await page.screenshot({path:'artifacts/evidence-desktop.png',fullPage:true});
+ await page.setViewportSize({width:390,height:844});await page.getByRole('button',{name:'Comps',exact:true}).click();
+ assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'Evidence tables must not overflow the phone page');await page.screenshot({path:'artifacts/evidence-mobile.png',fullPage:true});
+ await page.evaluate(()=>document.documentElement.style.zoom='2');assert(await page.getByRole('heading',{name:'עסקאות שלא נבחרו',exact:true}).isVisible());await page.evaluate(()=>document.documentElement.style.zoom='1');
+ fail=true;await page.reload();await page.getByRole('button',{name:'נסה שוב',exact:true}).waitFor();fail=false;await page.getByRole('button',{name:'נסה שוב',exact:true}).click();await page.getByRole('heading',{name:'נכס ראיות',exact:true}).waitFor();
+ assert.deepEqual(errors,[]);console.log('PASS evidence: unknown vs zero floors, rejected comps, source age/coverage, identity warning, stale cache, keyboard, refresh, retry, desktop/mobile and zoom. Domain-backed fixtures only.');
+}finally{if(browser)await browser.close();server.kill()}
