@@ -2,6 +2,7 @@ import {databaseTransaction as liveTransaction,queryDatabase as liveQuery} from 
 import {calculateDeal} from './dealEngine.js';
 import {sourceUrl,isoDate,ddEvidence,scenarioAssumptions} from './workflowValidation.js';
 import {randomUUID} from 'node:crypto';
+import {buildDecisionReview} from './dealDecision.js';
 
 export const DEAL_STAGES=['Saved','Researching','Contacted','Visit Scheduled','Visited','Negotiating','Due Diligence','Offer','Closed','Rejected'] as const;
 const noteCategories=new Set(['seller','visit','legal','building','renovation','financing','renewal','general']);
@@ -51,6 +52,11 @@ async function getDealBundle(input:{dealId?:string;listingId?:string}){
  return {deal,scenarios,notes,dueDiligence:dd,events,tasks,taskSchemaReady};
 }
 
+async function getDecisionReview(input:{dealId:string;listingId?:string;scenarioId:string;offerPrice?:number}){
+ const bundle=await getDealBundle(input);if(!bundle)throw Error('deal_not_found');
+ return buildDecisionReview(bundle,input.scenarioId,input.offerPrice);
+}
+
 async function setDealStage(dealId:string,stage:string,rejectionReason?:string|null){
  if(!DEAL_STAGES.includes(stage as any))throw new Error('invalid_stage');
  if(stage==='Rejected'&&!rejectionReason?.trim())throw Error('rejection_reason_required');
@@ -75,10 +81,14 @@ async function setOffer(dealId:string,offerPrice:number|null){
 async function saveScenario(input:any){
  const dealId=String(input.deal_id||'');if(!dealId)throw new Error('deal_id_required');
  const scenarioType=String(input.scenario_type||'custom');if(!scenarioTypes.has(scenarioType))throw new Error('invalid_scenario_type');
- const assumptions=scenarioAssumptions(input.assumptions);
- const outputs=calculateDeal(assumptions as any),isPrimary=Boolean(input.is_primary);
  const [parent]=await queryDatabase('select id from deals where id=$1::uuid',[dealId]);if(!parent)throw Error('deal_not_found');
- if(input.scenario_id){const [existing]=await queryDatabase('select id from deal_scenarios where id=$1::uuid and deal_id=$2::uuid',[input.scenario_id,dealId]);if(!existing)throw Error('scenario_not_found');}
+ let rawAssumptions=input.assumptions;
+ if(input.scenario_id){const [existing]=await queryDatabase('select id,assumptions from deal_scenarios where id=$1::uuid and deal_id=$2::uuid',[input.scenario_id,dealId]);if(!existing)throw Error('scenario_not_found');
+  // Older clients do not know fieldEvidence. Preserve attribution, bound to its old value.
+  if(rawAssumptions&&typeof rawAssumptions==='object'&&!Array.isArray(rawAssumptions)&&!Object.hasOwn(rawAssumptions,'fieldEvidence'))rawAssumptions={...rawAssumptions,fieldEvidence:existing.assumptions?.fieldEvidence};
+ }
+ const assumptions=scenarioAssumptions(rawAssumptions);
+ const outputs=calculateDeal(assumptions as any),isPrimary=Boolean(input.is_primary);
  const scenarioId=input.scenario_id||randomUUID(),name=String(input.name||'Scenario').slice(0,200);
  const statements:any[]=[{text:'select id from deals where id=$1::uuid for update',params:[dealId]}];
  if(isPrimary)statements.push({text:'update deal_scenarios set is_primary=false,updated_at=now() where deal_id=$1::uuid',params:[dealId]});
@@ -129,6 +139,6 @@ async function saveTask(input:any){
  if(input.task_id){const [existing]=await queryDatabase('select id from deal_tasks where id=$1::uuid and deal_id=$2::uuid',[input.task_id,dealId]);if(!existing)throw Error('task_not_found');}
  const savedTask=await databaseTransaction([{text:statement,params:input.task_id?[...params,input.task_id]:params},{text:"insert into deal_events(deal_id,event_type,actor_type,summary,payload) values($1::uuid,'task_saved','user',$2,$3::jsonb)",params:[dealId,title+': '+status,JSON.stringify({status})]},{text:'update deals set last_activity_at=now(),updated_at=now() where id=$1::uuid',params:[dealId]}]);return savedTask[0][0];
 }
-return {createDealForListing,listDeals,getDealBundle,setDealStage,updateNextAction,setOffer,saveScenario,saveNote,deleteNote,updateDueDiligence,saveTask,createDdItem};
+return {createDealForListing,listDeals,getDealBundle,getDecisionReview,setDealStage,updateNextAction,setOffer,saveScenario,saveNote,deleteNote,updateDueDiligence,saveTask,createDdItem};
 }
-export const {createDealForListing,listDeals,getDealBundle,setDealStage,updateNextAction,setOffer,saveScenario,saveNote,deleteNote,updateDueDiligence,saveTask,createDdItem}=createWorkflowService();
+export const {createDealForListing,listDeals,getDealBundle,getDecisionReview,setDealStage,updateNextAction,setOffer,saveScenario,saveNote,deleteNote,updateDueDiligence,saveTask,createDdItem}=createWorkflowService();
