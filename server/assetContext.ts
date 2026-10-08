@@ -1,3 +1,5 @@
+import {getInventoryEvidence} from './inventoryEvidence.js';
+import {numberOrNull} from './evidenceValues.js';
 import {classifySourceUrl,normalizeConfidence} from './contracts/investmentContext.js';
 import type {AssetContextResponse,AssetIdentity,EvidenceMeta} from './contracts/investmentContext.js';
 import {getValuationContext} from './valuationContext.js';
@@ -17,13 +19,13 @@ const worstStatus=(items:EvidenceMeta[])=>{
 export function assetIdentityFromListing(listing:any):AssetIdentity{
   const hasNeighborhood=Boolean(listing?.neighborhood_id);
   const identityEvidence:EvidenceMeta={
-      status:hasNeighborhood?'supported':'insufficient_evidence',
-      confidence:hasNeighborhood?1:null,
+      status:listing?.property_id&&listing?.building_id?'supported':hasNeighborhood?'provisional':'insufficient_evidence',
+      confidence:null,
       sampleSize:1,
       observedAt:listing?.last_seen_at??null,
-      modelVersion:'asset-identity-v1',
+      modelVersion:'asset-identity-v2',
       sourceIds:[String(listing?.source_id||'listings')],
-      notes:[...(listing?.building_id?[]:['Canonical building identity is not yet resolved.']),...(hasNeighborhood?[]:['Canonical neighborhood identity is missing.'])]
+      notes:['Canonical neighborhood linkage does not verify the apartment, availability or legal rights.',...(listing?.building_id?[]:['Canonical building identity is not yet resolved.']),...(hasNeighborhood?[]:['Canonical neighborhood identity is missing.'])]
     };
   return {
     listingId:String(listing?.id??''),
@@ -36,19 +38,22 @@ export function assetIdentityFromListing(listing:any):AssetIdentity{
     neighborhoodName:listing?.neighborhood??null,
     streetId:listing?.street_id??null,
     parcelId:listing?.parcel_id??null,
-    latitude:listing?.latitude??null,
-    longitude:listing?.longitude??null,
+    latitude:numberOrNull(listing?.latitude),
+    longitude:numberOrNull(listing?.longitude),
+    neighborhoodEvidence:{...identityEvidence,status:hasNeighborhood?'supported':'insufficient_evidence',modelVersion:'neighborhood-link-v1',notes:['Canonical dataset linkage; independent mapping quality is shown in area intelligence.']},
+    buildingEvidence:{...identityEvidence,status:listing?.building_id?'supported':'insufficient_evidence',modelVersion:'building-link-v1',notes:['A building ID does not verify apartment rights or project membership.']},
     identityEvidence
   };
 }
 
 export async function getAssetContext(listing:any):Promise<AssetContextResponse>{
-  const [valuation,activeMarket,historicalMarket,neighborhood,planning]=await Promise.all([
+  const [valuation,activeMarket,historicalMarket,neighborhood,planning,inventoryEvidence]=await Promise.all([
     getValuationContext(listing),
     getActiveMarketContext(listing),
     getHistoricalMarketContext(listing),
     listing?.neighborhood_id?getAreaContext(listing.neighborhood_id):Promise.resolve(null),
-    getPlanningContext(listing?.neighborhood_id)
+    getPlanningContext(listing?.neighborhood_id),
+    getInventoryEvidence(listing)
   ]);
   const asset=assetIdentityFromListing(listing);
   const evidenceItems:EvidenceMeta[]=[asset.identityEvidence,valuation.evidence,activeMarket.evidence,historicalMarket.evidence,planning.evidence];
@@ -68,7 +73,7 @@ export async function getAssetContext(listing:any):Promise<AssetContextResponse>
   const sourceUrl=listing?.url??null;
   const sourceUrlKind=classifySourceUrl(sourceUrl);
   return {
-    asset,
+    asset,inventoryEvidence,
     listing:{
       askingPriceNis:asking,
       areaSqm:area,

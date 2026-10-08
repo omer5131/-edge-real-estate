@@ -1,7 +1,8 @@
 name: UX workflow browser acceptance
 on:
   push:
-    branches: [ux-workflow-recovery, workflow-release, decision-review]
+    branches: [ux-workflow-recovery, workflow-release, decision-review, evidence-integrity]
+    paths-ignore: ["docs/**"]
 permissions:
   contents: read
 jobs:
@@ -23,7 +24,7 @@ jobs:
       - name: Install pinned browser test runner
         run: npm install --no-save --package-lock=false playwright@1.62.1 && npx playwright install --with-deps chromium
       - name: Desktop and mobile navigation acceptance with bounded fixtures
-        run: node tests/renewal-navigation.test.mjs && node tests/research-navigation.test.mjs && node tests/workflow-navigation.test.mjs
+        run: node tests/renewal-navigation.test.mjs && node tests/research-navigation.test.mjs && node tests/workflow-navigation.test.mjs && node tests/evidence-navigation.test.mjs
       - name: Read-only live workflow contract audit
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}

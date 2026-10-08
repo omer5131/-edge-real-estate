@@ -5,6 +5,7 @@ import {benchmarkGap} from './evidence-format';
 
 type NeighborhoodMapRow={
  neighborhood_id:string;slug:string;name_he:string;city:string;
+ market_freshness?:{cacheStatus:string;calculatedAt:string;sourceRevisionAt:string|null;cacheCalculatedAt:string|null};
  deal_heat:number|null;investment_score:number|null;confidence_score:number|null;confidence_level:string|null;
  coverage_pct:number|null;deal_count:number;transaction_count_12m:number;median_price_sqm_12m:number|null;
  price_change_1y:number|null;renewal_expansion_ratio:number|null;estimated_gross_yield:number|null;
@@ -255,7 +256,7 @@ function Overview({current,summary}:{current:NeighborhoodMapRow;summary:Summary|
   ['City wage context',money(current.average_wage),'municipality inheritance'],
   ['Net migration',current.net_internal_migration==null?'—':num(current.net_internal_migration,0),'municipality inheritance'],
   ['Construction starts',current.construction_starts==null?'—':num(current.construction_starts,0),'municipality inheritance'],
-  ['12M transactions',String(current.transaction_count_12m||0),'comparable transactions']
+  ['12M transactions',current.transaction_count_12m==null?'—':String(current.transaction_count_12m),'comparable transactions']
  ];
  const positives:string[]=[];const watchouts:string[]=[];
  if(current.price_change_1y!=null&&current.price_change_1y>3)positives.push('Executed prices show positive 1Y momentum.');
@@ -265,13 +266,14 @@ function Overview({current,summary}:{current:NeighborhoodMapRow;summary:Summary|
  if((current.transaction_count_12m??0)<8)watchouts.push('Recent transaction sample is small; price metrics have limited confidence.');
  if(current.estimated_gross_yield==null)watchouts.push('Rental yield evidence is not yet sufficient.');
  return <div className="ni-section">
+  {current.market_freshness&&<div className="ni-callout" role="status">עסקאות חושבו מהמקור ב-{new Date(current.market_freshness.calculatedAt).toLocaleString('he-IL')}. {current.market_freshness.cacheStatus==='stale'?'הציון השמור אינו מעודכן למקור; לא מוצג ציון השקעה.':''} כיסוי שמור אינו כל השוק.</div>}
   <div className="ni-block ni-summary"><h3>Executive summary</h3><div className="ni-summary-cols"><div><b>Signals</b>{positives.length?positives.map(x=><p key={x}>+ {x}</p>):<p>No strong positive signal is asserted without sufficient evidence.</p>}</div><div><b>Watch-outs</b>{watchouts.length?watchouts.map(x=><p key={x}>– {x}</p>):<p>No major data-quality watch-out detected.</p>}</div></div></div>
   <div className="ni-kpis">{cards.map(([label,value,source])=><div key={label}><span>{label}</span><strong>{value}</strong><small>{source}</small></div>)}</div>
   <div className="ni-block">
    <h3>Why this score</h3>
    <div className="ni-metric-list">{Array.from(metrics.values()).slice(0,12).map((m:any)=><div key={m.metric_key}>
     <span><b>{m.metric_key.replaceAll('_',' ')}</b><small>{(m.source_datasets||[]).join(', ')||'derived'} · n={m.sample_count??'—'}</small></span>
-    <span>{m.numeric_value==null?'—':num(m.numeric_value,2)}<em>{Math.round(Number(m.confidence||0)*100)}% conf.</em></span>
+    <span>{m.stale?'לא מעודכן':m.numeric_value==null?'—':num(m.numeric_value,2)}<em>{Math.round(Number(m.confidence||0)*100)}% conf.</em></span>
    </div>)}</div>
   </div>
   <div className="ni-block"><h3>Dataset coverage</h3><div className="ni-source-chips">{(summary?.datasets||[]).map((d:any)=><span key={d.dataset_slug+d.source_grain}><b>{d.dataset_slug}</b>{d.source_grain} · {d.evidence_count} rows · {Math.round(Number(d.avg_mapping_confidence||0)*100)}%</span>)}</div></div>

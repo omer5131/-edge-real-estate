@@ -1,16 +1,10 @@
+import {addressRelation,numberOrNull} from './evidenceValues.js';
 import {queryDatabase} from './db.js';
 import type {HistoricalMarketContext} from './contracts/investmentContext.js';
 import {normalizeAddress,streetKey} from './valuationContext.js';
 
 const clamp=(n:number)=>Math.max(0,Math.min(1,n));
-const relationFor=(listing:any,row:any)=>{
-  const subject=normalizeAddress(listing.canonical_address||listing.address);
-  const candidate=normalizeAddress(row.address_text);
-  if(subject&&candidate&&subject===candidate)return 'same_building' as const;
-  const ss=streetKey(subject),cs=streetKey(candidate);
-  if(ss&&cs&&ss===cs)return 'same_street' as const;
-  return 'same_neighborhood' as const;
-};
+const relationFor=(listing:any,row:any)=>{const r=addressRelation(listing,row);return r==='same_building'||r==='same_street'?r:'same_neighborhood'};
 const relScore=(r:string)=>r==='same_building'?1:r==='same_street'?.92:.68;
 
 export function buildHistoricalMarketContext(listing:any,rows:any[],periods:any[]):HistoricalMarketContext{
@@ -58,7 +52,7 @@ export function buildHistoricalMarketContext(listing:any,rows:any[],periods:any[
     similarSales:similar.slice(0,24).map(r=>({
       transactionId:String(r.transaction_id),address:r.address_text??null,dealDate:String(r.deal_date),
       salePriceNis:Number(r.sale_price_nis),pricePerSqm:r.price_per_sqm==null?null:Number(r.price_per_sqm),
-      areaSqm:r.area_sqm==null?null:Number(r.area_sqm),rooms:r.rooms==null?null:Number(r.rooms),floor:r.floor==null?null:Number(r.floor),
+      areaSqm:r.area_sqm==null?null:Number(r.area_sqm),rooms:r.rooms==null?null:Number(r.rooms),floor:numberOrNull(r.floor),
       relation:r.relation,similarityScore:Number(r.similarity.toFixed(4))
     })),
     trend,
@@ -83,7 +77,7 @@ export function buildHistoricalMarketContext(listing:any,rows:any[],periods:any[
 export async function getHistoricalMarketContext(listing:any){
   if(!listing?.neighborhood_id)return buildHistoricalMarketContext(listing,[],[]);
   const [rows,periods]=await Promise.all([
-    queryDatabase("select id::text transaction_id,address_text,deal_date::text,amount_nis::float8 sale_price_nis,area_sqm::float8,rooms::float8,floor::float8,coalesce(normalized_pp_sqm,pp_sqm)::float8 price_per_sqm from transactions where neighborhood_id=$1::uuid and is_comparable=true and deal_date>=current_date-interval '5 years' and amount_nis>0 and coalesce(normalized_pp_sqm,pp_sqm)>0 order by deal_date desc limit 500",[listing.neighborhood_id]),
+    queryDatabase("select id::text transaction_id,neighborhood_id::text,address_text,deal_date::text,amount_nis::float8 sale_price_nis,area_sqm::float8,rooms::float8,floor::float8,coalesce(normalized_pp_sqm,pp_sqm)::float8 price_per_sqm from transactions where neighborhood_id=$1::uuid and is_comparable=true and deal_date>=current_date-interval '5 years' and amount_nis>0 and coalesce(normalized_pp_sqm,pp_sqm)>0 order by deal_date desc limit 500",[listing.neighborhood_id]),
     queryDatabase("select period_start::text,executed_transaction_count,median_executed_price_nis::float8,median_executed_price_sqm::float8,p25_executed_price_sqm::float8,p75_executed_price_sqm::float8,active_sale_listing_count,median_asking_price_sqm::float8,asking_to_executed_premium_pct::float8,transaction_confidence::float8 from neighborhood_market_periods where neighborhood_id=$1::uuid and period_type='month' and period_start>=current_date-interval '36 months' order by period_start",[listing.neighborhood_id])
   ]);
   return buildHistoricalMarketContext(listing,rows,periods);

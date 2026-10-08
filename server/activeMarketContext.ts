@@ -1,3 +1,4 @@
+import {addressRelation,numberOrNull} from './evidenceValues.js';
 import {queryDatabase} from './db.js';
 import {listingLifecycle} from './listingLifecycle.js';
 import {classifySourceUrl} from './contracts/investmentContext.js';
@@ -45,11 +46,12 @@ export function buildActiveMarketFromRows(listing:any,rows:any[]):SimilarListing
     const add=(s:number,w:number)=>{score+=clamp(s)*w;total+=w};
     const addr=normalizeAddress(r.canonical_address);
     const street=streetKey(addr);
-    const relation=subjectAddress&&addr&&subjectAddress===addr?1:subjectStreet&&street&&subjectStreet===street?0.9:0.68;
+    const kind=addressRelation(listing,r);
+    const relation=kind==='same_building'?1:kind==='same_street'?.9:.68;
     add(relation,.25);
     if(subjectArea&&r.area_sqm)add(1-Math.abs(subjectArea-Number(r.area_sqm))/subjectArea,.40);
     if(subjectRooms!=null&&r.rooms!=null)add(1-Math.abs(subjectRooms-Number(r.rooms))/Math.max(subjectRooms,1),.25);
-    if(listing.floor!=null&&r.floor!=null)add(1-Math.abs(Number(listing.floor)-Number(r.floor))/10,.10);
+    if(numberOrNull(listing.floor)!=null&&numberOrNull(r.floor)!=null)add(1-Math.abs(Number(listing.floor)-Number(r.floor))/10,.10);
     return {...r,similarity:total?score/total:0};
   }).filter((r:any)=>{
     if(r.similarity>=.55)return true;
@@ -73,7 +75,7 @@ export function buildActiveMarketFromRows(listing:any,rows:any[]):SimilarListing
     asset,
     listings:scored.map((r:any)=>{
       const life=listingLifecycle(r.snapshot_count,r.observed_span_days),lifecycleSupported=life.supported;
-      return {listingId:String(r.id),address:r.canonical_address??null,currentAskingPriceNis:Number(r.asking_price_nis)||null,originalAskingPriceNis:lifecycleSupported&&Number(r.original_asking_price)>0?Number(r.original_asking_price):null,askingPricePerSqm:Number(r.area_sqm)>0?Number(r.asking_price_nis)/Number(r.area_sqm):null,areaSqm:Number(r.area_sqm)||null,rooms:Number(r.rooms)||null,floor:Number(r.floor)||null,daysOnMarket:life.daysOnMarket,priceReductions:lifecycleSupported&&r.price_reductions!=null?Number(r.price_reductions):null,distanceMeters:Number.isFinite(Number(r.distance_meters))?Number(r.distance_meters):null,similarityScore:Number(r.similarity.toFixed(4)),sourceId:String(r.source_id),sourceUrl:r.url||null,sourceUrlKind:classifySourceUrl(r.url),firstSeenAt:r.first_seen_at||null,lastSeenAt:r.last_seen_at||null};
+      return {listingId:String(r.id),address:r.canonical_address??null,currentAskingPriceNis:Number(r.asking_price_nis)||null,originalAskingPriceNis:lifecycleSupported&&Number(r.original_asking_price)>0?Number(r.original_asking_price):null,askingPricePerSqm:Number(r.area_sqm)>0?Number(r.asking_price_nis)/Number(r.area_sqm):null,areaSqm:Number(r.area_sqm)||null,rooms:Number(r.rooms)||null,floor:numberOrNull(r.floor),daysOnMarket:life.daysOnMarket,priceReductions:lifecycleSupported&&r.price_reductions!=null?Number(r.price_reductions):null,distanceMeters:numberOrNull(r.distance_meters),similarityScore:Number(r.similarity.toFixed(4)),sourceId:String(r.source_id),sourceUrl:r.url||null,sourceUrlKind:classifySourceUrl(r.url),firstSeenAt:r.first_seen_at||null,lastSeenAt:r.last_seen_at||null};
     }),
     rejectedListings,
     summary:{inventoryCount:scored.length,medianAskingPriceNis:medAsk,medianAskingPricePerSqm:median(ppsm),medianDaysOnMarket:median(dom),subjectAskingPercentile:pct==null?null:Number(pct.toFixed(1)),subjectDeltaToMedianPct:ask&&medAsk?Number((100*(ask-medAsk)/medAsk).toFixed(2)):null},
@@ -92,7 +94,7 @@ export async function getActiveMarketContext(listing:any){
               extract(epoch from (max(observed_at)-min(observed_at)))/86400.0 observed_span_days
        from listing_snapshots group by listing_id
      )
-     select l.id::text,l.canonical_address,l.source_id,l.url,l.first_seen_at,l.last_seen_at,
+     select l.id::text,l.neighborhood_id::text,l.canonical_address,l.source_id,l.url,l.first_seen_at,l.last_seen_at,
             latest.asking_price_nis::float8,latest.area_sqm::float8,latest.rooms::float8,latest.floor::float8,
             sig.original_asking_price::float8,sig.price_reductions::int,
             lifecycle.snapshot_count,lifecycle.observed_span_days::float8
