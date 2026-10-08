@@ -60,3 +60,10 @@ R3: all 21 assumptions visible; illustrative defaults require acknowledgement; z
 R4: next-step guidance and open-check/task counts; pipeline deep link includes exact deal and section with listing-match validation; compare 2–6 candidates; delayed/error/retry area sections don't masquerade as empty inventory; source links available on basic profiles.
 
 R5: fresh service-level PostgreSQL persistence/rollback tests pass locally, alongside agent safety and SQL allowlist tests. Browser acceptance connects to the same actual service in a disposable PostgreSQL instance, not a JSON persistence mock. Live production remains read-only during acceptance. Release evidence and post-release investor reassessment will be appended after gates pass.
+
+
+## Next round — before-offer decision review (2026-10-08)
+
+Investor review item 4 is implemented on `decision-review`: selected saved scenario, total acquisition/equity/debt/cash-flow/return summary, model limits, unresolved DD with dated sources, incomplete standard checks, open/overdue tasks and next action. Offer preview is an explicit read-only server operation; it does not update scenarios, offer or timeline. Loan/fees/taxes remain fixed and visibly require review when purchase price changes. Incompatible explicit-exit maximum price is omitted. Dirty drafts and changed preview prices have distinct messages.
+
+Acceptance: local build, 43 domain/SQL/persistence tests pass. Chromium download is blocked locally; CI browser gate is pending. No production migration or writes; 12 API entrypoints. This extends the decision step, and does not mark future saved-search/visit/document features or live paid agent correctness complete.

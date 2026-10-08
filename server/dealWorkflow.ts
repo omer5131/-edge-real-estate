@@ -2,6 +2,7 @@ import {databaseTransaction as liveTransaction,queryDatabase as liveQuery} from 
 import {calculateDeal} from './dealEngine.js';
 import {sourceUrl,isoDate,ddEvidence,scenarioAssumptions} from './workflowValidation.js';
 import {randomUUID} from 'node:crypto';
+import {buildDecisionReview} from './dealDecision.js';
 
 export const DEAL_STAGES=['Saved','Researching','Contacted','Visit Scheduled','Visited','Negotiating','Due Diligence','Offer','Closed','Rejected'] as const;
 const noteCategories=new Set(['seller','visit','legal','building','renovation','financing','renewal','general']);
@@ -49,6 +50,11 @@ async function getDealBundle(input:{dealId?:string;listingId?:string}){
   queryDatabase('select * from deal_tasks where deal_id=$1::uuid order by (status in (\'done\',\'cancelled\')),due_date nulls last,created_at',[deal.id]).catch(e=>{if(e.code==='42P01'){taskSchemaReady=false;return [];}throw e;})
  ]);
  return {deal,scenarios,notes,dueDiligence:dd,events,tasks,taskSchemaReady};
+}
+
+async function getDecisionReview(input:{dealId:string;listingId?:string;scenarioId:string;offerPrice?:number}){
+ const bundle=await getDealBundle(input);if(!bundle)throw Error('deal_not_found');
+ return buildDecisionReview(bundle,input.scenarioId,input.offerPrice);
 }
 
 async function setDealStage(dealId:string,stage:string,rejectionReason?:string|null){
@@ -129,6 +135,6 @@ async function saveTask(input:any){
  if(input.task_id){const [existing]=await queryDatabase('select id from deal_tasks where id=$1::uuid and deal_id=$2::uuid',[input.task_id,dealId]);if(!existing)throw Error('task_not_found');}
  const savedTask=await databaseTransaction([{text:statement,params:input.task_id?[...params,input.task_id]:params},{text:"insert into deal_events(deal_id,event_type,actor_type,summary,payload) values($1::uuid,'task_saved','user',$2,$3::jsonb)",params:[dealId,title+': '+status,JSON.stringify({status})]},{text:'update deals set last_activity_at=now(),updated_at=now() where id=$1::uuid',params:[dealId]}]);return savedTask[0][0];
 }
-return {createDealForListing,listDeals,getDealBundle,setDealStage,updateNextAction,setOffer,saveScenario,saveNote,deleteNote,updateDueDiligence,saveTask,createDdItem};
+return {createDealForListing,listDeals,getDealBundle,getDecisionReview,setDealStage,updateNextAction,setOffer,saveScenario,saveNote,deleteNote,updateDueDiligence,saveTask,createDdItem};
 }
-export const {createDealForListing,listDeals,getDealBundle,setDealStage,updateNextAction,setOffer,saveScenario,saveNote,deleteNote,updateDueDiligence,saveTask,createDdItem}=createWorkflowService();
+export const {createDealForListing,listDeals,getDealBundle,getDecisionReview,setDealStage,updateNextAction,setOffer,saveScenario,saveNote,deleteNote,updateDueDiligence,saveTask,createDdItem}=createWorkflowService();

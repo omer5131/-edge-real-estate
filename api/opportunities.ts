@@ -1,6 +1,6 @@
 import type { VercelRequest,VercelResponse } from '@vercel/node';
 import { sql } from '../server/db.js';
-import {createDealForListing,deleteNote,getDealBundle,listDeals,saveNote,saveScenario,setDealStage,setOffer,updateDueDiligence,updateNextAction,saveTask,createDdItem} from '../server/dealWorkflow.js';
+import {createDealForListing,deleteNote,getDealBundle,getDecisionReview,listDeals,saveNote,saveScenario,setDealStage,setOffer,updateDueDiligence,updateNextAction,saveTask,createDdItem} from '../server/dealWorkflow.js';
 import {ingestExternalListing,recentExternalIntakes} from '../server/externalListingIngestion.js';
 
 const n=(v:any)=>{if(v==null||v==='')return null;const x=Number(v);return Number.isFinite(x)?x:null};
@@ -53,6 +53,15 @@ export default async function handler(req:VercelRequest,res:VercelResponse){
  if(req.method!=='GET')return res.status(405).json({error:'method_not_allowed'});
 
  const mode=String(req.query.mode||'');
+ if(mode==='decision_review'){
+  try{
+   const dealId=String(req.query.deal_id||''),scenarioId=String(req.query.scenario_id||''),listingId=String(req.query.listing_id||'');
+   if(!dealId||!scenarioId||!listingId)return res.status(400).json({error:'decision_identity_required'});
+   const raw=req.query.offer_price_nis;
+   if(raw!==undefined&&(typeof raw!=='string'||!raw.trim()||!Number.isFinite(Number(raw))||Number(raw)<=0))return res.status(400).json({error:'invalid_offer_preview'});
+   return res.status(200).json(await getDecisionReview({dealId,listingId,scenarioId,offerPrice:raw===undefined?undefined:Number(raw)}));
+  }catch(e){const code=e instanceof Error?e.message:'';return res.status(/not_found/.test(code)?404:/mismatch|invalid_|assumption_|scenario_range|negative_/.test(code)?400:503).json({error:/not_found|mismatch|invalid_|assumption_|scenario_range|negative_/.test(code)?code:'decision_review_unavailable'});}
+ }
  if(mode==='external_data'){
   try{
    const limit=Math.max(1,Math.min(100,Number(req.query.limit||30)));
